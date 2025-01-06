@@ -11,5 +11,5 @@ jobs:
     steps:
     - name: vsa
       # TODO: only generate VSAs for official pushes? IDK
-      # TODO: Update to point at the SLSA one...
-      uses: tomhennen/slsa-source-poc/actions/vsa_creator@main
+      # TODO: Can we make this work for forks too?
+      uses: slsa-framework/slsa-source-poc/actions/vsa_creator@main
