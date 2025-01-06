@@ -11,4 +11,5 @@ jobs:
     steps:
     - name: vsa
       # TODO: only generate VSAs for official pushes? IDK
-      uses: slsa-framework/slsa-source-poc/actions/vsa_creator@main
+      # TODO: Update to point at the SLSA one...
+      uses: tomhennen/slsa-source-poc/actions/vsa_creator@main
