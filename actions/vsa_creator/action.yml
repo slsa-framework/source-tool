@@ -15,9 +15,7 @@ runs:
       shell: bash
     - id: summary
       run: |
-        echo "```json" >> $GITHUB_STEP_SUMMARY
-        $(cat ${{ github.workspace }}/metadata/unsigned_vsa.json | jq) >> $GITHUB_STEP_SUMMARY
-        echo "```" >> $GITHUB_STEP_SUMMARY
+        cat ${{ github.workspace }}/metadata/unsigned_vsa.json >> $GITHUB_STEP_SUMMARY
       shell: bash
     - uses: actions/upload-artifact@v4
       if: always()
