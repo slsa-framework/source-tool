@@ -14,10 +14,7 @@ runs:
         ./create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }}  > ${{ github.workspace }}/metadata/unsigned_vsa.json
       shell: bash
     - id: summary
-      run: |
-        echo "```" >> $GITHUB_STEP_SUMMARY
-        cat ${{ github.workspace }}/metadata/unsigned_vsa.json | jq >> $GITHUB_STEP_SUMMARY
-        echo "```" >> $GITHUB_STEP_SUMMARY
+      run: cat ${{ github.workspace }}/metadata/unsigned_vsa.json >> $GITHUB_STEP_SUMMARY
       shell: bash
     - uses: actions/upload-artifact@v4
       if: always()
