@@ -1,0 +1,11 @@
+name: Attest to this repo's source
+on:
+  # TODO: Update to happen automatically as appropriate
+  workflow_dispatch:
+
+jobs:
+  # Whenever new source is pushed or a PR is received, scan it for any issues
+  check-change:
+    permissions:
+      contents: read
+    uses: tomhennen/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@main
