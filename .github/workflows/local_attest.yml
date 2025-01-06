@@ -1,0 +1,12 @@
+name: Attest to this repo's source
+on:
+  # TODO: Update to happen automatically as appropriate
+  workflow_dispatch:
+
+jobs:
+  # Whenever new source is pushed or a PR is received, scan it for any issues
+  check-change:
+    permissions:
+      contents: read
+    # TODO: Can we make this work for forks too?
+    uses: slsa-framework/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@main
