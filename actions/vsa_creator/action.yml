@@ -14,3 +14,4 @@ runs:
         echo "```" >> $GITHUB_SUMMARY
         cat unsigned_vsa.json | jq >> $GITHUB_SUMMARY
         echo "```" >> $GITHUB_SUMMARY
+      shell: bash
