@@ -14,7 +14,7 @@ runs:
       shell: bash
     - id: summary
       run: |
-        echo "```" >> $GITHUB_SUMMARY
-        cat unsigned_vsa.json | jq >> $GITHUB_SUMMARY
-        echo "```" >> $GITHUB_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY
+        cat unsigned_vsa.json | jq >> $GITHUB_STEP_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY
       shell: bash
