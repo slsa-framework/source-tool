@@ -19,8 +19,8 @@ runs:
         cat ${{ github.workspace }}/metadata/unsigned_vsa.json | jq >> $GITHUB_STEP_SUMMARY
         echo "```" >> $GITHUB_STEP_SUMMARY
       shell: bash
-  - uses: actions/upload-artifact@v4
-    if: always()
-    with:
-      name: vsa_metadata
-      path: ./metadata/
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: vsa_metadata
+        path: ./metadata/
