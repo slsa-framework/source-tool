@@ -1,0 +1,14 @@
+name: "Create a SLSA Source Track VSA"
+
+on:
+  workflow_call:
+
+jobs:
+  create_vsa:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - name: vsa
+      # TODO: only generate VSAs for official pushes? IDK
+      uses: slsa-framework/slsa-source-poc/actions/vsa_creator@main

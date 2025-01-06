@@ -1,0 +1,16 @@
+name: SLSA Source VSA Creator
+
+description: Creates SLSA Source Track VSAs
+
+runs:
+  using: "Composite"
+  steps:
+    - uses: actions/checkout@v4
+    - id: create_vsa
+      run: ${{ github.action_path }}/create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }}  > unsigned_vsa.json
+      shell: bash
+    - id: summary
+      run: |
+        echo "```" >> $GITHUB_SUMMARY
+        cat unsigned_vsa.json | jq >> $GITHUB_SUMMARY
+        echo "```" >> $GITHUB_SUMMARY
