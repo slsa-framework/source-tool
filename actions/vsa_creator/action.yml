@@ -9,12 +9,18 @@ runs:
     - id: create_vsa
       # Run the script from the action directory so it has access to the template...
       run: |
+        mkdir -p metadata
         cd ${{ github.action_path }}
-        ./create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }}  > ${{ github.workspace }}/unsigned_vsa.json
+        ./create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }}  > ${{ github.workspace }}/metadata/unsigned_vsa.json
       shell: bash
     - id: summary
       run: |
         echo "```" >> $GITHUB_STEP_SUMMARY
-        cat unsigned_vsa.json | jq >> $GITHUB_STEP_SUMMARY
+        cat ${{ github.workspace }}/metadata/unsigned_vsa.json | jq >> $GITHUB_STEP_SUMMARY
         echo "```" >> $GITHUB_STEP_SUMMARY
       shell: bash
+  - uses: actions/upload-artifact@v4
+    if: always()
+    with:
+      name: vsa_metadata
+      path: ./metadata/
