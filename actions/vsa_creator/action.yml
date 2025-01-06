@@ -7,7 +7,10 @@ runs:
   steps:
     - uses: actions/checkout@v4
     - id: create_vsa
-      run: ${{ github.action_path }}/create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }}  > unsigned_vsa.json
+      # Run the script from the action directory so it has access to the template...
+      run: |
+        cd ${{ github.action_path }}
+        ./create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }}  > ${{ github.workspace }}/unsigned_vsa.json
       shell: bash
     - id: summary
       run: |
