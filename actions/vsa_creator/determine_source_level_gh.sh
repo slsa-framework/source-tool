@@ -27,7 +27,7 @@ NO_FORCE_PUSH=$(echo $GITHUB_RULESET | jq '.[] | select(.type=="non_fast_forward
 
 SOURCE_LEVEL="SLSA_SOURCE_LEVEL_1"
 
-if [ "$NO_DELETION" == "true" ] && [ "$NO_FORCE_PUSH" == "true" ]; then
+if [ "$NO_DELETION" = "true" ] && [ "$NO_FORCE_PUSH" = "true" ]; then
     SOURCE_LEVEL="SLSA_SOURCE_LEVEL_2"
 fi
 echo $SOURCE_LEVEL
