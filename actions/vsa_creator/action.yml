@@ -10,10 +10,11 @@ runs:
       # TODO: This doesn't currently work if there are no rulesets enabled.  Using the tool from https://github.com/slsa-framework/slsa-source-poc/pull/6 should fix that?
       run: |
         cd ${{ github.action_path }}
-        echo "source_level=$(./determine_source_level_gh.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref_name }})\n" >> $GITHUB_OUTPUT
+        echo "source_level=$(./determine_source_level_gh.sh ${{ github.sha }} ${{ github.repository }} ${{ github.ref_name }})\n" >> $GITHUB_OUTPUT
       shell: bash
     - id: create_vsa
       # Run the script from the action directory so it has access to the template...
+      # TODO: determine_level just wants the plain github.repository, but create_vsa wants the URL.  That's not great, we should fix it.
       run: |
         mkdir -p metadata
         cd ${{ github.action_path }}
