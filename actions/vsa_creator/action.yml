@@ -8,6 +8,7 @@ runs:
     - uses: actions/checkout@v4
     - id: determine_level
       run: echo "source_level=$(./determine_source_level.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }})\n" >> $GITHUB_OUTPUT
+      shell: bash
     - id: create_vsa
       # Run the script from the action directory so it has access to the template...
       run: |
