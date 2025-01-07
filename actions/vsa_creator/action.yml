@@ -7,9 +7,10 @@ runs:
   steps:
     - uses: actions/checkout@v4
     - id: determine_level
+      # TODO: This doesn't currently work if there are no rulesets enabled.  Using the tool from https://github.com/slsa-framework/slsa-source-poc/pull/6 should fix that?
       run: |
         cd ${{ github.action_path }}
-        echo "source_level=$(./determine_source_level_gh.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }})\n" >> $GITHUB_OUTPUT
+        echo "source_level=$(./determine_source_level_gh.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref_name }})\n" >> $GITHUB_OUTPUT
       shell: bash
     - id: create_vsa
       # Run the script from the action directory so it has access to the template...
