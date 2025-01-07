@@ -16,6 +16,6 @@
             uri: "https://github.com/slsa-framework/slsa-source-poc/POLICY.md",
         },
         verificationResult: "PASSED",
-        verifiedLevels: ["SLSA_SOURCE_LEVEL_1"]
+        verifiedLevels: [$sourceLevel]
     }
 }

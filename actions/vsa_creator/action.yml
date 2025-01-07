@@ -6,12 +6,14 @@ runs:
   using: "Composite"
   steps:
     - uses: actions/checkout@v4
+    - id: determine_level
+      run: echo "source_level=$(./determine_source_level.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }})\n" >> $GITHUB_OUTPUT
     - id: create_vsa
       # Run the script from the action directory so it has access to the template...
       run: |
         mkdir -p metadata
         cd ${{ github.action_path }}
-        ./create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }}  > ${{ github.workspace }}/metadata/unsigned_vsa.json
+        ./create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }} ${{ steps.determine_level.outputs.source_level }} > ${{ github.workspace }}/metadata/unsigned_vsa.json
       shell: bash
     - id: summary
       run: |
