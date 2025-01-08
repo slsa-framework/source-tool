@@ -30,7 +30,7 @@ runs:
       # If this works well we might lodge some feature requests?
       uses: testifysec/witness-run-action@reusable-workflow
       with:
-        command: /bin/sh echo "hello from slsa-source-poc"
+        command: /bin/sh -c "echo \"hello from slsa-source-poc\""
         step: "install_witness"
     - id: sign_vsa
       # Use witness to sign that VSA...
