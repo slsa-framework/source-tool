@@ -13,4 +13,4 @@ jobs:
     - name: vsa
       # TODO: only generate VSAs for official pushes? IDK
       # TODO: Can we make this work for forks too?
-      uses: TomHennen/slsa-source-poc/actions/vsa_creator@sign_with_witness
+      uses: slsa-framework/slsa-source-poc/actions/vsa_creator@main
