@@ -8,5 +8,6 @@ jobs:
   check-change:
     permissions:
       contents: read
+      id-token: write
     # TODO: Can we make this work for forks too?
     uses: TomHennen/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@sign_with_witness

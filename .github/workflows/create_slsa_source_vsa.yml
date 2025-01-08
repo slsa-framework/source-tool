@@ -7,6 +7,7 @@ jobs:
   create_vsa:
     permissions:
       contents: read
+      id-token: write
     runs-on: ubuntu-latest
     steps:
     - name: vsa
