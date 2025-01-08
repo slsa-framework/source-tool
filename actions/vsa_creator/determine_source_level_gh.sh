@@ -10,13 +10,24 @@ COMMIT=$1
 REPO=$2
 BRANCH=$3
 
-# TODO: Replace with scripts/rulesets.sh from https://github.com/slsa-framework/slsa-source-poc/pull/6 ?
-
 # TODO: Add GitHub token for non-public repos?
-GITHUB_RULESET=$(curl -L \
+GITHUB_RULESET=$(curl -s -L \
     -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     https://api.github.com/repos/${REPO}/rules/branches/${BRANCH})
+
+# Check if response is valid JSON
+if ! echo $GITHUB_RULESET | jq '.' >/dev/null 2>&1; then
+    echo "Error: Invalid response from GitHub API"
+    echo "$GITHUB_RULESET"
+    exit 1
+fi
+
+# Check if response is empty array
+if [ "$GITHUB_RULESET" = "[]" ]; then
+    echo "SLSA_SOURCE_LEVEL_1"
+    exit 0
+fi
 
 # Check continuity requirement
 # We'll assume it meets this requirement if the branch prevents deletions
