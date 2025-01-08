@@ -9,4 +9,4 @@ jobs:
     permissions:
       contents: read
     # TODO: Can we make this work for forks too?
-    uses: slsa-framework/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@main
+    uses: slsa-framework/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@sign_with_witness

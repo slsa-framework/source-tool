@@ -24,6 +24,24 @@ runs:
       run: |
         cat ${{ github.workspace }}/metadata/unsigned_vsa.json >> $GITHUB_STEP_SUMMARY
       shell: bash
+    - id: install_witness
+      # This is a bit of a hack, running witness happens to also install it.
+      # We don't care much about what it does here, we just want the side-effect of witness being installed.
+      # If this works well we might lodge some feature requests?
+      uses: testifysec/witness-run-action@reusable-workflow
+      with:
+        command: /bin/sh echo "hello from slsa-source-poc"
+        step: "install_witness"
+    - id: sign_vsa
+      # Use witness to sign that VSA...
+      run: |
+        witness sign -f ${{ github.workspace }}/metadata/unsigned_vsa.json -t "application/vnd.in-toto+json" -o ${{ github.workspace }}/metadata/signed_vsa.json \
+        --signer-fulcio-url https://fulcio.sigstore.dev \
+        --signer-fulcio-oidc-client-id sigstore \
+        --signer-fulcio-oidc-issuer https://oauth2.sigstore.dev/auth \
+        --timestamp-servers https://freetsa.org/tsr
+        cat ${{ github.workspace }}/metadata/signed_vsa.json >> $GITHUB_STEP_SUMMARY
+      shell: bash
     - uses: actions/upload-artifact@v4
       if: always()
       with:
