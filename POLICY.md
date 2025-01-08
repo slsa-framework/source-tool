@@ -74,7 +74,9 @@ Level 2+: Open question.
 
 Level 1: N/A
 
-Level 2: Open question: perhaps we just check if branch protection is enabled?
+Level 2: Repos are eligible for Level 2 if they have enabled the "Restrict Deletions" (`deletion`) and "Block force pushes" (`non_fast_forward`) rules for the branch in question.
+
+Open Question: should we look for anything else?
 
 Level 3: Open question: should we rely on the provenance attestations that are generated?
 
