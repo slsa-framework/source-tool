@@ -82,8 +82,6 @@ func determineSourceLevel(ctx context.Context, gh_client *github.Client, owner s
 
 // Determines the source level of a repo.
 func main() {
-
-	// TODO: Replace with command line args.
 	var owner, repo, branch string
 	var minDays int
 	flag.StringVar(&owner, "owner", "", "The GitHub repository owner - required.")
