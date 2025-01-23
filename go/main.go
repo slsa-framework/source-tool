@@ -102,5 +102,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Print(sourceLevel)
+	signedVsa, err := createSignedSourceVsa(owner, repo, "abc123", sourceLevel)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Print(signedVsa)
 }
