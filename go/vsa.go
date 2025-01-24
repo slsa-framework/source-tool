@@ -103,6 +103,8 @@ func getSigningOpts(oidcToken string) (sign.BundleOptions, error) {
 	return opts, err
 }
 
+// NOTE: This is experimental, and definitely not done.  There's no way for folks to verify
+// what this produces.
 func createSignedSourceVsa(owner string, repo string, commit string, sourceLevel string) (string, error) {
 	unsignedVsa, err := createUnsignedSourceVsa(owner, repo, commit, sourceLevel)
 	if err != nil {
