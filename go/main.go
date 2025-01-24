@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/google/go-github/v68/github"
@@ -82,16 +83,18 @@ func determineSourceLevel(ctx context.Context, gh_client *github.Client, owner s
 
 // Determines the source level of a repo.
 func main() {
-	var owner, repo, branch string
+	var commit, owner, repo, branch, outputVsa string
 	var minDays int
+	flag.StringVar(&commit, "commit", "", "The commit to check.")
 	flag.StringVar(&owner, "owner", "", "The GitHub repository owner - required.")
 	flag.StringVar(&repo, "repo", "", "The GitHub repository name - required.")
 	flag.StringVar(&branch, "branch", "", "The branch within the repository - required.")
 	flag.IntVar(&minDays, "min_days", 1, "The minimum duration that the rules need to have been enabled for.")
+	flag.StringVar(&outputVsa, "output_vsa", "", "The path to write a signed VSA with the determined level.")
 	flag.Parse()
 
-	if owner == "" || repo == "" || branch == "" {
-		log.Fatal("Must set owner, repo, and branch flags.")
+	if commit == "" || owner == "" || repo == "" || branch == "" {
+		log.Fatal("Must set commit, owner, repo, and branch flags.")
 	}
 
 	gh_client := github.NewClient(nil)
@@ -101,11 +104,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Print(sourceLevel)
 
-	signedVsa, err := createSignedSourceVsa(owner, repo, "abc123", sourceLevel)
-	if err != nil {
-		log.Fatal(err)
+	if outputVsa != "" {
+		// This will output in the sigstore bundle format.
+		signedVsa, err := createSignedSourceVsa(owner, repo, commit, sourceLevel)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = os.WriteFile(outputVsa, []byte(signedVsa), 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
-
-	fmt.Print(signedVsa)
 }
