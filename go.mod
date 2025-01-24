@@ -1,4 +1,4 @@
-module slsa_source_checker
+module github.com/slsa/slsa-source-poc
 
 go 1.24
 
