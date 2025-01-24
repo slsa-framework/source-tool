@@ -6,11 +6,12 @@ runs:
   using: "Composite"
   steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
     - id: determine_level
-      # TODO: This doesn't currently work if there are no rulesets enabled.  Using the tool from https://github.com/slsa-framework/slsa-source-poc/pull/6 should fix that?
       run: |
-        cd ${{ github.action_path }}
-        echo "source_level=$(./determine_source_level_gh.sh ${{ github.sha }} ${{ github.repository }} ${{ github.ref_name }})" >> $GITHUB_OUTPUT
+        echo "source_level=$(go run github.com/slsa-framework/slsa-source-poc/sourcetool@main --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }})" >> $GITHUB_OUTPUT
       shell: bash
     - id: create_vsa
       # Run the script from the action directory so it has access to the template...
