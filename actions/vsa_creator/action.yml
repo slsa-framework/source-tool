@@ -8,7 +8,7 @@ runs:
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.23'
     - id: determine_level
       run: |
         echo "source_level=$(go run github.com/slsa-framework/slsa-source-poc/sourcetool@main --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }})" >> $GITHUB_OUTPUT
