@@ -2,19 +2,12 @@ package checklevel
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/go-github/v68/github"
-)
-
-const (
-	SlsaSourceLevel1      = "SLSA_SOURCE_LEVEL_1"
-	SlsaSourceLevel2      = "SLSA_SOURCE_LEVEL_2"
-	SourcePolicyRepoOwner = "slsa-framework"
-	SourcePolicyRepo      = "slsa-source-poc"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
 type activity struct {
@@ -24,44 +17,6 @@ type activity struct {
 	Ref          string
 	Timestamp    time.Time
 	ActivityType string `json:"activity_type"`
-}
-
-type protectedBranch struct {
-	Name                  string
-	Since                 time.Time
-	TargetSlsaSourceLevel string `json:"target_slsa_source_level"`
-}
-type repoPolicy struct {
-	// I'm actually not sure we need this.  Consider removing?
-	CanonicalRepo     string            `json:"canonical_repo"`
-	ProtectedBranches []protectedBranch `json:"protected_branches"`
-}
-
-func getBranchPolicy(ctx context.Context, gh_client *github.Client, owner string, repo string, branch string) (*protectedBranch, error) {
-	path := fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", owner, repo)
-
-	policyContents, _, _, err := gh_client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	content, err := policyContents.GetContent()
-	if err != nil {
-		return nil, err
-	}
-	var p repoPolicy
-	err = json.Unmarshal([]byte(content), &p)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pb := range p.ProtectedBranches {
-		if pb.Name == branch {
-			return &pb, nil
-		}
-	}
-
-	return nil, errors.New(fmt.Sprintf("Could not find rule for branch %s", branch))
 }
 
 // Checks to see if the rule meets our requirements.
@@ -133,7 +88,7 @@ func DetermineSourceLevel(ctx context.Context, gh_client *github.Client, commit 
 
 	if deletionRule == nil && nonFastFowardRule == nil {
 		// For L2 we need deletion and non-fast-forward rules.
-		return SlsaSourceLevel1, nil
+		return policy.SlsaSourceLevel1, nil
 	}
 
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
@@ -144,14 +99,14 @@ func DetermineSourceLevel(ctx context.Context, gh_client *github.Client, commit 
 
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
-	branchPolicy, err := getBranchPolicy(ctx, gh_client, owner, repo, branch)
+	branchPolicy, err := policy.GetBranchPolicy(ctx, gh_client, owner, repo, branch)
 	if err != nil {
 		return "", err
 	}
 
 	if pushTime.Before(branchPolicy.Since) {
 		// This commit was pushed before they had an explicit policy.
-		return SlsaSourceLevel1, nil
+		return policy.SlsaSourceLevel1, nil
 	}
 
 	deletionGood, err := checkRule(ctx, gh_client, owner, repo, deletionRule, branchPolicy.Since)
@@ -164,8 +119,8 @@ func DetermineSourceLevel(ctx context.Context, gh_client *github.Client, commit 
 	}
 
 	if deletionGood && nonFFGood {
-		return SlsaSourceLevel2, nil
+		return policy.SlsaSourceLevel2, nil
 	}
 
-	return SlsaSourceLevel1, nil
+	return policy.SlsaSourceLevel1, nil
 }
