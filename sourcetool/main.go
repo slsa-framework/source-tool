@@ -41,15 +41,19 @@ type repoPolicy struct {
 }
 
 func getBranchPolicy(ctx context.Context, gh_client *github.Client, owner string, repo string, branch string) (*protectedBranch, error) {
-	path := fmt.Sprintf("../policy/github.com/%s/%s/source-policy.json", owner, repo)
+	path := fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", owner, repo)
 
 	policyContents, _, _, err := gh_client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	content, err := policyContents.GetContent()
+	if err != nil {
+		return nil, err
+	}
 	var p repoPolicy
-	err = json.Unmarshal(policyContents.GetContents(), &p)
+	err = json.Unmarshal([]byte(content), &p)
 	if err != nil {
 		return nil, err
 	}
