@@ -14,13 +14,14 @@ are answered).
 
 Level 1+: git is one of the modern tools, since this tool only works with git this requirement is met.
 
-
 ### Canonical location
 
 Open question: It's unclear how this should be checked by tooling. One thought is that this
 requirement may be in the wrong spot.  Instead perhaps what we're looking for is that given
 packages distributed further downstream should indicate which source repos are canonical.
 They could do this using SLSA _build_ provenance.
+
+TODO: Now enabling people to set a canonical location in a policy file.  Not yet requried for Level 1.
 
 ### Distribute summary attestations
 
@@ -68,7 +69,8 @@ Open question: Is this duplicative of "Distribute summary attestations"
 
 Level 1: N/A
 
-Level 2+: Open question.
+Level 2+: For a commit on a branch to qualify as Level 2+ it must be explicitly indicated in the corresponding policy file.
+This is taken as an indication that is meant for consumption.
 
 ### Continuity
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,8 +14,10 @@ import (
 )
 
 const (
-	SlsaSourceLevel1 = "SLSA_SOURCE_LEVEL_1"
-	SlsaSourceLevel2 = "SLSA_SOURCE_LEVEL_2"
+	SlsaSourceLevel1      = "SLSA_SOURCE_LEVEL_1"
+	SlsaSourceLevel2      = "SLSA_SOURCE_LEVEL_2"
+	SourcePolicyRepoOwner = "slsa-framework"
+	SourcePolicyRepo      = "slsa-source-poc"
 )
 
 type activity struct {
@@ -24,6 +27,40 @@ type activity struct {
 	Ref          string
 	Timestamp    time.Time
 	ActivityType string `json:"activity_type"`
+}
+
+type protectedBranch struct {
+	Name                  string
+	Since                 time.Time
+	TargetSlsaSourceLevel string `json:"target_slsa_source_level"`
+}
+type repoPolicy struct {
+	// I'm actually not sure we need this.  Consider removing?
+	CanonicalRepo     string            `json:"canonical_repo"`
+	ProtectedBranches []protectedBranch `json:"protected_branches"`
+}
+
+func getBranchPolicy(ctx context.Context, gh_client *github.Client, owner string, repo string, branch string) (*protectedBranch, error) {
+	path := fmt.Sprintf("../policy/github.com/%s/%s/source-policy.json", owner, repo)
+
+	policyContents, _, _, err := gh_client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var p repoPolicy
+	err = json.Unmarshal(policyContents.GetContents(), &p)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pb := range p.ProtectedBranches {
+		if pb.Name == branch {
+			return &pb, nil
+		}
+	}
+
+	return nil, errors.New(fmt.Sprintf("Could not find rule for branch %s", branch))
 }
 
 // Checks to see if the rule meets our requirements.
@@ -104,16 +141,23 @@ func determineSourceLevel(ctx context.Context, gh_client *github.Client, commit 
 		return "", err
 	}
 
-	// We'd like to check that the rules have been enabled for the appropriate amount of time
-	// (to ensure they weren't disabled).  For now we just require something that's not in
-	// the future.
-	minTime := pushTime.AddDate(0, 0, -1*minDays)
-
-	deletionGood, err := checkRule(ctx, gh_client, owner, repo, deletionRule, minTime)
+	// We want to check to ensure the repo hasn't enabled/disabled the rules since
+	// setting the 'since' field in their policy.
+	branchPolicy, err := getBranchPolicy(ctx, gh_client, owner, repo, branch)
 	if err != nil {
 		return "", err
 	}
-	nonFFGood, err := checkRule(ctx, gh_client, owner, repo, nonFastFowardRule, minTime)
+
+	if pushTime.Before(branchPolicy.Since) {
+		// This commit was pushed before they had an explicit policy.
+		return SlsaSourceLevel1, nil
+	}
+
+	deletionGood, err := checkRule(ctx, gh_client, owner, repo, deletionRule, branchPolicy.Since)
+	if err != nil {
+		return "", err
+	}
+	nonFFGood, err := checkRule(ctx, gh_client, owner, repo, nonFastFowardRule, branchPolicy.Since)
 	if err != nil {
 		return "", err
 	}
