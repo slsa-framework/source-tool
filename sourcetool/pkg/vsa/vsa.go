@@ -1,4 +1,4 @@
-package main
+package vsa
 
 import (
 	"encoding/json"
@@ -105,7 +105,7 @@ func getSigningOpts(oidcToken string) (sign.BundleOptions, error) {
 
 // NOTE: This is experimental, and definitely not done.  There's no way for folks to verify
 // what this produces.
-func createSignedSourceVsa(owner string, repo string, commit string, sourceLevel string) (string, error) {
+func CreateSignedSourceVsa(owner string, repo string, commit string, sourceLevel string) (string, error) {
 	unsignedVsa, err := createUnsignedSourceVsa(owner, repo, commit, sourceLevel)
 	if err != nil {
 		return "", err
