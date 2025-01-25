@@ -35,6 +35,7 @@ type protectedBranch struct {
 	TargetSlsaSourceLevel string `json:"target_slsa_source_level"`
 }
 type repoPolicy struct {
+	// I'm actually not sure we need this.  Consider removing?
 	CanonicalRepo     string            `json:"canonical_repo"`
 	ProtectedBranches []protectedBranch `json:"protected_branches"`
 }
