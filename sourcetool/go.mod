@@ -6,6 +6,8 @@ require (
 	github.com/google/go-github/v68 v68.0.0
 	github.com/in-toto/attestation v1.1.1-0.20250123155712-7017ad824404
 	github.com/sigstore/sigstore-go v0.6.3-0.20250123153628-85b2bcba8898
+	github.com/spf13/cobra v1.8.1
+	github.com/theupdateframework/go-tuf/v2 v2.0.2
 	google.golang.org/protobuf v1.36.3
 )
 
@@ -66,12 +68,10 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
-	github.com/theupdateframework/go-tuf/v2 v2.0.2 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
