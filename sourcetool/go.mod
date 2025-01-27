@@ -6,7 +6,7 @@ require (
 	github.com/go-git/go-git/v5 v5.13.2
 	github.com/google/go-github/v68 v68.0.0
 	github.com/in-toto/attestation v1.1.1-0.20250123155712-7017ad824404
-	github.com/sigstore/sigstore-go v0.6.3-0.20250123153628-85b2bcba8898
+	github.com/sigstore/sigstore-go v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/theupdateframework/go-tuf/v2 v2.0.2
 	google.golang.org/protobuf v1.36.3
