@@ -13,8 +13,6 @@ runs:
   steps:
     - id: read_from_note
       run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
           git fetch origin "refs/notes/*:refs/notes/*"
           git notes show ${{ inputs.commit }} >> ${{ inputs.path }}
       shell: bash
