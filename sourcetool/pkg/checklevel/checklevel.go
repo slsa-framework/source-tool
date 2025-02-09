@@ -68,7 +68,12 @@ func commitPushTime(ctx context.Context, gh_client *github.Client, commit string
 	return time.Time{}, errors.New(fmt.Sprintf("Could not find repo activity for commit %s", commit))
 }
 
-func DetermineSourceLevel(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string, minDays int) (string, error) {
+// Determines the source level using GitHub's built in controls only.
+// This is necessarily only as good as GitHub's controls and existing APIs.
+// This is a useful demonstration on how SLSA Level 2 can be acheived with ~minimal effort.
+//
+// Returns the determined source level (level 2 max) or error.
+func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string) (string, error) {
 	rules, _, err := gh_client.Repositories.GetRulesForBranch(ctx, owner, repo, branch)
 
 	if err != nil {
@@ -125,4 +130,28 @@ func DetermineSourceLevel(ctx context.Context, gh_client *github.Client, commit 
 	}
 
 	return policy.SlsaSourceLevel1, nil
+}
+
+type SourceProvenanceProperty struct {
+	// The name of the property.
+	Name string
+	// The time from which this property has been continuously enforced.
+	Since time.Time
+}
+type SourceProvenance struct {
+	// The commit this provenance documents.
+	Commit string `json:"commit"`
+	// The commit preceeding 'Commit' in the current context.
+	PrevCommit string `json:"prev_commit"`
+	// The properties observed for this commit.
+	Properties []SourceProvenanceProperty `json:"properties"`
+}
+
+func DetermineSourceLevelProvenance() {
+
+	// Compute current provenance based on existing controls only.
+	//   Check to see if there's prov for the prior commit, if not return cur_prov
+	//   Update 'since' for properties on cur_prov to be MIN(cur_prov[prop].since, prior_prov[prop].since)
+	//   Ignore properties on prior_prov that don't exist in cur_prov.
+	// Then check updated_cur_prov based on policy. Make sure updated_cur_prov[prop].since <= policy[prop].since.
 }
