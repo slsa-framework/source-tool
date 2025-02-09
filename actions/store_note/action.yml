@@ -1,0 +1,18 @@
+name: Store data in git notes
+description: Stores provided data in a git note for the current commit.
+inputs:
+  path:
+    description: 'File with the data to add to the note'
+    required: true
+
+runs:
+  using: "Composite"
+  steps:
+    - id: store_in_note
+      run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git fetch origin "refs/notes/*:refs/notes/*"
+          git notes append -F ${{ inputs.path }}
+          git push origin "refs/notes/*"
+      shell: bash
