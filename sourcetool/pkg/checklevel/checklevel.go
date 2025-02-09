@@ -131,27 +131,3 @@ func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Clie
 
 	return policy.SlsaSourceLevel1, nil
 }
-
-type SourceProvenanceProperty struct {
-	// The name of the property.
-	Name string
-	// The time from which this property has been continuously enforced.
-	Since time.Time
-}
-type SourceProvenance struct {
-	// The commit this provenance documents.
-	Commit string `json:"commit"`
-	// The commit preceeding 'Commit' in the current context.
-	PrevCommit string `json:"prev_commit"`
-	// The properties observed for this commit.
-	Properties []SourceProvenanceProperty `json:"properties"`
-}
-
-func DetermineSourceLevelProvenance() {
-
-	// Compute current provenance based on existing controls only.
-	//   Check to see if there's prov for the prior commit, if not return cur_prov
-	//   Update 'since' for properties on cur_prov to be MIN(cur_prov[prop].since, prior_prov[prop].since)
-	//   Ignore properties on prior_prov that don't exist in cur_prov.
-	// Then check updated_cur_prov based on policy. Make sure updated_cur_prov[prop].since <= policy[prop].since.
-}
