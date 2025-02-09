@@ -11,15 +11,7 @@ runs:
         go-version: '1.23'
     - id: determine_level
       run: |
-        echo "source_level=$(go run github.com/slsa-framework/slsa-source-poc/sourcetool@latest checklevel --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }})" >> $GITHUB_OUTPUT
-      shell: bash
-    - id: create_vsa
-      # Run the script from the action directory so it has access to the template...
-      # TODO: determine_level just wants the plain github.repository, but create_vsa wants the URL.  That's not great, we should fix it.
-      run: |
-        mkdir -p metadata
-        cd ${{ github.action_path }}
-        ./create_vsa.sh ${{ github.sha }} https://github.com/${{ github.repository }} ${{ github.ref }} ${{ steps.determine_level.outputs.source_level }} > ${{ github.workspace }}/metadata/unsigned_vsa.json
+        echo "source_level=$(go run github.com/slsa-framework/slsa-source-poc/sourcetool@latest checklevel --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_unsigned_vsa ${{ github.workspace }}/metadata/unsigned_vsa.json)" >> $GITHUB_OUTPUT
       shell: bash
     - id: summary
       run: |
