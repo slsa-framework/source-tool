@@ -68,7 +68,12 @@ func commitPushTime(ctx context.Context, gh_client *github.Client, commit string
 	return time.Time{}, errors.New(fmt.Sprintf("Could not find repo activity for commit %s", commit))
 }
 
-func DetermineSourceLevel(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string, minDays int) (string, error) {
+// Determines the source level using GitHub's built in controls only.
+// This is necessarily only as good as GitHub's controls and existing APIs.
+// This is a useful demonstration on how SLSA Level 2 can be acheived with ~minimal effort.
+//
+// Returns the determined source level (level 2 max) or error.
+func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string) (string, error) {
 	rules, _, err := gh_client.Repositories.GetRulesForBranch(ctx, owner, repo, branch)
 
 	if err != nil {
