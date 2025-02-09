@@ -1,5 +1,5 @@
 {
-    "canonical_repo": "https://github.com/slsa-framework/slsa-source-repo",
+    "canonical_repo": "https://github.com/slsa-framework/slsa-source-poc",
     "protected_branches": [
         {
             "name": "main",
