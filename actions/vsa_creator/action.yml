@@ -9,9 +9,10 @@ runs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.23'
+    - id: setup
+      run: mkdir -p metadata
     - id: determine_level
       run: |
-        mkdir -p metadata
         echo "source_level=$(go run github.com/slsa-framework/slsa-source-poc/sourcetool@922b9965dae9c3e8c9e2c5a5f30c720a4fe11354 checklevel --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_unsigned_vsa ${{ github.workspace }}/metadata/unsigned_vsa.json)" >> $GITHUB_OUTPUT
       shell: bash
     - id: summary
