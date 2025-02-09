@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/go-github/v68/github"
@@ -53,8 +54,9 @@ func commitPushTime(ctx context.Context, gh_client *github.Client, commit string
 	}
 
 	targetRef := fmt.Sprintf("refs/heads/%s", branch)
+	monitoredTypes := []string{"push", "force_push", "pr_merge"}
 	for _, activity := range result {
-		if activity.ActivityType != "push" && activity.ActivityType != "force_push" {
+		if !slices.Contains(monitoredTypes, activity.ActivityType) {
 			continue
 		}
 		if activity.After == commit && activity.Ref == targetRef {
