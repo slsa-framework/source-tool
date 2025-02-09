@@ -8,10 +8,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Whenever new source is pushed or a PR is received, scan it for any issues
+  # Whenever new source is pushed or a PR is received, create a new vsa
   check-change:
     permissions:
-      contents: read
+      contents: write # needed for storing the vsa in the repo.
       id-token: write
     # TODO: Can we make this work for forks too?
     uses: slsa-framework/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@main

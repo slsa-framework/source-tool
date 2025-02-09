@@ -6,7 +6,7 @@ on:
 jobs:
   create_vsa:
     permissions:
-      contents: read
+      contents: write # needed for storing the vsa in the repo
       id-token: write
     runs-on: ubuntu-latest
     steps:
