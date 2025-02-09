@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func createUnsignedSourceVsa(owner string, repo string, commit string, sourceLevel string) (string, error) {
+func CreateUnsignedSourceVsa(owner string, repo string, commit string, sourceLevel string) (string, error) {
 	resourceUri := fmt.Sprintf("git+https://github.com/%s/%s", owner, repo)
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
