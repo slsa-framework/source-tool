@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-github/v68/github"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/checklevel"
 )
@@ -37,11 +39,32 @@ func createCurrentProvenance(ctx context.Context, gh_client *github.Client, comm
 	return &curProv, nil
 }
 
-func getPrevProvenance(ctx context.Context, gh_client *github.Client, prevCommit string) (*SourceProvenance, error) {
+func getPrevProvenance(ctx context.Context, gh_client *github.Client, repoPath, prevCommit string) (*SourceProvenance, error) {
+	repo, err := git.PlainOpen(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	notes, err := repo.Notes()
+	if err != nil {
+		return nil, err
+	}
+
+	err = notes.ForEach(func(r *plumbing.Reference) error {
+		log.Printf("ref: %v", r)
+		return nil
+	})
+
+	// note, err := notes.Get(prevCommit)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// log.Printf("Got note: %v", note)
+
 	return nil, nil
 }
 
-func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
+func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, repoPath, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
@@ -52,7 +75,7 @@ func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, commi
 	}
 	log.Printf("curProv.commit %v", curProv.Commit)
 
-	prevProv, err := getPrevProvenance(ctx, gh_client, prevCommit)
+	prevProv, err := getPrevProvenance(ctx, gh_client, repoPath, prevCommit)
 	if err != nil {
 		return nil, err
 	}
