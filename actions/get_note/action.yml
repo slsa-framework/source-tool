@@ -1,0 +1,20 @@
+name: Gets data from a git note
+description: Gets data from the git note and stores it in the provided path.
+inputs:
+  commit:
+    description: 'Commit to read note data from'
+    requried: true
+  path:
+    description: 'File with the data to add to the note'
+    required: true
+
+runs:
+  using: "Composite"
+  steps:
+    - id: read_from_note
+      run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git fetch origin "refs/notes/*:refs/notes/*"
+          git notes show ${{ inputs.commit }} >> ${{ inputs.path }}
+      shell: bash

@@ -38,14 +38,13 @@ runs:
         echo "## Signed VSA" >> $GITHUB_STEP_SUMMARY
         cat ${{ github.workspace }}/metadata/signed_vsa.json >> $GITHUB_STEP_SUMMARY
       shell: bash
-    - id: store_in_note
-      run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
-          git fetch origin "refs/notes/*:refs/notes/*"
-          git notes append -F ${{ github.workspace }}/metadata/signed_vsa.json
-          git push origin "refs/notes/*"
-      shell: bash
+    - uses: slsa-framework/slsa-source-poc/actions/store_note@main
+      with:
+        path: ${{ github.workspace }}/metadata/signed_vsa.json
+    - uses: slsa-framework/slsa-source-poc/actions/get_note@main
+      with:
+        commit: ${{ github.event.before }}
+        path: ${{ github.workspace }}/metadata/previous_note.json
     - uses: actions/upload-artifact@v4
       if: always()
       with:
