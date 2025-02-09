@@ -14,13 +14,15 @@ import (
 
 type SourceProvenanceProperty struct {
 	// The time from which this property has been continuously enforced.
-	Since time.Time
+	Since time.Time `json:"since"`
 }
 type SourceProvenance struct {
 	// The commit this provenance documents.
 	Commit string `json:"commit"`
 	// The commit preceeding 'Commit' in the current context.
 	PrevCommit string `json:"prev_commit"`
+	// TODO: What else should we store? The actor that triggered this change?
+
 	// The properties observed for this commit.
 	Properties map[string]SourceProvenanceProperty `json:"properties"`
 }
