@@ -25,9 +25,15 @@ TODO: Now enabling people to set a canonical location in a policy file.  Not yet
 
 ### Distribute summary attestations
 
-Open question: This tool doesn't yet distribute attestations. We need to figure that out.
-If we use [gitsign](https://github.com/sigstore/gitsign) then our storage will come 'for
-free' and we just need to document it.
+This tool stores summary attestations as `git notes`.
+
+To display attestations:
+
+1. Clone the repo in question
+2. `git fetch origin "refs/notes/*:refs/notes/*"`
+3. `git notes show <COMMIT> | jq -r .payload | base64 --decode | jq`
+
+NOTE: This **does not** verify the signature at all.  That work is TBD.
 
 ### Distribute provenance attestations
 

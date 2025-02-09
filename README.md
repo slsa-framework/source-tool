@@ -23,6 +23,4 @@ create a VSA attesting to the SLSA Source Level of a given commit.
 
 ## TODO:
 
-* Actually sign things
-* Store them properly
 * Higher SLSA levels
