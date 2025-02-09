@@ -14,5 +14,5 @@ runs:
     - id: read_from_note
       run: |
           git fetch origin "refs/notes/*:refs/notes/*"
-          git notes show ${{ inputs.commit }} || echo "" >> ${{ inputs.path }}
+          git notes show ${{ inputs.commit }} >> ${{ inputs.path }} || echo "" >> ${{ inputs.path }}
       shell: bash
