@@ -1,12 +1,13 @@
 package provenance
 
 import (
+	"bufio"
 	"context"
-	"log"
+	"encoding/json"
+	"io"
+	"os"
 	"time"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-github/v68/github"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/checklevel"
 )
@@ -34,37 +35,62 @@ func createCurrentProvenance(ctx context.Context, gh_client *github.Client, comm
 	var curProv SourceProvenance
 	curProv.Commit = commit
 	curProv.PrevCommit = prevCommit
+	curProv.Properties = make(map[string]SourceProvenanceProperty)
 	curProv.Properties[sourceLevel] = levelProp
 
 	return &curProv, nil
 }
 
-func getPrevProvenance(ctx context.Context, gh_client *github.Client, repoPath, prevCommit string) (*SourceProvenance, error) {
-	repo, err := git.PlainOpen(repoPath)
+func convertLineToProv(line string) (*SourceProvenance, error) {
+	var sp SourceProvenance
+	err := json.Unmarshal([]byte(line), sp)
 	if err != nil {
 		return nil, err
 	}
+	return &sp, nil
+}
 
-	notes, err := repo.Notes()
+func getPrevProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, prevCommit string) (*SourceProvenance, error) {
+	if prevAttPath == "" {
+		// There is no prior provenance
+		return nil, nil
+	}
+
+	f, err := os.Open(prevAttPath)
 	if err != nil {
 		return nil, err
 	}
+	reader := bufio.NewReader(f)
 
-	err = notes.ForEach(func(r *plumbing.Reference) error {
-		log.Printf("ref: %v", r)
-		return nil
-	})
-
-	// note, err := notes.Get(prevCommit)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// log.Printf("Got note: %v", note)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				// Handle end of file gracefully
+				if line != "" {
+					// Is this source provenance?
+					sp, err := convertLineToProv(line)
+					if err == nil {
+						// Should be good!
+						return sp, nil
+					}
+				}
+				break
+			}
+			return nil, err
+		}
+		// Is this source provenance?
+		sp, err := convertLineToProv(line)
+		if err == nil {
+			// Should be good!
+			return sp, nil
+		}
+	}
 
 	return nil, nil
 }
 
-func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, repoPath, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
+func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
@@ -73,13 +99,11 @@ func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, repoP
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("curProv.commit %v", curProv.Commit)
 
-	prevProv, err := getPrevProvenance(ctx, gh_client, repoPath, prevCommit)
+	prevProv, err := getPrevProvenance(ctx, gh_client, prevAttPath, prevCommit)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("prevProv.commit %v", prevProv.Commit)
 
 	// No prior provenance found, so we just go with current.
 	if prevProv == nil {
