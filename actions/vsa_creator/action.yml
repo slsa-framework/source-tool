@@ -9,6 +9,8 @@ runs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.23'
+        cache-dependency-path: |
+          sourcetool/go.sum
     - id: setup
       run: mkdir -p metadata
       shell: bash
