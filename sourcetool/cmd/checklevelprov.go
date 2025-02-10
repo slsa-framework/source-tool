@@ -9,9 +9,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/vsa"
 
 	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
@@ -50,7 +49,7 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	gh_client := github.NewClient(nil)
 	ctx := context.Background()
 
-	p, err := provenance.CreateSourceProvenance(ctx, gh_client, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
+	p, err := attest.CreateSourceProvenance(ctx, gh_client, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,7 +61,7 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	}
 
 	// create vsa
-	unsignedVsa, err := vsa.CreateUnsignedSourceVsa(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.commit, level)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.commit, level)
 	if err != nil {
 		log.Fatal(err)
 	}

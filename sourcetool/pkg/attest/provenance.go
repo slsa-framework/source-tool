@@ -1,4 +1,4 @@
-package provenance
+package attest
 
 import (
 	"bufio"

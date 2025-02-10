@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 
 	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
@@ -40,7 +40,7 @@ to quickly create a Cobra application.`,
 func doProv(prevAttPath, commit, prevCommit, owner, repo, branch string) {
 	gh_client := github.NewClient(nil)
 	ctx := context.Background()
-	newProv, err := provenance.CreateSourceProvenance(ctx, gh_client, prevAttPath, commit, prevCommit, owner, repo, branch)
+	newProv, err := attest.CreateSourceProvenance(ctx, gh_client, prevAttPath, commit, prevCommit, owner, repo, branch)
 	if err != nil {
 		log.Fatal(err)
 	}

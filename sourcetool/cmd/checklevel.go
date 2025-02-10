@@ -9,8 +9,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/checklevel"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/vsa"
 
 	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
@@ -51,7 +51,7 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 	fmt.Print(sourceLevel)
 
 	if outputUnsignedVsa != "" {
-		unsignedVsa, err := vsa.CreateUnsignedSourceVsa(owner, repo, commit, sourceLevel)
+		unsignedVsa, err := attest.CreateUnsignedSourceVsa(owner, repo, commit, sourceLevel)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -63,7 +63,7 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 
 	if outputVsa != "" {
 		// This will output in the sigstore bundle format.
-		signedVsa, err := vsa.CreateSignedSourceVsa(owner, repo, commit, sourceLevel)
+		signedVsa, err := attest.CreateSignedSourceVsa(owner, repo, commit, sourceLevel)
 		if err != nil {
 			log.Fatal(err)
 		}
