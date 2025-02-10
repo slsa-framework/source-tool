@@ -107,6 +107,12 @@ def getSourceLevel(commit, policy):
     return MIN(controlLevel, getSourceLevel(prevCommit, policy))
 ```
 
+#### Auditing
+
+While `create_slsa_source_vsa` only ever checks the attestations for the prior commit,
+'offline' auditors might wish to evaluate the entire chain of provenance from the most
+recent commit, all the way back to the first commit made under the existing policy.
+
 ## Source Provenance
 
 ## Policy
