@@ -8,14 +8,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+
 	"github.com/google/go-github/v68/github"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/checklevel"
 )
 
 type SourceProvenanceProperty struct {
 	// The time from which this property has been continuously enforced.
 	Since time.Time `json:"since"`
 }
+
+// TODO replace with an in-toto attestation.
 type SourceProvenance struct {
 	// The commit this provenance documents.
 	Commit string `json:"commit"`
@@ -28,7 +31,7 @@ type SourceProvenance struct {
 }
 
 func createCurrentProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
-	sourceLevel, err := checklevel.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
+	sourceLevel, err := gh_control.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
 	if err != nil {
 		return nil, err
 	}

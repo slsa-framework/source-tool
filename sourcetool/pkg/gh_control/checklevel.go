@@ -1,4 +1,4 @@
-package checklevel
+package gh_control
 
 import (
 	"context"
