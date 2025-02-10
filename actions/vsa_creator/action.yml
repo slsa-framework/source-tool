@@ -16,7 +16,7 @@ runs:
       shell: bash
     - id: determine_level
       run: |
-        echo "source_level=$(go run github.com/slsa-framework/slsa-source-poc/sourcetool@922b9965dae9c3e8c9e2c5a5f30c720a4fe11354 checklevel --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_unsigned_vsa ${{ github.workspace }}/metadata/unsigned_vsa.json)" >> $GITHUB_OUTPUT
+        echo "source_level=$(go run github.com/slsa-framework/slsa-source-poc/sourcetool@dc0d9d3269c17312141a64a28fbda43aae9a3274 checklevel --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_unsigned_vsa ${{ github.workspace }}/metadata/unsigned_vsa.json)" >> $GITHUB_OUTPUT
       shell: bash
     - id: summary
       run: |
