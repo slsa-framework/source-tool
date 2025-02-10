@@ -1,4 +1,4 @@
-package provenance
+package attest
 
 import (
 	"bufio"
@@ -8,14 +8,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+
 	"github.com/google/go-github/v68/github"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/checklevel"
 )
 
 type SourceProvenanceProperty struct {
 	// The time from which this property has been continuously enforced.
 	Since time.Time `json:"since"`
 }
+
+// TODO replace with an in-toto attestation.
 type SourceProvenance struct {
 	// The commit this provenance documents.
 	Commit string `json:"commit"`
@@ -24,11 +27,12 @@ type SourceProvenance struct {
 	// TODO: What else should we store? The actor that triggered this change?
 
 	// The properties observed for this commit.
+	// For now we're just storing the level here, but later we'll add other stuff
 	Properties map[string]SourceProvenanceProperty `json:"properties"`
 }
 
 func createCurrentProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
-	sourceLevel, err := checklevel.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
+	controlStatus, err := gh_control.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -38,17 +42,25 @@ func createCurrentProvenance(ctx context.Context, gh_client *github.Client, comm
 	curProv.Commit = commit
 	curProv.PrevCommit = prevCommit
 	curProv.Properties = make(map[string]SourceProvenanceProperty)
-	curProv.Properties[sourceLevel] = levelProp
+	curProv.Properties[controlStatus.ControlLevel] = levelProp
 
 	return &curProv, nil
 }
 
 func convertLineToProv(line string) (*SourceProvenance, error) {
 	var sp SourceProvenance
-	err := json.Unmarshal([]byte(line), sp)
+
+	// Did they just give us an unsigned, unwrapped provenance?
+	// TODO: Add signature verification and stop supporting this!
+	err := json.Unmarshal([]byte(line), &sp)
 	if err != nil {
 		return nil, err
 	}
+
+	// Did they give us the provenance in a DSSE?
+	// TODO: add signature verification
+	// TODO: actually implement
+
 	return &sp, nil
 }
 

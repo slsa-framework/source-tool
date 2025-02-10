@@ -1,4 +1,4 @@
-package vsa
+package attest
 
 import (
 	"encoding/json"

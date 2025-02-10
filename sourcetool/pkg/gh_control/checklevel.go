@@ -1,4 +1,4 @@
-package checklevel
+package gh_control
 
 import (
 	"context"
@@ -7,8 +7,9 @@ import (
 	"slices"
 	"time"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+
 	"github.com/google/go-github/v68/github"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
 type activity struct {
@@ -20,23 +21,19 @@ type activity struct {
 	ActivityType string `json:"activity_type"`
 }
 
-// Checks to see if the rule meets our requirements.
-func checkRule(ctx context.Context, gh_client *github.Client, owner string, repo string, rule *github.RepositoryRule, minTime time.Time) (bool, error) {
+// Checks to see if the rule was enabled and since what time.
+func checkRule(ctx context.Context, gh_client *github.Client, owner string, repo string, rule *github.RepositoryRule) (bool, time.Time, error) {
 	ruleset, _, err := gh_client.Repositories.GetRuleset(ctx, owner, repo, rule.RulesetID, false)
 	if err != nil {
-		return false, err
+		return false, time.Time{}, err
 	}
 
 	// We need rules to be 'active' and to have been updated no later than minTime.
 	if ruleset.Enforcement != "active" {
-		return false, nil
+		return false, time.Time{}, nil
 	}
 
-	if minTime.Before(ruleset.UpdatedAt.Time) {
-		return false, nil
-	}
-
-	return true, nil
+	return true, ruleset.UpdatedAt.Time, nil
 }
 
 func commitPushTime(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string) (time.Time, error) {
@@ -68,16 +65,39 @@ func commitPushTime(ctx context.Context, gh_client *github.Client, commit string
 	return time.Time{}, errors.New(fmt.Sprintf("Could not find repo activity for commit %s", commit))
 }
 
+func maxTime(times []time.Time) time.Time {
+	if len(times) == 0 {
+		return time.Time{} // Return zero value if the slice is empty
+	}
+
+	max := times[0]
+	for _, t := range times[1:] {
+		if t.After(max) {
+			max = t
+		}
+	}
+	return max
+}
+
+type GhControlStatus struct {
+	// The SLSA Source Level the _controls_ in this repo meet.
+	ControlLevel string
+	// The time the control has been enabled since.
+	ControlLevelSince time.Time
+	// The time the commit we're evaluting was pushed.
+	CommitPushTime time.Time
+}
+
 // Determines the source level using GitHub's built in controls only.
 // This is necessarily only as good as GitHub's controls and existing APIs.
 // This is a useful demonstration on how SLSA Level 2 can be acheived with ~minimal effort.
 //
 // Returns the determined source level (level 2 max) or error.
-func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string) (string, error) {
+func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string) (*GhControlStatus, error) {
 	rules, _, err := gh_client.Repositories.GetRulesForBranch(ctx, owner, repo, branch)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var deletionRule *github.RepositoryRule
@@ -93,41 +113,32 @@ func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Clie
 		}
 	}
 
-	if deletionRule == nil && nonFastFowardRule == nil {
-		// For L2 we need deletion and non-fast-forward rules.
-		return policy.SlsaSourceLevel1, nil
-	}
-
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
 	pushTime, err := commitPushTime(ctx, gh_client, commit, owner, repo, branch)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// We want to check to ensure the repo hasn't enabled/disabled the rules since
-	// setting the 'since' field in their policy.
-	branchPolicy, err := policy.GetBranchPolicy(ctx, gh_client, owner, repo, branch)
-	if err != nil {
-		return "", err
+	controlStatus := GhControlStatus{ControlLevel: slsa_types.SlsaSourceLevel1, ControlLevelSince: time.Time{}, CommitPushTime: pushTime}
+
+	if deletionRule == nil && nonFastFowardRule == nil {
+		// For L2 we need deletion and non-fast-forward rules.
+		return &controlStatus, nil
 	}
 
-	if pushTime.Before(branchPolicy.Since) {
-		// This commit was pushed before they had an explicit policy.
-		return policy.SlsaSourceLevel1, nil
-	}
-
-	deletionGood, err := checkRule(ctx, gh_client, owner, repo, deletionRule, branchPolicy.Since)
+	deletionGood, deletionSince, err := checkRule(ctx, gh_client, owner, repo, deletionRule)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	nonFFGood, err := checkRule(ctx, gh_client, owner, repo, nonFastFowardRule, branchPolicy.Since)
+	nonFFGood, nonFFSince, err := checkRule(ctx, gh_client, owner, repo, nonFastFowardRule)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if deletionGood && nonFFGood {
-		return policy.SlsaSourceLevel2, nil
+		controlStatus.ControlLevel = slsa_types.SlsaSourceLevel2
+		controlStatus.ControlLevelSince = maxTime([]time.Time{deletionSince, nonFFSince})
 	}
 
-	return policy.SlsaSourceLevel1, nil
+	return &controlStatus, nil
 }
