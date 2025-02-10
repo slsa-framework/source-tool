@@ -1,6 +1,6 @@
 module github.com/slsa-framework/slsa-source-poc/sourcetool
 
-go 1.24
+go 1.23
 
 require (
 	github.com/go-git/go-git/v5 v5.13.2
