@@ -55,7 +55,7 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	}
 
 	// check p against policy
-	level, err := policy.EvaluateProv(ctx, gh_client, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch, p)
+	level, err := policy.EvaluateProv(ctx, gh_client, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch, *p)
 	if err != nil {
 		log.Fatal(err)
 	}

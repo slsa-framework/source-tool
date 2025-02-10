@@ -31,7 +31,7 @@ type SourceProvenance struct {
 }
 
 func createCurrentProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
-	sourceLevel, err := gh_control.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
+	controlStatus, err := gh_control.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func createCurrentProvenance(ctx context.Context, gh_client *github.Client, comm
 	curProv.Commit = commit
 	curProv.PrevCommit = prevCommit
 	curProv.Properties = make(map[string]SourceProvenanceProperty)
-	curProv.Properties[sourceLevel] = levelProp
+	curProv.Properties[controlStatus.ControlLevel] = levelProp
 
 	return &curProv, nil
 }
