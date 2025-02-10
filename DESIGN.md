@@ -90,13 +90,21 @@ These attestations are provided to the `sourcetool` which then:
 The declared level will then be stored in a source VSA and a new source provenance.
 Both will be signed by the reusable workflow and stored in the associated git note.
 
-The can be thought of as a memoized recursive algorithm like:
+The can be thought of as a memoized recursive algorithm that would look something like:
 
 ```python
-def getSourceProvenance(commit, attestations, controlStatus):
+def getSourceLevel(commit, policy):
+    controlLevel = determineControlLevel(commit, policy)
     prevCommit = getPrevCommit(commit)
-    if prevCommit == null
-
+    # We stop recursing if there are no more commits, or if
+    # the previous commit occurred prior when the policy went
+    # into effect.
+    if prevCommit == null or isCommitTooOld(prevCommit, policy):
+        # Base case
+        return controlLevel
+    # We know the current commit has controlLevel, but we want
+    # to make sure prior commits had at least that level too.
+    return MIN(controlLevel, getSourceLevel(prevCommit, policy))
 ```
 
 ## Source Provenance
