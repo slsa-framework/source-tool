@@ -41,7 +41,15 @@ Level 1: N/A
 
 Level 2: N/A
 
-Level 3: Open question: however if we use gitsign this may come for free?
+Level 3:
+
+This tool stores provenance attestations (with summary attestations) as `git notes`.
+
+To display attestations:
+
+1. Clone the repo in question
+2. `git fetch origin "refs/notes/*:refs/notes/*"`
+3. `git notes show <COMMIT> | jq -r .payload | base64 --decode | jq`
 
 ## Source Control System Requirements
 

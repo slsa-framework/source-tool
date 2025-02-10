@@ -198,6 +198,8 @@ func EvaluateProv(ctx context.Context, gh_client *github.Client, owner, repo, br
 		return "", errors.New("target level not found in provenance")
 	}
 
+	// Unlike the control only approach, the provenance approach doesn't care how long GitHub claims the control
+	// was in place. The only thing that matters is how long the provenance claims it was in place.
 	if branchPolicy.Since.Before(levelProp.Since) {
 		return "", errors.New(fmt.Sprintf("level %s only in effect since %v, policy requires it since at least %v", branchPolicy.TargetSlsaSourceLevel, levelProp.Since, branchPolicy.Since))
 	}
