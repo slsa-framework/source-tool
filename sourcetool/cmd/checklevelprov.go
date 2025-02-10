@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 
@@ -71,16 +72,23 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		log.Fatal(err)
 	}
 
-	// Store both the provenance and the vsa
-	f, err := os.OpenFile(checkLevelProvArgs.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
+	// Store both the unsigned provenance and vsa
+	if checkLevelProvArgs.outputUnsignedBundle != "" {
+		f, err := os.OpenFile(checkLevelProvArgs.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
 
-	f.WriteString(string(unsignedProv))
-	f.WriteString("\n")
-	f.WriteString(unsignedVsa)
+		f.WriteString(string(unsignedProv))
+		f.WriteString("\n")
+		f.WriteString(unsignedVsa)
+		f.WriteString("\n")
+	} else {
+		// Just output to the screen
+		fmt.Println(string(unsignedProv))
+		fmt.Println(string(unsignedVsa))
+	}
 }
 
 func init() {
@@ -92,5 +100,5 @@ func init() {
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.owner, "owner", "", "The GitHub repository owner - required.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.repo, "repo", "", "The GitHub repository name - required.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.branch, "branch", "", "The branch within the repository - required.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "outputUnsignedBundle", "", "The path to write a bundle of unsigned attestations.")
+	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 }
