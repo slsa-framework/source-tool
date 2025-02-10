@@ -27,6 +27,7 @@ type SourceProvenance struct {
 	// TODO: What else should we store? The actor that triggered this change?
 
 	// The properties observed for this commit.
+	// For now we're just storing the level here, but later we'll add other stuff
 	Properties map[string]SourceProvenanceProperty `json:"properties"`
 }
 
@@ -48,10 +49,18 @@ func createCurrentProvenance(ctx context.Context, gh_client *github.Client, comm
 
 func convertLineToProv(line string) (*SourceProvenance, error) {
 	var sp SourceProvenance
-	err := json.Unmarshal([]byte(line), sp)
+
+	// Did they just give us an unsigned, unwrapped provenance?
+	// TODO: Add signature verification and stop supporting this!
+	err := json.Unmarshal([]byte(line), &sp)
 	if err != nil {
 		return nil, err
 	}
+
+	// Did they give us the provenance in a DSSE?
+	// TODO: add signature verification
+	// TODO: actually implement
+
 	return &sp, nil
 }
 
