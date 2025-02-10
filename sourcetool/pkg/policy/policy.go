@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v68/github"
 )
@@ -152,4 +154,25 @@ func CreateLocalPolicy(ctx context.Context, gh_client *github.Client, pathToClon
 		return "", err
 	}
 	return path, nil
+}
+
+// Evaluates the provenance against the policy and returns the resulting source level
+func EvaluateProv(ctx context.Context, gh_client *github.Client, owner, repo, branch string, prov provenance.SourceProvenance) (string, error) {
+	branchPolicy, err := GetBranchPolicy(ctx, gh_client, owner, repo, branch)
+	if err != nil {
+		return "", err
+	}
+
+	levelProp, ok := prov.Properties[branchPolicy.TargetSlsaSourceLevel]
+	if !ok {
+		// Error, or do we take the min?
+		return "", errors.New("target level not found in provenance")
+	}
+
+	if branchPolicy.Since.Before(levelProp.Since) {
+		return "", errors.New(fmt.Sprintf("level %s only in effect since %v, policy requires it since at least %v", branchPolicy.TargetSlsaSourceLevel, levelProp.Since, branchPolicy.Since))
+	}
+
+	// Looks good!
+	return branchPolicy.TargetSlsaSourceLevel, nil
 }
