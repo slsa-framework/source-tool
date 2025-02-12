@@ -20,35 +20,16 @@ runs:
         path: ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl
     - id: determine_level
       run: |
-        go run github.com/slsa-framework/slsa-source-poc/sourcetool@dc0d9d3269c17312141a64a28fbda43aae9a3274 checklevelprov --prev_bundle_path ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl --commit ${{ github.sha }} --prev_commit ${{ github.event.before }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_unsigned_bundle ${{ github.workspace }}/metadata/unsigned_bundle.jsonl
+        go run github.com/slsa-framework/slsa-source-poc/sourcetool@959d6496508cea449f2b7592d132e3cb264d776b checklevelprov --prev_bundle_path ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl --commit ${{ github.sha }} --prev_commit ${{ github.event.before }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl
       shell: bash
     - id: summary
       run: |
-        echo "## Unsigned Provenance" >> $GITHUB_STEP_SUMMARY
-        cat ${{ github.workspace }}/metadata/unsigned_bundle.jsonl >> $GITHUB_STEP_SUMMARY
-      shell: bash
-    - id: install_witness
-      # This is a bit of a hack, running witness happens to also install it.
-      # We don't care much about what it does here, we just want the side-effect of witness being installed.
-      # If this works well we might lodge some feature requests?
-      uses: testifysec/witness-run-action@reusable-workflow
-      with:
-        command: /bin/sh -c "echo \"hello from slsa-source-poc\""
-        step: "install_witness"
-    - id: sign_prov
-      # Use witness to sign that provenance...
-      run: |
-        witness sign -f ${{ github.workspace }}/metadata/unsigned_bundle.jsonl -t "application/vnd.in-toto+json" -o ${{ github.workspace }}/metadata/signed_bundle.jsonl \
-        --signer-fulcio-url https://fulcio.sigstore.dev \
-        --signer-fulcio-oidc-client-id sigstore \
-        --signer-fulcio-oidc-issuer https://oauth2.sigstore.dev/auth \
-        --timestamp-servers https://freetsa.org/tsr
-        echo "## Signed Prov" >> $GITHUB_STEP_SUMMARY
-        cat ${{ github.workspace }}/metadata/signed_bundle.jsonl >> $GITHUB_STEP_SUMMARY
+        echo "## Signed Bundle" >> $GITHUB_STEP_SUMMARY
+        cat ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - uses: slsa-framework/slsa-source-poc/actions/store_note@main
       with:
-        path: ${{ github.workspace }}/metadata/signed_bundle.jsonl
+        path: ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl
     - uses: actions/upload-artifact@v4
       if: always()
       with:
