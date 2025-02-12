@@ -3,9 +3,10 @@ module github.com/slsa-framework/slsa-source-poc/sourcetool
 go 1.23.5
 
 require (
+	github.com/carabiner-dev/bnd v0.0.1-pre1
 	github.com/go-git/go-git/v5 v5.13.2
 	github.com/google/go-github/v68 v68.0.0
-	github.com/in-toto/attestation v1.1.1-0.20250123155712-7017ad824404
+	github.com/in-toto/attestation v1.1.1
 	github.com/sigstore/sigstore-go v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/theupdateframework/go-tuf/v2 v2.0.2
@@ -18,7 +19,6 @@ require (
 	github.com/ProtonMail/go-crypto v1.1.5 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/carabiner-dev/bnd v0.0.1-pre1 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/coreos/go-oidc/v3 v3.12.0 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 // indirect
