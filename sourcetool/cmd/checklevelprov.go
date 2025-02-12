@@ -25,6 +25,7 @@ type CheckLevelProvArgs struct {
 	repo                 string
 	branch               string
 	outputUnsignedBundle string
+	outputSignedBundle   string
 }
 
 // checklevelprovCmd represents the checklevelprov command
@@ -84,6 +85,27 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		f.WriteString("\n")
 		f.WriteString(unsignedVsa)
 		f.WriteString("\n")
+	} else if checkLevelProvArgs.outputSignedBundle != "" {
+		f, err := os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+
+		signedProv, err := attest.Sign(string(unsignedProv))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		signedVsa, err := attest.Sign(unsignedVsa)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		f.WriteString(signedProv)
+		f.WriteString("\n")
+		f.WriteString(signedVsa)
+		f.WriteString("\n")
 	} else {
 		// Just output to the screen
 		fmt.Println(string(unsignedProv))
@@ -101,4 +123,5 @@ func init() {
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.repo, "repo", "", "The GitHub repository name - required.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.branch, "branch", "", "The branch within the repository - required.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
+	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 }
