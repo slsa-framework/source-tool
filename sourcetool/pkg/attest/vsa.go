@@ -111,26 +111,5 @@ func CreateSignedSourceVsa(owner string, repo string, commit string, sourceLevel
 		return "", err
 	}
 
-	content := &sign.DSSEData{
-		Data:        []byte(unsignedVsa),
-		PayloadType: "application/vnd.in-toto+json",
-	}
-
-	keypair, err := sign.NewEphemeralKeypair(nil)
-	if err != nil {
-		return "", err
-	}
-
-	opts, err := getSigningOpts("")
-	if err != nil {
-		return "", err
-	}
-
-	bundle, err := sign.Bundle(content, keypair, opts)
-	if err != nil {
-		return "", err
-	}
-
-	json, err := protojson.Marshal(bundle)
-	return string(json), err
+	return Sign(unsignedVsa)
 }
