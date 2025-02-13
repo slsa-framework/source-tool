@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	spb "github.com/in-toto/attestation/go/v1"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
@@ -186,16 +188,21 @@ func EvaluateControl(ctx context.Context, gh_client *github.Client, owner, repo,
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level
-func EvaluateProv(ctx context.Context, gh_client *github.Client, owner, repo, branch string, prov attest.SourceProvenance) (string, error) {
+func EvaluateProv(ctx context.Context, gh_client *github.Client, owner, repo, branch string, prov *spb.Statement) (string, error) {
 	branchPolicy, err := GetBranchPolicy(ctx, gh_client, owner, repo, branch)
 	if err != nil {
 		return "", err
 	}
 
-	levelProp, ok := prov.Properties[branchPolicy.TargetSlsaSourceLevel]
+	provPred, err := attest.GetProvPred(prov)
+	if err != nil {
+		return "", err
+	}
+
+	levelProp, ok := provPred.Properties[branchPolicy.TargetSlsaSourceLevel]
 	if !ok {
 		// Error, or do we take the min?
-		return "", errors.New("target level not found in provenance")
+		return "", errors.New(fmt.Sprintf("target level %s not found in provenance %v", branchPolicy.TargetSlsaSourceLevel, provPred))
 	}
 
 	// Unlike the control only approach, the provenance approach doesn't care how long GitHub claims the control

@@ -8,6 +8,10 @@ import (
 	"os"
 	"time"
 
+	spb "github.com/in-toto/attestation/go/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 
 	"github.com/google/go-github/v68/github"
@@ -19,7 +23,7 @@ type SourceProvenanceProperty struct {
 }
 
 // TODO replace with an in-toto attestation.
-type SourceProvenance struct {
+type SourceProvenancePred struct {
 	// The commit this provenance documents.
 	Commit string `json:"commit"`
 	// The commit preceeding 'Commit' in the current context.
@@ -31,28 +35,68 @@ type SourceProvenance struct {
 	Properties map[string]SourceProvenanceProperty `json:"properties"`
 }
 
-func createCurrentProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
+func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
+	predJson, err := json.Marshal(statement.Predicate)
+	if err != nil {
+		return nil, err
+	}
+
+	var predStruct SourceProvenancePred
+	err = json.Unmarshal(predJson, &predStruct)
+	if err != nil {
+		return nil, err
+	}
+	return &predStruct, nil
+}
+
+func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Statement, error) {
+	predJson, err := json.Marshal(provPred)
+	if err != nil {
+		return nil, err
+	}
+
+	sub := []*spb.ResourceDescriptor{{
+		Digest: map[string]string{"gitCommit": commit},
+	}}
+
+	var predPb structpb.Struct
+	err = json.Unmarshal(predJson, &predPb)
+	if err != nil {
+		return nil, err
+	}
+
+	statementPb := spb.Statement{
+		Type:          spb.StatementTypeUri,
+		Subject:       sub,
+		PredicateType: "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1",
+		Predicate:     &predPb,
+	}
+
+	return &statementPb, nil
+}
+
+func createCurrentProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
 	controlStatus, err := gh_control.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
 	if err != nil {
 		return nil, err
 	}
 
 	levelProp := SourceProvenanceProperty{Since: time.Now()}
-	var curProv SourceProvenance
-	curProv.Commit = commit
-	curProv.PrevCommit = prevCommit
-	curProv.Properties = make(map[string]SourceProvenanceProperty)
-	curProv.Properties[controlStatus.ControlLevel] = levelProp
+	var curProvPred SourceProvenancePred
+	curProvPred.Commit = commit
+	curProvPred.PrevCommit = prevCommit
+	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
+	curProvPred.Properties[controlStatus.ControlLevel] = levelProp
 
-	return &curProv, nil
+	return addPredToStatement(&curProvPred, commit)
 }
 
-func convertLineToProv(line string) (*SourceProvenance, error) {
-	var sp SourceProvenance
+func convertLineToProv(line string) (*spb.Statement, error) {
+	var sp spb.Statement
 
 	// Did they just give us an unsigned, unwrapped provenance?
 	// TODO: Add signature verification and stop supporting this!
-	err := json.Unmarshal([]byte(line), &sp)
+	err := protojson.Unmarshal([]byte(line), &sp)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +108,7 @@ func convertLineToProv(line string) (*SourceProvenance, error) {
 	return &sp, nil
 }
 
-func getPrevProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, prevCommit string) (*SourceProvenance, error) {
+func getPrevProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, prevCommit string) (*spb.Statement, error) {
 	if prevAttPath == "" {
 		// There is no prior provenance
 		return nil, nil
@@ -104,7 +148,7 @@ func getPrevProvenance(ctx context.Context, gh_client *github.Client, prevAttPat
 	return nil, nil
 }
 
-func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, commit, prevCommit, owner, repo, branch string) (*SourceProvenance, error) {
+func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
@@ -124,18 +168,28 @@ func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, prevA
 		return curProv, nil
 	}
 
+	prevProvPred, err := GetProvPred(prevProv)
+	if err != nil {
+		return nil, err
+	}
+
+	curProvPred, err := GetProvPred(curProv)
+	if err != nil {
+		return nil, err
+	}
+
 	// There was prior provenance, so update the Since field for each property
 	// to the oldest encountered.
-	for propName, curProp := range curProv.Properties {
-		prevProp, ok := prevProv.Properties[propName]
+	for propName, curProp := range curProvPred.Properties {
+		prevProp, ok := prevProvPred.Properties[propName]
 		if !ok {
 			continue
 		}
 		if prevProp.Since.Before(curProp.Since) {
 			curProp.Since = prevProp.Since
-			curProv.Properties[propName] = curProp
+			curProvPred.Properties[propName] = curProp
 		}
 	}
 
-	return curProv, nil
+	return addPredToStatement(curProvPred, commit)
 }
