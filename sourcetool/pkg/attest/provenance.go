@@ -22,10 +22,11 @@ type SourceProvenanceProperty struct {
 	Since time.Time `json:"since"`
 }
 
-// TODO replace with an in-toto attestation.
+const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1"
+
+// The predicate that encodes source provenance data.
+// The git commit this corresponds to is encoded in the surrounding statement.
 type SourceProvenancePred struct {
-	// The commit this provenance documents.
-	Commit string `json:"commit"`
 	// The commit preceeding 'Commit' in the current context.
 	PrevCommit string `json:"prev_commit"`
 	// TODO: What else should we store? The actor that triggered this change?
@@ -68,11 +69,20 @@ func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Sta
 	statementPb := spb.Statement{
 		Type:          spb.StatementTypeUri,
 		Subject:       sub,
-		PredicateType: "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1",
+		PredicateType: SourceProvPredicateType,
 		Predicate:     &predPb,
 	}
 
 	return &statementPb, nil
+}
+
+func doesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
+	for _, subject := range statement.Subject {
+		if subject.Digest["gitCommit"] == commit {
+			return true
+		}
+	}
+	return false
 }
 
 func createCurrentProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
@@ -83,7 +93,6 @@ func createCurrentProvenance(ctx context.Context, gh_client *github.Client, comm
 
 	levelProp := SourceProvenanceProperty{Since: time.Now()}
 	var curProvPred SourceProvenancePred
-	curProvPred.Commit = commit
 	curProvPred.PrevCommit = prevCommit
 	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
 	curProvPred.Properties[controlStatus.ControlLevel] = levelProp
@@ -108,7 +117,7 @@ func convertLineToProv(line string) (*spb.Statement, error) {
 	return &sp, nil
 }
 
-func getPrevProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, prevCommit string) (*spb.Statement, error) {
+func getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
 	if prevAttPath == "" {
 		// There is no prior provenance
 		return nil, nil
@@ -140,8 +149,10 @@ func getPrevProvenance(ctx context.Context, gh_client *github.Client, prevAttPat
 		// Is this source provenance?
 		sp, err := convertLineToProv(line)
 		if err == nil {
-			// Should be good!
-			return sp, nil
+			if doesSubjectIncludeCommit(sp, prevCommit) {
+				// Should be good!
+				return sp, nil
+			}
 		}
 	}
 
@@ -158,7 +169,7 @@ func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, prevA
 		return nil, err
 	}
 
-	prevProv, err := getPrevProvenance(ctx, gh_client, prevAttPath, prevCommit)
+	prevProv, err := getPrevProvenance(prevAttPath, prevCommit)
 	if err != nil {
 		return nil, err
 	}
