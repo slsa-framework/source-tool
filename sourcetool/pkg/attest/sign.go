@@ -1,9 +1,8 @@
 package attest
 
 import (
-	"encoding/json"
-
 	"github.com/carabiner-dev/bnd/pkg/bnd"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Sign(data string) (string, error) {
@@ -13,7 +12,7 @@ func Sign(data string) (string, error) {
 		return "", err
 	}
 
-	json, err := json.Marshal(bundle)
+	json, err := protojson.Marshal(bundle)
 	if err != nil {
 		return "", err
 	}
