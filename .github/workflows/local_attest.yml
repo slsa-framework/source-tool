@@ -11,4 +11,4 @@ jobs:
     permissions:
       contents: write # needed for storing the vsa in the repo.
       id-token: write
-    uses: slsa-framework/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@main
+    uses: slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@main

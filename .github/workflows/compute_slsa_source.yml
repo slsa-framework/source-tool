@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 jobs:
-  create_vsa:
+  compute_slsa_source:
     permissions:
       contents: write # needed for storing the vsa in the repo
       id-token: write
