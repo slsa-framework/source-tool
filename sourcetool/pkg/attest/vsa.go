@@ -10,14 +10,15 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/sign"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore-go/pkg/util"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 	"github.com/theupdateframework/go-tuf/v2/metadata/fetcher"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func CreateUnsignedSourceVsa(owner string, repo string, commit string, sourceLevel string) (string, error) {
-	resourceUri := fmt.Sprintf("git+https://github.com/%s/%s", owner, repo)
+func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, sourceLevel string) (string, error) {
+	resourceUri := fmt.Sprintf("git+https://github.com/%s/%s", gh_connection.Owner, gh_connection.Repo)
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
 			Id: "https://github.com/slsa-framework/slsa-source-poc"},
@@ -34,6 +35,7 @@ func CreateUnsignedSourceVsa(owner string, repo string, commit string, sourceLev
 		return "", err
 	}
 
+	// TODO: add branch annotation to sub
 	sub := []*spb.ResourceDescriptor{{
 		Digest: map[string]string{"gitCommit": commit},
 	}}
@@ -104,8 +106,8 @@ func getSigningOpts(oidcToken string) (sign.BundleOptions, error) {
 
 // NOTE: This is experimental, and definitely not done.  There's no way for folks to verify
 // what this produces.
-func CreateSignedSourceVsa(owner string, repo string, commit string, sourceLevel string) (string, error) {
-	unsignedVsa, err := CreateUnsignedSourceVsa(owner, repo, commit, sourceLevel)
+func CreateSignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, sourceLevel string) (string, error) {
+	unsignedVsa, err := CreateUnsignedSourceVsa(gh_connection, commit, sourceLevel)
 	if err != nil {
 		return "", err
 	}

@@ -9,9 +9,9 @@ import (
 	"log"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
 )
 
@@ -32,10 +32,10 @@ var (
 )
 
 func doProv(prevAttPath, commit, prevCommit, owner, repo, branch string) {
-	gh_client := github.NewClient(nil)
+	gh_connection := gh_control.NewGhConnection(owner, repo, branch)
 	ctx := context.Background()
-	pa := attest.NewProvenanceAttestor(gh_client, attest.DefaultVerifierOptions)
-	newProv, err := pa.CreateSourceProvenance(ctx, prevAttPath, commit, prevCommit, owner, repo, branch)
+	pa := attest.NewProvenanceAttestor(gh_connection, attest.DefaultVerifierOptions)
+	newProv, err := pa.CreateSourceProvenance(ctx, prevAttPath, commit, prevCommit)
 	if err != nil {
 		log.Fatal(err)
 	}

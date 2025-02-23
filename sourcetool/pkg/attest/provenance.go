@@ -15,8 +15,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
-
-	"github.com/google/go-github/v68/github"
 )
 
 type SourceProvenanceProperty struct {
@@ -40,11 +38,11 @@ type SourceProvenancePred struct {
 
 type ProvenanceAttestor struct {
 	verification_options VerificationOptions
-	gh_client            *github.Client
+	gh_connection        *gh_control.GitHubConnection
 }
 
-func NewProvenanceAttestor(gh_client *github.Client, verification_options VerificationOptions) *ProvenanceAttestor {
-	return &ProvenanceAttestor{verification_options: verification_options, gh_client: gh_client}
+func NewProvenanceAttestor(gh_connection *gh_control.GitHubConnection, verification_options VerificationOptions) *ProvenanceAttestor {
+	return &ProvenanceAttestor{verification_options: verification_options, gh_connection: gh_connection}
 }
 
 func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
@@ -98,8 +96,8 @@ func doesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
 	return false
 }
 
-func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
-	controlStatus, err := gh_control.DetermineSourceLevelControlOnly(ctx, pa.gh_client, commit, owner, repo, branch)
+func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit string) (*spb.Statement, error) {
+	controlStatus, err := pa.gh_connection.DetermineSourceLevelControlOnly(ctx, commit)
 	if err != nil {
 		return nil, err
 	}
@@ -180,12 +178,12 @@ func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (
 	return nil, nil
 }
 
-func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
+func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit string) (*spb.Statement, error) {
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
 
-	curProv, err := pa.createCurrentProvenance(ctx, commit, prevCommit, owner, repo, branch)
+	curProv, err := pa.createCurrentProvenance(ctx, commit, prevCommit)
 	if err != nil {
 		return nil, err
 	}

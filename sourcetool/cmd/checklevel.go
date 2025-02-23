@@ -12,7 +12,6 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 
-	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
 )
 
@@ -41,17 +40,17 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 		log.Fatal("Must set commit, owner, repo, and branch flags.")
 	}
 
-	gh_client := github.NewClient(nil)
+	gh_connection := gh_control.NewGhConnection(owner, repo, branch)
 	ctx := context.Background()
 
-	controlStatus, err := gh_control.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
+	controlStatus, err := gh_connection.DetermineSourceLevelControlOnly(ctx, commit)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Print(controlStatus.ControlLevel)
 
 	if outputUnsignedVsa != "" {
-		unsignedVsa, err := attest.CreateUnsignedSourceVsa(owner, repo, commit, controlStatus.ControlLevel)
+		unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, controlStatus.ControlLevel)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -63,7 +62,7 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 
 	if outputVsa != "" {
 		// This will output in the sigstore bundle format.
-		signedVsa, err := attest.CreateSignedSourceVsa(owner, repo, commit, controlStatus.ControlLevel)
+		signedVsa, err := attest.CreateSignedSourceVsa(gh_connection, commit, controlStatus.ControlLevel)
 		if err != nil {
 			log.Fatal(err)
 		}

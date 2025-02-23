@@ -16,7 +16,6 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/google/go-github/v68/github"
 )
 
 const (
@@ -37,18 +36,18 @@ type RepoPolicy struct {
 	ProtectedBranches []ProtectedBranch `json:"protected_branches"`
 }
 
-func getPolicyPath(owner, repo string) string {
-	return fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", owner, repo)
+func getPolicyPath(gh_connection *gh_control.GitHubConnection) string {
+	return fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", gh_connection.Owner, gh_connection.Repo)
 }
 
-func getPolicyRepoPath(pathToClone, owner, repo string) string {
-	return fmt.Sprintf("%s/%s", pathToClone, getPolicyPath(owner, repo))
+func getPolicyRepoPath(pathToClone string, gh_connection *gh_control.GitHubConnection) string {
+	return fmt.Sprintf("%s/%s", pathToClone, getPolicyPath(gh_connection))
 }
 
-func getRemotePolicy(ctx context.Context, gh_client *github.Client, owner, repo string) (*RepoPolicy, error) {
-	path := getPolicyPath(owner, repo)
+func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, error) {
+	path := getPolicyPath(gh_connection)
 
-	policyContents, _, _, err := gh_client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	policyContents, _, _, err := gh_connection.Client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -66,24 +65,24 @@ func getRemotePolicy(ctx context.Context, gh_client *github.Client, owner, repo 
 }
 
 // Gets the policy for the indicated branch direct from the GitHub repo.
-func GetBranchPolicy(ctx context.Context, gh_client *github.Client, owner, repo, branch string) (*ProtectedBranch, error) {
-	p, err := getRemotePolicy(ctx, gh_client, owner, repo)
+func GetBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*ProtectedBranch, error) {
+	p, err := getRemotePolicy(ctx, gh_connection)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, pb := range p.ProtectedBranches {
-		if pb.Name == branch {
+		if pb.Name == gh_connection.Branch {
 			return &pb, nil
 		}
 	}
 
-	return nil, errors.New(fmt.Sprintf("Could not find rule for branch %s", branch))
+	return nil, errors.New(fmt.Sprintf("Could not find rule for branch %s", gh_connection.Branch))
 }
 
 // Check to see if the local directory is a clean clone or not
 // TODO: Check if the policy exists remotely.
-func checkLocalDir(ctx context.Context, gh_client *github.Client, pathToClone, owner, repoName string) error {
+func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnection, pathToClone string) error {
 	repo, err := git.PlainOpen(pathToClone)
 	if err != nil {
 		return err
@@ -100,7 +99,7 @@ func checkLocalDir(ctx context.Context, gh_client *github.Client, pathToClone, o
 		return errors.New(fmt.Sprintf("You must run this command in a clean clone of %s", SourcePolicyUri))
 	}
 
-	path := getPolicyRepoPath(pathToClone, owner, repoName)
+	path := getPolicyRepoPath(pathToClone, gh_connection)
 	// Is there already a local policy?
 	_, err = os.Stat(path)
 	if err != nil {
@@ -114,28 +113,28 @@ func checkLocalDir(ctx context.Context, gh_client *github.Client, pathToClone, o
 
 	// Is there a remote policy?
 	// TODO: Look for errors that _aren't_ 404.
-	rp, _ := getRemotePolicy(ctx, gh_client, owner, repoName)
+	rp, _ := getRemotePolicy(ctx, gh_connection)
 	if rp != nil {
-		return errors.New(fmt.Sprintf("Policy already exists remotely for %s", getPolicyPath(owner, repoName)))
+		return errors.New(fmt.Sprintf("Policy already exists remotely for %s", getPolicyPath(gh_connection)))
 	}
 	return nil
 }
 
-func CreateLocalPolicy(ctx context.Context, gh_client *github.Client, pathToClone, owner, repo, branch string) (string, error) {
+func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection, pathToClone string) (string, error) {
 	// First make sure they're in the right state...
-	err := checkLocalDir(ctx, gh_client, pathToClone, owner, repo)
+	err := checkLocalDir(ctx, gh_connection, pathToClone)
 	if err != nil {
 		return "", err
 	}
 
-	path := getPolicyRepoPath(pathToClone, owner, repo)
+	path := getPolicyRepoPath(pathToClone, gh_connection)
 
 	// TODO check to make sure we're in a clean copy of the repo.
 	p := RepoPolicy{
 		CanonicalRepo: "TODO fill this in",
 		ProtectedBranches: []ProtectedBranch{
 			ProtectedBranch{
-				Name:                  branch,
+				Name:                  gh_connection.Branch,
 				Since:                 time.Now(),
 				TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2,
 			},
@@ -159,10 +158,10 @@ func CreateLocalPolicy(ctx context.Context, gh_client *github.Client, pathToClon
 }
 
 // Evaluates the control against the policy and returns the resulting source level.
-func EvaluateControl(ctx context.Context, gh_client *github.Client, owner, repo, branch string, pushTime time.Time, controlStatus *gh_control.GhControlStatus) (string, error) {
+func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, pushTime time.Time, controlStatus *gh_control.GhControlStatus) (string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
-	branchPolicy, err := GetBranchPolicy(ctx, gh_client, owner, repo, branch)
+	branchPolicy, err := GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
 		return "", err
 	}
@@ -188,8 +187,8 @@ func EvaluateControl(ctx context.Context, gh_client *github.Client, owner, repo,
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level
-func EvaluateProv(ctx context.Context, gh_client *github.Client, owner, repo, branch string, prov *spb.Statement) (string, error) {
-	branchPolicy, err := GetBranchPolicy(ctx, gh_client, owner, repo, branch)
+func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (string, error) {
+	branchPolicy, err := GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
 		return "", err
 	}
