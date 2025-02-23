@@ -66,21 +66,7 @@ func (ghc GitHubConnection) commitActivity(ctx context.Context, commit string) (
 		}
 	}
 
-	return nil, fmt.Errorf("Could not find repo activity for commit %s", commit)
-}
-
-func maxTime(times []time.Time) time.Time {
-	if len(times) == 0 {
-		return time.Time{} // Return zero value if the slice is empty
-	}
-
-	max := times[0]
-	for _, t := range times[1:] {
-		if t.After(max) {
-			max = t
-		}
-	}
-	return max
+	return nil, fmt.Errorf("could not find repo activity for commit %s", commit)
 }
 
 type GhControlStatus struct {
@@ -96,31 +82,32 @@ type GhControlStatus struct {
 	ActivityType string
 }
 
+// Returns the time the rule has been enabled since or nil if we can't find one that's enabled and the rule itself.
+func (ghc GitHubConnection) getRuleTime(ctx context.Context, rules []*github.RepositoryRule, ruleType string) (*time.Time, *github.RepositoryRule, error) {
+	var oldestRule *github.RepositoryRule
+	var oldestTime *time.Time
+	for _, rule := range rules {
+		if rule.Type == ruleType {
+			ruleGood, enabledSince, err := ghc.checkRule(ctx, rule)
+			if err != nil {
+				return nil, nil, err
+			}
+			if ruleGood && (oldestTime == nil || enabledSince.Before(*oldestTime)) {
+				oldestRule = rule
+				oldestTime = &enabledSince
+			}
+		}
+	}
+
+	return oldestTime, oldestRule, nil
+}
+
 // Determines the source level using GitHub's built in controls only.
 // This is necessarily only as good as GitHub's controls and existing APIs.
 // This is a useful demonstration on how SLSA Level 2 can be achieved with ~minimal effort.
 //
 // Returns the determined source level (level 2 max) or error.
 func (ghc GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context, commit string) (*GhControlStatus, error) {
-	rules, _, err := ghc.Client.Repositories.GetRulesForBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var deletionRule *github.RepositoryRule
-	var nonFastFowardRule *github.RepositoryRule
-	for _, rule := range rules {
-		switch rule.Type {
-		case "deletion":
-			deletionRule = rule
-		case "non_fast_forward":
-			nonFastFowardRule = rule
-		default:
-			// ignore
-		}
-	}
-
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
 	activity, err := ghc.commitActivity(ctx, commit)
 	if err != nil {
@@ -128,30 +115,43 @@ func (ghc GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context,
 	}
 
 	controlStatus := GhControlStatus{
+		// Default to L1, but upgrade later if possible.
 		ControlLevel:      slsa_types.SlsaSourceLevel1,
 		ControlLevelSince: time.Time{},
 		CommitPushTime:    activity.Timestamp,
 		ActivityType:      activity.ActivityType,
 		ActorLogin:        activity.Actor.Login}
 
-	if deletionRule == nil && nonFastFowardRule == nil {
-		// For L2 we need deletion and non-fast-forward rules.
-		return &controlStatus, nil
-	}
+	rules, _, err := ghc.Client.Repositories.GetRulesForBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch)
 
-	deletionGood, deletionSince, err := ghc.checkRule(ctx, deletionRule)
-	if err != nil {
-		return nil, err
-	}
-	nonFFGood, nonFFSince, err := ghc.checkRule(ctx, nonFastFowardRule)
 	if err != nil {
 		return nil, err
 	}
 
-	if deletionGood && nonFFGood {
-		controlStatus.ControlLevel = slsa_types.SlsaSourceLevel2
-		controlStatus.ControlLevelSince = maxTime([]time.Time{deletionSince, nonFFSince})
+	var newestRuleEnabled *time.Time
+	for _, ruleType := range []string{"deletion", "non_fast_forward"} {
+		ruleTime, _, err := ghc.getRuleTime(ctx, rules, ruleType)
+		if err != nil {
+			return nil, err
+		}
+		if ruleTime == nil {
+			// This rule isn't enabled, so we'll fallback to our default.
+			return &controlStatus, nil
+		}
+		if newestRuleEnabled == nil || newestRuleEnabled.Before(*ruleTime) {
+			newestRuleEnabled = ruleTime
+		}
 	}
+
+	// Check that the commit was created after the newest rule was enabled...
+	// to be sure folks aren't somehow sneaking something through...
+	if activity.Timestamp.Before(*newestRuleEnabled) {
+		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRuleEnabled)
+	}
+
+	// All the rules required for L2 are enabled.
+	controlStatus.ControlLevel = slsa_types.SlsaSourceLevel2
+	controlStatus.ControlLevelSince = *newestRuleEnabled
 
 	return &controlStatus, nil
 }
