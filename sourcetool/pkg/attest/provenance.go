@@ -108,6 +108,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 		return nil, err
 	}
 
+	// TODO: consider if we should use controlStatus.ControlLevelSince.
 	levelProp := SourceProvenanceProperty{Since: time.Now()}
 	var curProvPred SourceProvenancePred
 	curProvPred.PrevCommit = prevCommit
