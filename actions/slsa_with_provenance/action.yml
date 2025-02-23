@@ -5,6 +5,12 @@ description: Creates SLSA Source Track Provenance
 runs:
   using: "Composite"
   steps:
+    - id: check_push
+      if: ${{ github.event_name != 'push' }}
+      run: |
+        echo "This action can only be run during a push."
+        exit 1
+      shell: bash
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v5
       with:
@@ -20,8 +26,6 @@ runs:
         path: ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl
     - id: determine_level
       run: |
-        echo "event_name=${{ github.event_name }}"
-        echo "event.action=${{ github.event.action }}"
         go run github.com/slsa-framework/slsa-source-poc/sourcetool@bb04ad4308b90bda0e48fa1519d5dea07e441ceb checklevelprov --prev_bundle_path ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl --commit ${{ github.sha }} --prev_commit ${{ github.event.before }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl
       shell: bash
     - id: summary

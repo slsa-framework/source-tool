@@ -1,4 +1,4 @@
-name: "Create a SLSA Source Track VSA"
+name: "Computes the SLSA source information"
 
 on:
   workflow_call:

@@ -2,9 +2,7 @@ name: Attest to this repo's source
 on:
   push:
     branches: [ "main" ]
-  # TODO: Remove workflow_dispatch so that we only create VSAs for protected branches
-  # contemporaneously to the change.  (And probably really check in
-  # create_slsa_source_vsa.yml).
+  # TODO: Remove, this should not work.
   workflow_dispatch:
 
 jobs:
@@ -13,5 +11,4 @@ jobs:
     permissions:
       contents: write # needed for storing the vsa in the repo.
       id-token: write
-    # TODO: Can we make this work for forks too?
     uses: slsa-framework/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@main
