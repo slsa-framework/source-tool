@@ -51,7 +51,8 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	gh_client := github.NewClient(nil)
 	ctx := context.Background()
 
-	p, err := attest.CreateSourceProvenance(ctx, gh_client, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
+	pa := attest.NewProvenanceAttestor(gh_client, attest.DefaultVerifierOptions)
+	p, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
 	if err != nil {
 		log.Fatal(err)
 	}

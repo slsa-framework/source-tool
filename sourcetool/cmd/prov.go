@@ -40,7 +40,8 @@ to quickly create a Cobra application.`,
 func doProv(prevAttPath, commit, prevCommit, owner, repo, branch string) {
 	gh_client := github.NewClient(nil)
 	ctx := context.Background()
-	newProv, err := attest.CreateSourceProvenance(ctx, gh_client, prevAttPath, commit, prevCommit, owner, repo, branch)
+	pa := attest.NewProvenanceAttestor(gh_client, attest.DefaultVerifierOptions)
+	newProv, err := pa.CreateSourceProvenance(ctx, prevAttPath, commit, prevCommit, owner, repo, branch)
 	if err != nil {
 		log.Fatal(err)
 	}

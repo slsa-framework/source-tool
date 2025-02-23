@@ -38,6 +38,15 @@ type SourceProvenancePred struct {
 	Properties map[string]SourceProvenanceProperty `json:"properties"`
 }
 
+type ProvenanceAttestor struct {
+	verification_options VerificationOptions
+	gh_client            *github.Client
+}
+
+func NewProvenanceAttestor(gh_client *github.Client, verification_options VerificationOptions) *ProvenanceAttestor {
+	return &ProvenanceAttestor{verification_options: verification_options, gh_client: gh_client}
+}
+
 func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
 	predJson, err := protojson.Marshal(statement.Predicate)
 	if err != nil {
@@ -89,8 +98,8 @@ func doesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
 	return false
 }
 
-func createCurrentProvenance(ctx context.Context, gh_client *github.Client, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
-	controlStatus, err := gh_control.DetermineSourceLevelControlOnly(ctx, gh_client, commit, owner, repo, branch)
+func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
+	controlStatus, err := gh_control.DetermineSourceLevelControlOnly(ctx, pa.gh_client, commit, owner, repo, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +113,7 @@ func createCurrentProvenance(ctx context.Context, gh_client *github.Client, comm
 	return addPredToStatement(&curProvPred, commit)
 }
 
-func convertLineToProv(line string) (*spb.Statement, error) {
+func (pa ProvenanceAttestor) convertLineToProv(line string) (*spb.Statement, error) {
 	var sp spb.Statement
 
 	// Did they just give us an unsigned, unwrapped provenance?
@@ -118,7 +127,7 @@ func convertLineToProv(line string) (*spb.Statement, error) {
 
 	// Did they give us the provenance as a sigstore bundle?
 	// TODO: Allow the user to specify verifier options at the command line.
-	vr, err := Verify(line, DefaultVerifierOptions)
+	vr, err := Verify(line, pa.verification_options)
 	if err == nil {
 		// This is it.
 		return vr.Statement, nil
@@ -126,10 +135,10 @@ func convertLineToProv(line string) (*spb.Statement, error) {
 		log.Printf("Line %s is not a sigstore bundle: %v", line, err)
 	}
 
-	return nil, errors.New("could not convert line to statement.")
+	return nil, errors.New("could not convert line to statement")
 }
 
-func getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
+func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
 	if prevAttPath == "" {
 		// There is no prior provenance
 		return nil, nil
@@ -148,7 +157,7 @@ func getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
 				// Handle end of file gracefully
 				if line != "" {
 					// Is this source provenance?
-					sp, err := convertLineToProv(line)
+					sp, err := pa.convertLineToProv(line)
 					if err == nil {
 						// Should be good!
 						return sp, nil
@@ -159,7 +168,7 @@ func getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
 			return nil, err
 		}
 		// Is this source provenance?
-		sp, err := convertLineToProv(line)
+		sp, err := pa.convertLineToProv(line)
 		if err == nil {
 			if doesSubjectIncludeCommit(sp, prevCommit) {
 				// Should be good!
@@ -171,17 +180,17 @@ func getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
 	return nil, nil
 }
 
-func CreateSourceProvenance(ctx context.Context, gh_client *github.Client, prevAttPath, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
+func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit, owner, repo, branch string) (*spb.Statement, error) {
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
 
-	curProv, err := createCurrentProvenance(ctx, gh_client, commit, prevCommit, owner, repo, branch)
+	curProv, err := pa.createCurrentProvenance(ctx, commit, prevCommit, owner, repo, branch)
 	if err != nil {
 		return nil, err
 	}
 
-	prevProv, err := getPrevProvenance(prevAttPath, prevCommit)
+	prevProv, err := pa.getPrevProvenance(prevAttPath, prevCommit)
 	if err != nil {
 		return nil, err
 	}
