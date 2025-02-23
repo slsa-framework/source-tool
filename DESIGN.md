@@ -32,7 +32,7 @@ the SLSA Source Level of subsequent commits.
 
 ### Control-Only
 
-In the control-only approach the `sourcetool` with the `checklevel` comamnd fetches the
+In the control-only approach the `sourcetool` with the `checklevel` command fetches the
 rulesets that are _currently_ enabled on the source repository.
 
 If all of the following are true:
@@ -58,7 +58,7 @@ The security of the control only approach rests on:
 
 1. Our trust in the reusable workflow to only execute for commits that have just
    been pushed to a protected branch.
-   TODO: This has not yet been implemmented!
+   TODO: This has not yet been implemented!
 2. Our trust in GitHub APIs to return trustworthy information.
 3. That the 'bypass' list in the rules is not so large as to be meaningless.
 
@@ -113,13 +113,13 @@ def getSourceLevel(commit, policy):
 
 #### Auditing
 
-While the resuable workflow only ever checks the attestations for the prior commit,
+While the reusable workflow only ever checks the attestations for the prior commit,
 'offline' auditors might wish to evaluate the entire chain of provenance from the most
 recent commit, all the way back to the first commit made under the existing policy.
 
 ## Source Provenance
 
-Source provennace:
+Source provenance:
 
 1. Indicates the commit the data applies to - `subject.digest.gitCommit`.
 2. Indicates the commit prior to this one - `predicate.prev_commit`.
@@ -192,6 +192,6 @@ Specifically, the reusable workflow provides the following guarantees:
 2. It provides the previous commit to the `sourcetool` establishing the link
    between it and the current commit.  E.g. it allows us to trust that the
    current commit listed in the source provenance is a direct descendant of
-   the listed previous commit.  This allows us to establish continutity.
+   the listed previous commit.  This allows us to establish continuity.
 3. It lets us ensure the provenance was created contemporaneously with the
    introduction of the current commit to the current branch.
