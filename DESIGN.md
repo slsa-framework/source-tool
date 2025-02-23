@@ -7,12 +7,13 @@ using GitHub's existing functionality.
 
 * Users create a [policy](#policy) for the repo & branches they want to protect,
   indicating their desired SLSA level. 
-* Users call the .github/workflows/create_slsa_source_vsa.yml reusable workflow on any
+* Users call the .github/workflows/slsa_with_provenance.yml reusable workflow on any
   `push` changes to protected branches.
-* The create_slsa_source_vsa workflow evaluates their controls, the current commit, and,
-  in some cases, prior attestations, to determine the SLSA Source level of the current
+* The slsa_with_provenance workflow gets the attestations, if any, for the prior
   commit.
-* A VSA, and potentially other attestations, are created within the workflow, and
+* The slsa_with_provenance workflow evaluates their controls, the current commit, and
+  prior attestations, to determine the SLSA Source level of the current commit.
+* A VSA, 'source provenance', are created within the workflow, and
   are stored in [git notes](https://git-scm.com/docs/git-notes) for the current commit.
 * Downstream users can get the VSA for the revision they're consuming by getting the
   git notes for that revision.
@@ -31,8 +32,8 @@ the SLSA Source Level of subsequent commits.
 
 ### Control-Only
 
-In the control-only approach the `sourcetool` fetches the rulesets that are _currently_
-enabled on the source repository.
+In the control-only approach the `sourcetool` with the `checklevel` comamnd fetches the
+rulesets that are _currently_ enabled on the source repository.
 
 If all of the following are true:
 
@@ -55,7 +56,7 @@ and stored in the associated git note.
 
 The security of the control only approach rests on:
 
-1. Our trust in the `create_slsa_source_vsa` to only execute for commits that have just
+1. Our trust in the reusable workflow to only execute for commits that have just
    been pushed to a protected branch.
    TODO: This has not yet been implemmented!
 2. Our trust in GitHub APIs to return trustworthy information.
@@ -72,15 +73,18 @@ by the adoption of the [provenance-based](#provenance-based) approach.
 
 ### Provenance-Based
 
-In the provenance based approach the reusable `create_slsa_source_vsa` workflow fetches
-any attestations from the commit _prior_ to the current commit within the current context.
+In the provenance based approach the reusable workflow fetches any attestations from the
+commit prior to the current commit.
 
-These attestations are provided to the `sourcetool` which then:
+These attestations are provided to the `sourcetool` `checklevelprov` command which then:
 
 1. Computes the level the current commit is eligible for based on the same approach taken
-   by [control-only](#control-only).  Sets the control start time to ~now.
+   by [control-only](#control-only).  Sets the control start time to ~now (it does _not_
+   use the start time reported by the
+   [Get Rules for Branch](https://docs.github.com/rest/repos/rules#get-rules-for-a-branch)
+   API).
 2. Checks to see if [source provenance](#source-provenance) for the prior commit is
-   available in the bundle of attestations provided by `create_slsa_source_vsa`.
+   available in the bundle of attestations provided by reusable workflow.
 3. If source provenance is available, checks if the previous provenance met the same level
    as the current commit.  If so, it updates the control start time to the start time
    recorded in the previous provenance.
@@ -99,7 +103,7 @@ def getSourceLevel(commit, policy):
     # We stop recursing if there are no more commits, or if
     # the previous commit occurred prior when the policy went
     # into effect.
-    if prevCommit == null or isCommitTooOld(prevCommit, policy):
+    if prevCommit == null or isCommitBeforePolicyStart(prevCommit, policy):
         # Base case
         return controlLevel
     # We know the current commit has controlLevel, but we want
@@ -109,17 +113,85 @@ def getSourceLevel(commit, policy):
 
 #### Auditing
 
-While `create_slsa_source_vsa` only ever checks the attestations for the prior commit,
+While the resuable workflow only ever checks the attestations for the prior commit,
 'offline' auditors might wish to evaluate the entire chain of provenance from the most
 recent commit, all the way back to the first commit made under the existing policy.
 
 ## Source Provenance
 
+Source provennace:
+
+1. Indicates the commit the data applies to - `subject.digest.gitCommit`.
+2. Indicates the commit prior to this one - `predicate.prev_commit`.
+3. For a set of properties (controls) indicates when each of those properties started being enforced.
+
+```json
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "digest": {
+        "gitCommit": "1ea4cfbe47eef5e1a1ea2acaeef3113ea23f1292"
+      }
+    }
+  ],
+  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1",
+  "predicate": {
+    "prev_commit": "b84634e59c778199b039299be2ce51fcc419c2db",
+    "properties": {
+      "SLSA_SOURCE_LEVEL_2": {
+        "since": "2025-02-23T15:12:14.728204579Z"
+      }
+    }
+  }
+}
+```
+
 ## Policy
 
-Use of `since` to prevent folks from disabling controls, making changes, and reenabling the
-controls.
+This PoC uses user supplied 'policy' files (stored in a public git repo outside of user
+control) to indicate what controls _ought_ to be enforced and when that enforcement should
+start.
+
+This is used to prevent users from disabling controls, making changes, and reenabling the
+controls.  Now, if a user wanted to do so they'd also have to update their 'Since' date
+in their policy, and have that change submitted to the policy repo.  The updated date
+would then not cover the uncontrolled changes they made.
+
+This amounts to public declaration of SLSA adoption and allows backsliding to be detected.
+
+```json
+{
+  "canonical_repo": "https://github.com/slsa-framework/slsa-source-poc",
+  "protected_branches": [
+    {
+      "Name": "main",
+      "Since": "2025-02-28T15:09:27.845Z",
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_2"
+    }
+  ]
+}
+```
 
 ## Attestation Storage
 
-## Security
+Attestations are stored on commits using [git notes](https://git-scm.com/docs/git-notes)
+where each line of the note is a separate signed attestation. (E.g. the note is an
+[in-toto bundle](https://github.com/in-toto/attestation/blob/main/spec/v1/bundle.md)).
+
+## Reusable workflow
+
+This PoC relies heavily on the security properties of GitHub Actions reusable workflows.
+It assumes callers cannot influence the decisions it makes beyond the limited inputs
+they provide when calling it.
+
+Specifically, the reusable workflow provides the following guarantees:
+
+1. It serves as the identity used to sign attestations, allowing us to know the
+   attestations were produced by _this_ workflow, and not by the user.
+2. It provides the previous commit to the `sourcetool` establishing the link
+   between it and the current commit.  E.g. it allows us to trust that the
+   current commit listed in the source provenance is a direct descendant of
+   the listed previous commit.  This allows us to establish continutity.
+3. It lets us ensure the provenance was created contemporaneously with the
+   introduction of the current commit to the current branch.
