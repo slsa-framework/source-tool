@@ -12,5 +12,3 @@ jobs:
     steps:
     - name: prov
       uses: slsa-framework/slsa-source-poc/actions/slsa_with_provenance@main
-    - name: vsa
-      uses: slsa-framework/slsa-source-poc/actions/vsa_creator@main
