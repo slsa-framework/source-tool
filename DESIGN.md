@@ -136,6 +136,8 @@ Source provenance:
   ],
   "predicateType": "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1",
   "predicate": {
+    "activity_type": "pr_merge",
+    "actor": "TomHennen",
     "prev_commit": "b84634e59c778199b039299be2ce51fcc419c2db",
     "properties": {
       "SLSA_SOURCE_LEVEL_2": {
