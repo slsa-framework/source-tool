@@ -2,7 +2,6 @@ package gh_control
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -12,6 +11,10 @@ import (
 	"github.com/google/go-github/v68/github"
 )
 
+type actor struct {
+	Login string `json:"login"`
+}
+
 type activity struct {
 	Id           int
 	Before       string
@@ -19,6 +22,7 @@ type activity struct {
 	Ref          string
 	Timestamp    time.Time
 	ActivityType string `json:"activity_type"`
+	Actor        actor  `json:"actor"`
 }
 
 // Checks to see if the rule was enabled and since what time.
@@ -36,18 +40,18 @@ func (ghc GitHubConnection) checkRule(ctx context.Context, rule *github.Reposito
 	return true, ruleset.UpdatedAt.Time, nil
 }
 
-func (ghc GitHubConnection) commitPushTime(ctx context.Context, commit string) (time.Time, error) {
+func (ghc GitHubConnection) commitActivity(ctx context.Context, commit string) (*activity, error) {
 	// Unfortunately the gh_client doesn't have native support for this...'
 	reqUrl := fmt.Sprintf("repos/%s/%s/activity", ghc.Owner, ghc.Repo)
 	req, err := ghc.Client.NewRequest("GET", reqUrl, nil)
 	if err != nil {
-		return time.Time{}, err
+		return nil, err
 	}
 
 	var result []*activity
 	_, err = ghc.Client.Do(ctx, req, &result)
 	if err != nil {
-		return time.Time{}, err
+		return nil, err
 	}
 
 	targetRef := fmt.Sprintf("refs/heads/%s", ghc.Branch)
@@ -58,11 +62,11 @@ func (ghc GitHubConnection) commitPushTime(ctx context.Context, commit string) (
 		}
 		if activity.After == commit && activity.Ref == targetRef {
 			// Found it
-			return activity.Timestamp, nil
+			return activity, nil
 		}
 	}
 
-	return time.Time{}, errors.New(fmt.Sprintf("Could not find repo activity for commit %s", commit))
+	return nil, fmt.Errorf("Could not find repo activity for commit %s", commit)
 }
 
 func maxTime(times []time.Time) time.Time {
@@ -84,13 +88,17 @@ type GhControlStatus struct {
 	ControlLevel string
 	// The time the control has been enabled since.
 	ControlLevelSince time.Time
-	// The time the commit we're evaluting was pushed.
+	// The time the commit we're evaluating was pushed.
 	CommitPushTime time.Time
+	// The actor that pushed the commit.
+	ActorLogin string
+	// The type of activity that created the commit.
+	ActivityType string
 }
 
 // Determines the source level using GitHub's built in controls only.
 // This is necessarily only as good as GitHub's controls and existing APIs.
-// This is a useful demonstration on how SLSA Level 2 can be acheived with ~minimal effort.
+// This is a useful demonstration on how SLSA Level 2 can be achieved with ~minimal effort.
 //
 // Returns the determined source level (level 2 max) or error.
 func (ghc GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context, commit string) (*GhControlStatus, error) {
@@ -114,12 +122,17 @@ func (ghc GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context,
 	}
 
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
-	pushTime, err := ghc.commitPushTime(ctx, commit)
+	activity, err := ghc.commitActivity(ctx, commit)
 	if err != nil {
 		return nil, err
 	}
 
-	controlStatus := GhControlStatus{ControlLevel: slsa_types.SlsaSourceLevel1, ControlLevelSince: time.Time{}, CommitPushTime: pushTime}
+	controlStatus := GhControlStatus{
+		ControlLevel:      slsa_types.SlsaSourceLevel1,
+		ControlLevelSince: time.Time{},
+		CommitPushTime:    activity.Timestamp,
+		ActivityType:      activity.ActivityType,
+		ActorLogin:        activity.Actor.Login}
 
 	if deletionRule == nil && nonFastFowardRule == nil {
 		// For L2 we need deletion and non-fast-forward rules.
