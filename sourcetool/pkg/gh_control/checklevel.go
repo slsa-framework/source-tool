@@ -22,8 +22,8 @@ type activity struct {
 }
 
 // Checks to see if the rule was enabled and since what time.
-func checkRule(ctx context.Context, gh_client *github.Client, owner string, repo string, rule *github.RepositoryRule) (bool, time.Time, error) {
-	ruleset, _, err := gh_client.Repositories.GetRuleset(ctx, owner, repo, rule.RulesetID, false)
+func (ghc GitHubConnection) checkRule(ctx context.Context, rule *github.RepositoryRule) (bool, time.Time, error) {
+	ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
 	if err != nil {
 		return false, time.Time{}, err
 	}
@@ -36,21 +36,21 @@ func checkRule(ctx context.Context, gh_client *github.Client, owner string, repo
 	return true, ruleset.UpdatedAt.Time, nil
 }
 
-func commitPushTime(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string) (time.Time, error) {
+func (ghc GitHubConnection) commitPushTime(ctx context.Context, commit string) (time.Time, error) {
 	// Unfortunately the gh_client doesn't have native support for this...'
-	reqUrl := fmt.Sprintf("repos/%s/%s/activity", owner, repo)
-	req, err := gh_client.NewRequest("GET", reqUrl, nil)
+	reqUrl := fmt.Sprintf("repos/%s/%s/activity", ghc.Owner, ghc.Repo)
+	req, err := ghc.Client.NewRequest("GET", reqUrl, nil)
 	if err != nil {
 		return time.Time{}, err
 	}
 
 	var result []*activity
-	_, err = gh_client.Do(ctx, req, &result)
+	_, err = ghc.Client.Do(ctx, req, &result)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	targetRef := fmt.Sprintf("refs/heads/%s", branch)
+	targetRef := fmt.Sprintf("refs/heads/%s", ghc.Branch)
 	monitoredTypes := []string{"push", "force_push", "pr_merge"}
 	for _, activity := range result {
 		if !slices.Contains(monitoredTypes, activity.ActivityType) {
@@ -93,8 +93,8 @@ type GhControlStatus struct {
 // This is a useful demonstration on how SLSA Level 2 can be acheived with ~minimal effort.
 //
 // Returns the determined source level (level 2 max) or error.
-func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Client, commit string, owner string, repo string, branch string) (*GhControlStatus, error) {
-	rules, _, err := gh_client.Repositories.GetRulesForBranch(ctx, owner, repo, branch)
+func (ghc GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context, commit string) (*GhControlStatus, error) {
+	rules, _, err := ghc.Client.Repositories.GetRulesForBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch)
 
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Clie
 	}
 
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
-	pushTime, err := commitPushTime(ctx, gh_client, commit, owner, repo, branch)
+	pushTime, err := ghc.commitPushTime(ctx, commit)
 	if err != nil {
 		return nil, err
 	}
@@ -126,11 +126,11 @@ func DetermineSourceLevelControlOnly(ctx context.Context, gh_client *github.Clie
 		return &controlStatus, nil
 	}
 
-	deletionGood, deletionSince, err := checkRule(ctx, gh_client, owner, repo, deletionRule)
+	deletionGood, deletionSince, err := ghc.checkRule(ctx, deletionRule)
 	if err != nil {
 		return nil, err
 	}
-	nonFFGood, nonFFSince, err := checkRule(ctx, gh_client, owner, repo, nonFastFowardRule)
+	nonFFGood, nonFFSince, err := ghc.checkRule(ctx, nonFastFowardRule)
 	if err != nil {
 		return nil, err
 	}

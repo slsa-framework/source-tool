@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/google/go-github/v68/github"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 
 	"github.com/spf13/cobra"
@@ -35,9 +35,9 @@ var (
 )
 
 func doCreatePolicy(policyRepoPath, owner, repo, branch string) {
-	gh_client := github.NewClient(nil)
+	gh_connection := gh_control.NewGhConnection(owner, repo, branch)
 	ctx := context.Background()
-	outpath, err := policy.CreateLocalPolicy(ctx, gh_client, policyRepoPath, owner, repo, branch)
+	outpath, err := policy.CreateLocalPolicy(ctx, gh_connection, policyRepoPath)
 	if err != nil {
 		log.Fatal(err)
 	}

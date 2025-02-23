@@ -10,10 +10,10 @@ import (
 	"os"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +26,8 @@ type CheckLevelProvArgs struct {
 	branch               string
 	outputUnsignedBundle string
 	outputSignedBundle   string
+	expectedIssuer       string
+	expectedSan          string
 }
 
 // checklevelprovCmd represents the checklevelprov command
@@ -34,13 +36,7 @@ var (
 
 	checklevelprovCmd = &cobra.Command{
 		Use:   "checklevelprov",
-		Short: "A brief description of your command",
-		Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+		Short: "Checks the given commit against policy using & creating provenance",
 		Run: func(cmd *cobra.Command, args []string) {
 			doCheckLevelProv(checkLevelProvArgs)
 		},
@@ -48,22 +44,32 @@ to quickly create a Cobra application.`,
 )
 
 func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
-	gh_client := github.NewClient(nil)
+	gh_connection :=
+		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
 	ctx := context.Background()
 
-	p, err := attest.CreateSourceProvenance(ctx, gh_client, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
+	ver_options := attest.DefaultVerifierOptions
+	if checkLevelProvArgs.expectedIssuer != "" {
+		ver_options.ExpectedIssuer = checkLevelProvArgs.expectedIssuer
+	}
+	if checkLevelProvArgs.expectedSan != "" {
+		ver_options.ExpectedSan = checkLevelProvArgs.expectedSan
+	}
+
+	pa := attest.NewProvenanceAttestor(gh_connection, ver_options)
+	p, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// check p against policy
-	level, err := policy.EvaluateProv(ctx, gh_client, checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch, p)
+	level, err := policy.EvaluateProv(ctx, gh_connection, p)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// create vsa
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.commit, level)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, checkLevelProvArgs.commit, level)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,4 +130,7 @@ func init() {
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.branch, "branch", "", "The branch within the repository - required.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
+	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
+	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedSan, "expected_san", "", "The expect san of attestations.")
+
 }
