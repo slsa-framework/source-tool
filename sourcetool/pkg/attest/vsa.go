@@ -1,7 +1,6 @@
 package attest
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -40,7 +39,7 @@ func CreateUnsignedSourceVsa(owner string, repo string, commit string, sourceLev
 	}}
 
 	var predPb structpb.Struct
-	err = json.Unmarshal(predJson, &predPb)
+	err = protojson.Unmarshal(predJson, &predPb)
 	if err != nil {
 		return "", err
 	}

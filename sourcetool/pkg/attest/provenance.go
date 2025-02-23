@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"log"
 	"os"
 	"time"
 
@@ -37,12 +39,13 @@ type SourceProvenancePred struct {
 }
 
 func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
-	predJson, err := json.Marshal(statement.Predicate)
+	predJson, err := protojson.Marshal(statement.Predicate)
 	if err != nil {
 		return nil, err
 	}
 
 	var predStruct SourceProvenancePred
+	// Using regular json.Unmarshal because this is just a regular struct.
 	err = json.Unmarshal(predJson, &predStruct)
 	if err != nil {
 		return nil, err
@@ -51,6 +54,7 @@ func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
 }
 
 func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Statement, error) {
+	// Using regular json.Marhsal because this is just a regular struct and not from a proto.
 	predJson, err := json.Marshal(provPred)
 	if err != nil {
 		return nil, err
@@ -61,7 +65,7 @@ func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Sta
 	}}
 
 	var predPb structpb.Struct
-	err = json.Unmarshal(predJson, &predPb)
+	err = protojson.Unmarshal(predJson, &predPb)
 	if err != nil {
 		return nil, err
 	}
@@ -106,15 +110,22 @@ func convertLineToProv(line string) (*spb.Statement, error) {
 	// Did they just give us an unsigned, unwrapped provenance?
 	// TODO: Add signature verification and stop supporting this!
 	err := protojson.Unmarshal([]byte(line), &sp)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return &sp, nil
+	} else {
+		log.Println("Line is not a bare statement")
 	}
 
-	// Did they give us the provenance in a DSSE?
-	// TODO: add signature verification
-	// TODO: actually implement
+	// Did they give us the provenance as a sigstore bundle?
+	vr, err := Verify(line)
+	if err == nil {
+		// This is it.
+		return vr.Statement, nil
+	} else {
+		log.Printf("Line %s is not a sigstore bundle: %v", line, err)
+	}
 
-	return &sp, nil
+	return nil, errors.New("Could not convert line to statement.")
 }
 
 func getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {

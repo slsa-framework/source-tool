@@ -5,11 +5,11 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func doProv(prevAttPath, commit, prevCommit, owner, repo, branch string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	provStr, err := json.Marshal(newProv)
+	provStr, err := protojson.Marshal(newProv)
 	if err != nil {
 		log.Fatal(err)
 	}

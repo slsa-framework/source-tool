@@ -5,13 +5,13 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/google/go-github/v68/github"
 	"github.com/spf13/cobra"
@@ -68,7 +68,7 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		log.Fatal(err)
 	}
 
-	unsignedProv, err := json.Marshal(p)
+	unsignedProv, err := protojson.Marshal(p)
 	if err != nil {
 		log.Fatal(err)
 	}
