@@ -195,3 +195,26 @@ Specifically, the reusable workflow provides the following guarantees:
    the listed previous commit.  This allows us to establish continuity.
 3. It lets us ensure the provenance was created contemporaneously with the
    introduction of the current commit to the current branch.
+
+## Open Issues
+
+### Dealing with reliability
+
+This tool currently assumes that if a previous provenance cannot be found that
+it should assume this is the first time it's run and bootstrap a new provenance
+with a new start time.
+
+If this new provenance conflicts with an existing policy then the evaluation
+will result in a failed verification or a level 1 verification because it
+assumes a missing provenance indicates a control was disabled or evaded.
+
+However, especially as changes are being made, the tool or reusable workflow
+may fail, resulting in a missing provenance.  This does not necessarily mean
+the control was evaded, but it is hard to distinguish the two cases.
+
+One way to handle this might be to put more trust in the control duration
+provided by the GitHub APIs.  This would allow _some_ gaps in provenance to be
+filled as long as the controls weren't modified during that period.
+Unfortunately, this does not seem especially satisfying.  For now the tool
+is quite strict and will interpret any gap as a control gap, requiring the
+policy to be updated.
