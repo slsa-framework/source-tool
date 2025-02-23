@@ -26,6 +26,8 @@ type CheckLevelProvArgs struct {
 	branch               string
 	outputUnsignedBundle string
 	outputSignedBundle   string
+	expectedIssuer       string
+	expectedSan          string
 }
 
 // checklevelprovCmd represents the checklevelprov command
@@ -46,7 +48,15 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
 	ctx := context.Background()
 
-	pa := attest.NewProvenanceAttestor(gh_connection, attest.DefaultVerifierOptions)
+	ver_options := attest.DefaultVerifierOptions
+	if checkLevelProvArgs.expectedIssuer != "" {
+		ver_options.ExpectedIssuer = checkLevelProvArgs.expectedIssuer
+	}
+	if checkLevelProvArgs.expectedSan != "" {
+		ver_options.ExpectedSan = checkLevelProvArgs.expectedSan
+	}
+
+	pa := attest.NewProvenanceAttestor(gh_connection, ver_options)
 	p, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit)
 	if err != nil {
 		log.Fatal(err)
@@ -120,4 +130,7 @@ func init() {
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.branch, "branch", "", "The branch within the repository - required.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
+	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
+	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedSan, "expected_san", "", "The expect san of attestations.")
+
 }
