@@ -2,11 +2,9 @@ name: Attest to this repo's source
 on:
   push:
     branches: [ "main" ]
-  # TODO: Remove, this should not work.
-  workflow_dispatch:
 
 jobs:
-  # Whenever new source is pushed or a PR is received, create a new vsa
+  # Whenever new source is pushed recompute the slsa source information.
   check-change:
     permissions:
       contents: write # needed for storing the vsa in the repo.

@@ -5,6 +5,8 @@ description: Creates SLSA Source Track Provenance
 runs:
   using: "Composite"
   steps:
+    # This PoC depends on creating and checking information when branches are updated (e.g. via push).
+    # Don't allow runs that do not occur during pushes.
     - id: check_push
       if: ${{ github.event_name != 'push' }}
       run: |

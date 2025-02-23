@@ -58,7 +58,6 @@ The security of the control only approach rests on:
 
 1. Our trust in the reusable workflow to only execute for commits that have just
    been pushed to a protected branch.
-   TODO: This has not yet been implemented!
 2. Our trust in GitHub APIs to return trustworthy information.
 3. That the 'bypass' list in the rules is not so large as to be meaningless.
 
