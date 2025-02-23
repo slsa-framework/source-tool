@@ -117,7 +117,8 @@ func convertLineToProv(line string) (*spb.Statement, error) {
 	}
 
 	// Did they give us the provenance as a sigstore bundle?
-	vr, err := Verify(line)
+	// TODO: Allow the user to specify verifier options at the command line.
+	vr, err := Verify(line, DefaultVerifierOptions)
 	if err == nil {
 		// This is it.
 		return vr.Statement, nil
@@ -125,7 +126,7 @@ func convertLineToProv(line string) (*spb.Statement, error) {
 		log.Printf("Line %s is not a sigstore bundle: %v", line, err)
 	}
 
-	return nil, errors.New("Could not convert line to statement.")
+	return nil, errors.New("could not convert line to statement.")
 }
 
 func getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
