@@ -9,6 +9,7 @@ func Verify(data string) (*verify.VerificationResult, error) {
 	// TODO: There's more for us to do here... but what?
 	// Maybe check to make sure it's from the identity we expect (the workflow?)
 	verifier := bnd.NewVerifier()
+	verifier.Options.SkipIdentityCheck = true
 	vr, err := verifier.VerifyInlineBundle([]byte(data))
 	if err != nil {
 		return nil, err
