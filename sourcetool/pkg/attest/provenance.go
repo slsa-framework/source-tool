@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -56,6 +57,9 @@ func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
 	err = json.Unmarshal(predJson, &predStruct)
 	if err != nil {
 		return nil, err
+	}
+	if len(predStruct.Properties) == 0 {
+		return nil, fmt.Errorf("expected %v to have non-zero properties", predStruct)
 	}
 	return &predStruct, nil
 }
@@ -111,27 +115,19 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	return addPredToStatement(&curProvPred, commit)
 }
 
-func (pa ProvenanceAttestor) convertLineToProv(line string) (*spb.Statement, error) {
-	var sp spb.Statement
-
-	// Did they just give us an unsigned, unwrapped provenance?
-	// TODO: Add signature verification and stop supporting this!
-	err := protojson.Unmarshal([]byte(line), &sp)
-	if err == nil {
-		return &sp, nil
-	} else {
-		log.Println("Line is not a bare statement")
-	}
-
-	// Did they give us the provenance as a sigstore bundle?
-	// TODO: Allow the user to specify verifier options at the command line.
+func (pa ProvenanceAttestor) convertLineToStatement(line string) (*spb.Statement, error) {
+	// Is this a sigstore bundle with a statement?
 	vr, err := Verify(line, pa.verification_options)
 	if err == nil {
 		// This is it.
 		return vr.Statement, nil
 	} else {
-		log.Printf("Line %s is not a sigstore bundle: %v", line, err)
+		// We ignore errors because there could be other stuff in the
+		// bundle this line came from.
+		log.Printf("Line %s failed verification: %v", line, err)
 	}
+
+	// TODO: add support for 'regular' DSSEs.
 
 	return nil, errors.New("could not convert line to statement")
 }
@@ -151,30 +147,32 @@ func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			if err == io.EOF {
-				// Handle end of file gracefully
-				if line != "" {
-					// Is this source provenance?
-					sp, err := pa.convertLineToProv(line)
-					if err == nil {
-						// Should be good!
-						return sp, nil
-					}
-				}
+			// Handle end of file gracefully
+			if err != io.EOF {
+				return nil, err
+			}
+			if line == "" {
+				// Nothing to see here.
 				break
 			}
-			return nil, err
 		}
 		// Is this source provenance?
-		sp, err := pa.convertLineToProv(line)
+		sp, err := pa.convertLineToStatement(line)
 		if err == nil {
+			if sp.PredicateType != SourceProvPredicateType {
+				log.Printf("statement %v isn't source provenance", sp)
+				continue
+			}
 			if doesSubjectIncludeCommit(sp, prevCommit) {
 				// Should be good!
 				return sp, nil
+			} else {
+				log.Printf("subject '%v' does not reference previous commit '%s', skipping", sp.Subject, prevCommit)
 			}
 		}
 	}
 
+	log.Printf("didn't find prev commit %s", prevCommit)
 	return nil, nil
 }
 
@@ -195,6 +193,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 
 	// No prior provenance found, so we just go with current.
 	if prevProv == nil {
+		log.Printf("No previous provenance found, have to bootstrap\n")
 		return curProv, nil
 	}
 

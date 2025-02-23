@@ -113,10 +113,10 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		f.WriteString(signedVsa)
 		f.WriteString("\n")
 	} else {
-		// Just output to the screen
-		fmt.Println(string(unsignedProv))
-		fmt.Println(string(unsignedVsa))
+		log.Printf("unsigned prov: %s\n", unsignedProv)
+		log.Printf("unsigned vsa: %s\n", unsignedVsa)
 	}
+	fmt.Print(level)
 }
 
 func init() {
