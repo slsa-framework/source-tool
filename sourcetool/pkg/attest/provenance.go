@@ -28,9 +28,11 @@ const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-p
 // The predicate that encodes source provenance data.
 // The git commit this corresponds to is encoded in the surrounding statement.
 type SourceProvenancePred struct {
-	// The commit preceeding 'Commit' in the current context.
-	PrevCommit string `json:"prev_commit"`
-	// TODO: What else should we store? The actor that triggered this change?
+	// The commit preceding 'Commit' in the current context.
+	PrevCommit   string `json:"prev_commit"`
+	ActivityType string `json:"activity_type"`
+	Actor        string `json:"actor"`
+	// TODO: get the author of the PR (if this was from a PR).
 
 	// The properties observed for this commit.
 	// For now we're just storing the level here, but later we'll add other stuff
@@ -65,7 +67,7 @@ func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
 }
 
 func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Statement, error) {
-	// Using regular json.Marhsal because this is just a regular struct and not from a proto.
+	// Using regular json.Marshal because this is just a regular struct and not from a proto.
 	predJson, err := json.Marshal(provPred)
 	if err != nil {
 		return nil, err
@@ -109,6 +111,8 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	levelProp := SourceProvenanceProperty{Since: time.Now()}
 	var curProvPred SourceProvenancePred
 	curProvPred.PrevCommit = prevCommit
+	curProvPred.Actor = controlStatus.ActorLogin
+	curProvPred.ActivityType = controlStatus.ActivityType
 	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
 	curProvPred.Properties[controlStatus.ControlLevel] = levelProp
 
