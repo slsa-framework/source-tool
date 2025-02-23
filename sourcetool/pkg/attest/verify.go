@@ -1,6 +1,8 @@
 package attest
 
 import (
+	"log"
+
 	"github.com/carabiner-dev/bnd/pkg/bnd"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
@@ -14,5 +16,6 @@ func Verify(data string) (*verify.VerificationResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("sig %v\n", vr.Signature)
 	return vr, nil
 }
