@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 )
 
 type SourceProvenanceProperty struct {
@@ -109,14 +110,20 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 		return nil, err
 	}
 
-	// TODO: consider if we should use controlStatus.ControlLevelSince.
-	levelProp := SourceProvenanceProperty{Since: time.Now()}
+	// The only requirement needed for level 3, beyond the level 2 requirements
+	// (in this implementation) is _source provenance_.  Since that's what we're
+	// creating here we can upgrade to level 3.
+	if controlStatus.ControlLevel == slsa_types.SlsaSourceLevel2 {
+		controlStatus.ControlLevel = slsa_types.SlsaSourceLevel3
+	}
+
 	var curProvPred SourceProvenancePred
 	curProvPred.PrevCommit = prevCommit
 	curProvPred.Actor = controlStatus.ActorLogin
 	curProvPred.ActivityType = controlStatus.ActivityType
 	curProvPred.Branch = pa.gh_connection.GetFullBranch()
 	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
+	levelProp := SourceProvenanceProperty{Since: time.Now()}
 	curProvPred.Properties[controlStatus.ControlLevel] = levelProp
 
 	return addPredToStatement(&curProvPred, commit)
