@@ -3,7 +3,7 @@ package gh_control
 import (
 	"fmt"
 
-	"github.com/google/go-github/v68/github"
+	"github.com/google/go-github/v69/github"
 )
 
 type GitHubConnection struct {
