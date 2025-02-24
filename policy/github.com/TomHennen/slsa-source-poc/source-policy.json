@@ -4,7 +4,7 @@
         {
             "name": "main",
             "Since": "2025-02-28T15:09:27.845Z",
-            "target_slsa_source_level": "SLSA_SOURCE_LEVEL_2"
+            "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3"
         }
     ]
 }
