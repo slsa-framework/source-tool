@@ -130,7 +130,7 @@ Source provenance:
   "subject": [
     {
       "digest": {
-        "gitCommit": "1ea4cfbe47eef5e1a1ea2acaeef3113ea23f1292"
+        "gitCommit": "6efc0a710cb413aa4aa2d53ad75411a599fb2db1"
       }
     }
   ],
@@ -139,10 +139,11 @@ Source provenance:
     "activity_type": "pr_merge",
     "actor": "TomHennen",
     "branch": "refs/heads/main",
-    "prev_commit": "b84634e59c778199b039299be2ce51fcc419c2db",
+    "created_on": "2025-02-24T15:27:47.179656547Z",
+    "prev_commit": "a552404f404933e685daa6f1d189127cef49aa90",
     "properties": {
-      "SLSA_SOURCE_LEVEL_2": {
-        "since": "2025-02-23T15:12:14.728204579Z"
+      "SLSA_SOURCE_LEVEL_3": {
+        "since": "2025-02-24T15:24:23.245811209Z"
       }
     }
   }

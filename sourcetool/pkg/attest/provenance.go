@@ -30,10 +30,11 @@ const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-p
 // The git commit this corresponds to is encoded in the surrounding statement.
 type SourceProvenancePred struct {
 	// The commit preceding 'Commit' in the current context.
-	PrevCommit   string `json:"prev_commit"`
-	ActivityType string `json:"activity_type"`
-	Actor        string `json:"actor"`
-	Branch       string `json:"branch"`
+	PrevCommit   string    `json:"prev_commit"`
+	ActivityType string    `json:"activity_type"`
+	Actor        string    `json:"actor"`
+	Branch       string    `json:"branch"`
+	CreatedOn    time.Time `json:"created_on"`
 	// TODO: get the author of the PR (if this was from a PR).
 
 	// The properties observed for this commit.
@@ -117,13 +118,16 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 		controlStatus.ControlLevel = slsa_types.SlsaSourceLevel3
 	}
 
+	curTime := time.Now()
+
 	var curProvPred SourceProvenancePred
 	curProvPred.PrevCommit = prevCommit
 	curProvPred.Actor = controlStatus.ActorLogin
 	curProvPred.ActivityType = controlStatus.ActivityType
 	curProvPred.Branch = pa.gh_connection.GetFullBranch()
+	curProvPred.CreatedOn = curTime
 	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
-	levelProp := SourceProvenanceProperty{Since: time.Now()}
+	levelProp := SourceProvenanceProperty{Since: curTime}
 	curProvPred.Properties[controlStatus.ControlLevel] = levelProp
 
 	return addPredToStatement(&curProvPred, commit)

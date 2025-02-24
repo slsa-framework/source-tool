@@ -145,6 +145,7 @@ This tool creates 'source provenance' attestations for each push to a protected 
 * The current commit
 * The previous commit
 * The SLSA source level the current commit meets
+* The time the provenance was created
 * The time the branch began meeting that level's requirements
 
 ### Enforced change management process
