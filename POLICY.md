@@ -55,7 +55,7 @@ To display attestations:
 
 ### Revisions are immutable and uniquely identifiable
 
-Level 1+: This tool only attests to git revisions (commits), and those are inherantly immutable and
+Level 1+: This tool only attests to git revisions (commits), and those are inherently immutable and
 uniquely identifiable.
 
 ### Repository IDs	
@@ -65,7 +65,7 @@ by the repository URL (e.g. `https://github.com/slsa-framework/slsa-source-poc`)
 
 ### Revision IDs	
 
-Level 1+: This tool only attests to git revisions (commits) and those have immutability inherantly
+Level 1+: This tool only attests to git revisions (commits) and those have immutability inherently
 enforced.
 
 Open question: Is this duplicative of "Revisions are immutable and uniquely identifiable"
@@ -74,8 +74,13 @@ Open question: Is this duplicative of "Revisions are immutable and uniquely iden
 
 Level 1+: This is the tool that is generating these summary attestations.
 
-Open question: How these attestations are stored will determine if it meets the
-distrubtion requirements.
+This tool stores summary attestations (with provenance attestations) as `git notes`.
+
+To display attestations:
+
+1. Clone the repo in question
+2. `git fetch origin "refs/notes/*:refs/notes/*"`
+3. `git notes show <COMMIT> | jq -r .payload | base64 --decode | jq`
 
 Open question: Is this duplicative of "Distribute summary attestations"
 
@@ -84,7 +89,7 @@ Open question: Is this duplicative of "Distribute summary attestations"
 Level 1: N/A
 
 Level 2+: For a commit on a branch to qualify as Level 2+ it must be explicitly indicated in the corresponding policy file.
-This is taken as an indication that is meant for consumption.
+This is taken as an indication that it is meant for consumption.
 
 ### Continuity
 
@@ -116,7 +121,14 @@ Level 1: N/A
 
 Level 2: N/A
 
-Level 3: Open question: What attestations should we create?  When?
+Level 3:
+This tool creates 'source provenance' attestations for each push to a protected branch.  It records, at least
+
+* The actor that did the push
+* The current commit
+* The previous commit
+* The SLSA source level the current commit meets
+* The time the branch began meeting that level's requirements
 
 ### Enforced change management process
 
