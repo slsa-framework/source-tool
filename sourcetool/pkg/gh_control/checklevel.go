@@ -54,7 +54,7 @@ func (ghc GitHubConnection) commitActivity(ctx context.Context, commit string) (
 		return nil, err
 	}
 
-	targetRef := fmt.Sprintf("refs/heads/%s", ghc.Branch)
+	targetRef := ghc.GetFullBranch()
 	monitoredTypes := []string{"push", "force_push", "pr_merge"}
 	for _, activity := range result {
 		if !slices.Contains(monitoredTypes, activity.ActivityType) {

@@ -29,8 +29,7 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		return "", err
 	}
 
-	fullBranch := fmt.Sprintf("refs/heads/%s", gh_connection.Branch)
-	branchAnnotation := map[string]any{"source_branches": []any{fullBranch}}
+	branchAnnotation := map[string]any{"source_branches": []any{gh_connection.GetFullBranch()}}
 	annotationStruct, err := structpb.NewStruct(branchAnnotation)
 	if err != nil {
 		return "", fmt.Errorf("creating struct from map: %w", err)
