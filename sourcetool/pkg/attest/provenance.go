@@ -139,15 +139,15 @@ func (pa ProvenanceAttestor) convertLineToStatement(line string) (*spb.Statement
 	return nil, errors.New("could not convert line to statement")
 }
 
-func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, error) {
+func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, *SourceProvenancePred, error) {
 	if prevAttPath == "" {
 		// There is no prior provenance
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	f, err := os.Open(prevAttPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	reader := bufio.NewReader(f)
 
@@ -156,7 +156,7 @@ func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (
 		if err != nil {
 			// Handle end of file gracefully
 			if err != io.EOF {
-				return nil, err
+				return nil, nil, err
 			}
 			if line == "" {
 				// Nothing to see here.
@@ -170,17 +170,21 @@ func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (
 				log.Printf("statement %v isn't source provenance", sp)
 				continue
 			}
-			if doesSubjectIncludeCommit(sp, prevCommit) {
+			prevProdPred, err := GetProvPred(sp)
+			if err != nil {
+				return nil, nil, err
+			}
+			if doesSubjectIncludeCommit(sp, prevCommit) && prevProdPred.Branch == pa.gh_connection.GetFullBranch() {
 				// Should be good!
-				return sp, nil
+				return sp, prevProdPred, nil
 			} else {
-				log.Printf("subject '%v' does not reference previous commit '%s', skipping", sp.Subject, prevCommit)
+				log.Printf("prev prov '%v' does not reference previous commit '%s' for branch '%s', skipping", sp, prevCommit, pa.gh_connection.GetFullBranch())
 			}
 		}
 	}
 
-	log.Printf("didn't find prev commit %s", prevCommit)
-	return nil, nil
+	log.Printf("didn't find prev commit %s for branch %s", prevCommit, pa.gh_connection.Branch)
+	return nil, nil, nil
 }
 
 func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit string) (*spb.Statement, error) {
@@ -193,20 +197,15 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		return nil, err
 	}
 
-	prevProv, err := pa.getPrevProvenance(prevAttPath, prevCommit)
+	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(prevAttPath, prevCommit)
 	if err != nil {
 		return nil, err
 	}
 
 	// No prior provenance found, so we just go with current.
-	if prevProv == nil {
+	if prevProvStmt == nil || prevProvPred == nil {
 		log.Printf("No previous provenance found, have to bootstrap\n")
 		return curProv, nil
-	}
-
-	prevProvPred, err := GetProvPred(prevProv)
-	if err != nil {
-		return nil, err
 	}
 
 	curProvPred, err := GetProvPred(curProv)

@@ -14,7 +14,7 @@ type VerificationOptions struct {
 // folks should be using (they won't all run from main).
 var DefaultVerifierOptions = VerificationOptions{
 	ExpectedIssuer: "https://token.actions.githubusercontent.com",
-	ExpectedSan:    "https://github.com/slsa-framework/slsa-source-poc/.github/workflows/create_slsa_source_vsa.yml@refs/heads/main",
+	ExpectedSan:    "https://github.com/slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@refs/heads/main",
 }
 
 func Verify(data string, options VerificationOptions) (*verify.VerificationResult, error) {
