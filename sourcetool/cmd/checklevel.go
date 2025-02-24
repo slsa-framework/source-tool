@@ -11,6 +11,7 @@ import (
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 
 	"github.com/spf13/cobra"
 )
@@ -47,13 +48,17 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Print(controlStatus.ControlLevel)
+	level, policyPath, err := policy.EvaluateControl(ctx, gh_connection, controlStatus)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Print(level)
 
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, controlStatus.ControlLevel, policyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if outputUnsignedVsa != "" {
-		unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, controlStatus.ControlLevel)
-		if err != nil {
-			log.Fatal(err)
-		}
 		err = os.WriteFile(outputUnsignedVsa, []byte(unsignedVsa), 0644)
 		if err != nil {
 			log.Fatal(err)
@@ -62,7 +67,7 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 
 	if outputVsa != "" {
 		// This will output in the sigstore bundle format.
-		signedVsa, err := attest.CreateSignedSourceVsa(gh_connection, commit, controlStatus.ControlLevel)
+		signedVsa, err := attest.Sign(unsignedVsa)
 		if err != nil {
 			log.Fatal(err)
 		}
