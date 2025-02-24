@@ -18,6 +18,11 @@ using GitHub's existing functionality.
 * Downstream users can get the VSA for the revision they're consuming by getting the
   git notes for that revision.
 
+## SLSA Requirements
+
+For detailed information on how this tool meets the SLSA requirements see
+[POLICY.md](./POLICY.md).
+
 ## Approaches
 There are two main approaches taken in this proof-of-concept:
 
