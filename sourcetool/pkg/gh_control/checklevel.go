@@ -102,11 +102,6 @@ func (ghc GitHubConnection) getRuleTime(ctx context.Context, rules []*github.Rep
 	return oldestTime, oldestRule, nil
 }
 
-// Returns the fully qualified branch (e.g. 'refs/heads/main').
-func (ghc GitHubConnection) GetFullBranch() string {
-	return fmt.Sprintf("refs/heads/%s", ghc.Branch)
-}
-
 // Determines the source level using GitHub's built in controls only.
 // This is necessarily only as good as GitHub's controls and existing APIs.
 // This is a useful demonstration on how SLSA Level 2 can be achieved with ~minimal effort.
