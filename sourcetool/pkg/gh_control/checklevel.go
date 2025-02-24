@@ -3,12 +3,13 @@ package gh_control
 import (
 	"context"
 	"fmt"
+	"log"
 	"slices"
 	"time"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 
-	"github.com/google/go-github/v68/github"
+	"github.com/google/go-github/v69/github"
 )
 
 type actor struct {
@@ -23,21 +24,6 @@ type activity struct {
 	Timestamp    time.Time
 	ActivityType string `json:"activity_type"`
 	Actor        actor  `json:"actor"`
-}
-
-// Checks to see if the rule was enabled and since what time.
-func (ghc GitHubConnection) checkRule(ctx context.Context, rule *github.RepositoryRule) (bool, time.Time, error) {
-	ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
-	if err != nil {
-		return false, time.Time{}, err
-	}
-
-	// We need rules to be 'active' and to have been updated no later than minTime.
-	if ruleset.Enforcement != "active" {
-		return false, time.Time{}, nil
-	}
-
-	return true, ruleset.UpdatedAt.Time, nil
 }
 
 func (ghc GitHubConnection) commitActivity(ctx context.Context, commit string) (*activity, error) {
@@ -82,24 +68,20 @@ type GhControlStatus struct {
 	ActivityType string
 }
 
-// Returns the time the rule has been enabled since or nil if we can't find one that's enabled and the rule itself.
-func (ghc GitHubConnection) getRuleTime(ctx context.Context, rules []*github.RepositoryRule, ruleType string) (*time.Time, *github.RepositoryRule, error) {
-	var oldestRule *github.RepositoryRule
-	var oldestTime *time.Time
+func (ghc GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
+	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
-		if rule.Type == ruleType {
-			ruleGood, enabledSince, err := ghc.checkRule(ctx, rule)
-			if err != nil {
-				return nil, nil, err
-			}
-			if ruleGood && (oldestTime == nil || enabledSince.Before(*oldestTime)) {
-				oldestRule = rule
-				oldestTime = &enabledSince
+		ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
+		if err != nil {
+			return nil, err
+		}
+		if ruleset.Enforcement == "active" {
+			if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
+				oldestActive = ruleset
 			}
 		}
 	}
-
-	return oldestTime, oldestRule, nil
+	return oldestActive, nil
 }
 
 // Determines the source level using GitHub's built in controls only.
@@ -128,30 +110,35 @@ func (ghc GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context,
 		return nil, err
 	}
 
-	var newestRuleEnabled *time.Time
-	for _, ruleType := range []string{"deletion", "non_fast_forward"} {
-		ruleTime, _, err := ghc.getRuleTime(ctx, rules, ruleType)
-		if err != nil {
-			return nil, err
-		}
-		if ruleTime == nil {
-			// This rule isn't enabled, so we'll fallback to our default.
-			return &controlStatus, nil
-		}
-		if newestRuleEnabled == nil || newestRuleEnabled.Before(*ruleTime) {
-			newestRuleEnabled = ruleTime
-		}
+	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
+	if err != nil {
+		return nil, err
+	}
+
+	oldestNoFastForward, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
+	if err != nil {
+		return nil, err
+	}
+
+	if oldestDeletion == nil || oldestNoFastForward == nil {
+		log.Printf("oldestDeletion (%v) or oldestNoFastForward (%v) is nil, cannot be L2+", oldestDeletion, oldestNoFastForward)
+		return &controlStatus, nil
+	}
+
+	newestRule := oldestDeletion
+	if newestRule.UpdatedAt.Time.Before(oldestNoFastForward.UpdatedAt.Time) {
+		newestRule = oldestNoFastForward
 	}
 
 	// Check that the commit was created after the newest rule was enabled...
 	// to be sure folks aren't somehow sneaking something through...
-	if activity.Timestamp.Before(*newestRuleEnabled) {
-		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRuleEnabled)
+	if activity.Timestamp.Before(newestRule.UpdatedAt.Time) {
+		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRule.UpdatedAt.Time)
 	}
 
 	// All the rules required for L2 are enabled.
 	controlStatus.ControlLevel = slsa_types.SlsaSourceLevel2
-	controlStatus.ControlLevelSince = *newestRuleEnabled
+	controlStatus.ControlLevelSince = newestRule.UpdatedAt.Time
 
 	return &controlStatus, nil
 }
