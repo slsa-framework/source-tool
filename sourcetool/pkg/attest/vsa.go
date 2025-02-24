@@ -12,7 +12,7 @@ import (
 )
 
 func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, sourceLevel string, policy string) (string, error) {
-	resourceUri := fmt.Sprintf("git+https://github.com/%s/%s", gh_connection.Owner, gh_connection.Repo)
+	resourceUri := fmt.Sprintf("git+%s", gh_connection.GetRepoUri())
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
 			Id: "https://github.com/slsa-framework/slsa-source-poc"},
