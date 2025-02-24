@@ -2,16 +2,10 @@ package attest
 
 import (
 	"fmt"
-	"time"
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
-	"github.com/sigstore/sigstore-go/pkg/root"
-	"github.com/sigstore/sigstore-go/pkg/sign"
-	"github.com/sigstore/sigstore-go/pkg/tuf"
-	"github.com/sigstore/sigstore-go/pkg/util"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
-	"github.com/theupdateframework/go-tuf/v2/metadata/fetcher"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -35,9 +29,15 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		return "", err
 	}
 
-	// TODO: add branch annotation to sub
+	fullBranch := fmt.Sprintf("refs/heads/%s", gh_connection.Branch)
+	branchAnnotation := map[string]any{"source_branches": []any{fullBranch}}
+	annotationStruct, err := structpb.NewStruct(branchAnnotation)
+	if err != nil {
+		return "", fmt.Errorf("creating struct from map: %w", err)
+	}
 	sub := []*spb.ResourceDescriptor{{
-		Digest: map[string]string{"gitCommit": commit},
+		Digest:      map[string]string{"gitCommit": commit},
+		Annotations: annotationStruct,
 	}}
 
 	var predPb structpb.Struct
@@ -58,50 +58,6 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		return "", err
 	}
 	return string(statement), nil
-}
-
-func getSigningOpts(oidcToken string) (sign.BundleOptions, error) {
-	opts := sign.BundleOptions{}
-
-	// Get trusted_root.json
-	fetcher := fetcher.DefaultFetcher{}
-	fetcher.SetHTTPUserAgent(util.ConstructUserAgent())
-
-	tufOptions := &tuf.Options{
-		Root:              tuf.StagingRoot(),
-		RepositoryBaseURL: tuf.StagingMirror,
-		Fetcher:           &fetcher,
-	}
-	tufClient, err := tuf.New(tufOptions)
-	if err != nil {
-		return sign.BundleOptions{}, err
-	}
-
-	trustedRoot, err := root.GetTrustedRoot(tufClient)
-	if err != nil {
-		return sign.BundleOptions{}, err
-	}
-
-	signingConfigPGI, err := root.GetSigningConfig(tufClient)
-	if err != nil {
-		return sign.BundleOptions{}, err
-	}
-	signingConfig := signingConfigPGI.AddTimestampAuthorityURLs("https://timestamp.githubapp.com/api/v1/timestamp")
-
-	opts.TrustedRoot = trustedRoot
-	if oidcToken != "" {
-		fulcioOpts := &sign.FulcioOptions{
-			BaseURL: signingConfig.FulcioCertificateAuthorityURL(),
-			Timeout: time.Duration(30 * time.Second),
-			Retries: 1,
-		}
-		opts.CertificateProvider = sign.NewFulcio(fulcioOpts)
-		opts.CertificateProviderOptions = &sign.CertificateProviderOptions{
-			IDToken: oidcToken,
-		}
-	}
-
-	return opts, err
 }
 
 // NOTE: This is experimental, and definitely not done.  There's no way for folks to verify
