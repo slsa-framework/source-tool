@@ -28,7 +28,8 @@ runs:
         path: ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl
     - id: determine_level
       run: |
-        go run github.com/slsa-framework/slsa-source-poc/sourcetool@e50926cdb674ff8ccb9e0aa28fa2ad63e81989e8 checklevelprov --prev_bundle_path ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl --commit ${{ github.sha }} --prev_commit ${{ github.event.before }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl
+        echo "## SLSA Source Properties" >> $GITHUB_STEP_SUMMARY
+        go run github.com/slsa-framework/slsa-source-poc/sourcetool@b5b309e662ff8604c58c52e15fbbd9b425af31e4 checklevelprov --prev_bundle_path ${{ github.workspace }}/metadata/prev_bundle.intoto.jsonl --commit ${{ github.sha }} --prev_commit ${{ github.event.before }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - id: summary
       run: |
