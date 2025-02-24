@@ -11,15 +11,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, sourceLevel string) (string, error) {
+func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, sourceLevel string, policy string) (string, error) {
 	resourceUri := fmt.Sprintf("git+https://github.com/%s/%s", gh_connection.Owner, gh_connection.Repo)
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
 			Id: "https://github.com/slsa-framework/slsa-source-poc"},
-		TimeVerified: timestamppb.Now(),
-		ResourceUri:  resourceUri,
-		Policy: &vpb.VerificationSummary_Policy{
-			Uri: "https://github.com/slsa-framework/slsa-source-poc/POLICY.md"},
+		TimeVerified:       timestamppb.Now(),
+		ResourceUri:        resourceUri,
+		Policy:             &vpb.VerificationSummary_Policy{Uri: policy},
 		VerificationResult: "PASSED",
 		VerifiedLevels:     []string{sourceLevel},
 	}
@@ -57,15 +56,4 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		return "", err
 	}
 	return string(statement), nil
-}
-
-// NOTE: This is experimental, and definitely not done.  There's no way for folks to verify
-// what this produces.
-func CreateSignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, sourceLevel string) (string, error) {
-	unsignedVsa, err := CreateUnsignedSourceVsa(gh_connection, commit, sourceLevel)
-	if err != nil {
-		return "", err
-	}
-
-	return Sign(unsignedVsa)
 }
