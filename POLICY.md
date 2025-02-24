@@ -1,8 +1,20 @@
 # SLSA Source PoC - Policy
 
-This file desribes how this tool comes to a conclusion about what SLSA Source Level a given commit meets.
+This file describes how this tool comes to a conclusion about what SLSA Source Level a given commit meets.
 
 It is currently written based on https://slsa.dev/spec/draft/source-requirements as of 2024-01-06
+
+## Safe Expunging Process
+
+Users of this tool can support the safe expunging process by using the
+[bypass list](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository#granting-bypass-permissions-for-your-branch-or-tag-ruleset)
+feature of rulesets.  Organizations should have the bypass list set to include _only_ a custom
+'safe-expunging' role which maps to the trusted accounts that can perform this operation.
+
+In addition the role must only be assigned to accounts that are used for this process and
+_must not_ include accounts that are used for day-to-day development.
+
+There is no technical enforcement of this requirement.
 
 ## Organization Requirements
 
@@ -21,7 +33,7 @@ requirement may be in the wrong spot.  Instead perhaps what we're looking for is
 packages distributed further downstream should indicate which source repos are canonical.
 They could do this using SLSA _build_ provenance.
 
-TODO: Now enabling people to set a canonical location in a policy file.  Not yet requried for Level 1.
+TODO: Now enabling people to set a canonical location in a policy file.  Not yet required for Level 1.
 
 ### Distribute summary attestations
 
@@ -95,17 +107,13 @@ This is taken as an indication that it is meant for consumption.
 
 Level 1: N/A
 
-Level 2: Repos are eligible for Level 2 if they have enabled the "Restrict Deletions" (`deletion`) and "Block force pushes" (`non_fast_forward`) rules for the branch in question.
-
-Open Question: should we look for anything else?
-
-Level 3: Open question: should we rely on the provenance attestations that are generated?
+Level 2+: Repos are eligible for Level 2 if they have enabled the "Restrict Deletions" (`deletion`) and "Block force pushes" (`non_fast_forward`) rules for the branch in question.
 
 ### Identity Management
 
 Level 1: N/A
 
-Level 2+: Open question: How can we check that GitHub identities are what's used? Implicit?
+Level 2+: This tool relies on GitHub's [built-in user management](https://docs.github.com/en/get-started/learning-about-github/types-of-github-accounts#user-accounts).
 
 ### Strong Authentication	
 
@@ -113,7 +121,16 @@ Level 1: N/A
 
 Level 2: N/A
 
-Level 3: Open question: How can we check that multi-factor is required?
+Level 3:
+
+#### Multi Factor
+
+GitHub requires all users who contribute to github.com repos to use multi-factor auth
+[reference](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/about-mandatory-two-factor-authentication).
+
+#### Strong auth id in source provenance
+
+The identity used by GitHub (with strong auth) is stored in the source provenance `actor` field.
 
 ### Source Provenance	
 
@@ -136,5 +153,14 @@ Level 1: N/A
 
 Level 2: N/A
 
-Level 3: Open question: Do we just say "we assume folks are using branch protection
-rules in GitHub" and leave it at that?
+Level 3:
+
+#### Rules discoverable by authorized users of the repo
+
+This tool leverages GitHub rulesets which are readable by anyone with repository access.
+
+#### Cannot be bypassed except by the change management process.
+
+This as outlined in [Safe Expunging Process](#safe-expunging-process) and elsewhere
+this tool relies on 'active' enforced rulesets and advises the organization to
+only allow bypass to accounts used when performing safe expunging.
