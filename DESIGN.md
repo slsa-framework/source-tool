@@ -139,13 +139,14 @@ Source provenance:
     "activity_type": "pr_merge",
     "actor": "TomHennen",
     "branch": "refs/heads/main",
-    "created_on": "2025-02-24T15:27:47.179656547Z",
+    "created_on": "2025-02-24T16:14:11.497058337Z",
     "prev_commit": "a552404f404933e685daa6f1d189127cef49aa90",
     "properties": {
       "SLSA_SOURCE_LEVEL_3": {
         "since": "2025-02-24T15:24:23.245811209Z"
       }
-    }
+    },
+    "repo_uri": "https://github.com/slsa-framework/slsa-source-poc"
   }
 }
 ```

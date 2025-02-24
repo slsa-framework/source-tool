@@ -31,6 +31,7 @@ const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-p
 type SourceProvenancePred struct {
 	// The commit preceding 'Commit' in the current context.
 	PrevCommit   string    `json:"prev_commit"`
+	RepoUri      string    `json:"repo_uri"`
 	ActivityType string    `json:"activity_type"`
 	Actor        string    `json:"actor"`
 	Branch       string    `json:"branch"`
@@ -122,6 +123,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 
 	var curProvPred SourceProvenancePred
 	curProvPred.PrevCommit = prevCommit
+	curProvPred.RepoUri = pa.gh_connection.GetRepoUri()
 	curProvPred.Actor = controlStatus.ActorLogin
 	curProvPred.ActivityType = controlStatus.ActivityType
 	curProvPred.Branch = pa.gh_connection.GetFullBranch()

@@ -23,3 +23,8 @@ func NewGhConnection(owner, repo, branch string) *GitHubConnection {
 func (ghc GitHubConnection) GetFullBranch() string {
 	return fmt.Sprintf("refs/heads/%s", ghc.Branch)
 }
+
+// Returns the URI of the repo this connection tracks.
+func (ghc GitHubConnection) GetRepoUri() string {
+	return fmt.Sprintf("https://github.com/%s/%s", ghc.Owner, ghc.Repo)
+}
