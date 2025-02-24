@@ -118,11 +118,16 @@ recent commit, all the way back to the first commit made under the existing poli
 
 ## Source Provenance
 
-Source provenance:
+Source provenance indicates:
 
-1. Indicates the commit the data applies to - `subject.digest.gitCommit`.
-2. Indicates the commit prior to this one - `predicate.prev_commit`.
-3. For a set of properties (controls) indicates when each of those properties started being enforced.
+1. The commit the data applies to
+2. The commit prior to this one
+3. When each of some set of controls (properties) started being enforced.
+4. The actor that pushed the commit.
+5. The branch the commit was pushed to.
+6. When the commit was pushed.
+7. The activity type that triggered the push.
+8. The uri of the repo the activity occurred in.
 
 ```json
 {
