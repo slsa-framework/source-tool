@@ -32,6 +32,7 @@ type SourceProvenancePred struct {
 	PrevCommit   string `json:"prev_commit"`
 	ActivityType string `json:"activity_type"`
 	Actor        string `json:"actor"`
+	Branch       string `json:"branch"`
 	// TODO: get the author of the PR (if this was from a PR).
 
 	// The properties observed for this commit.
@@ -114,6 +115,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.PrevCommit = prevCommit
 	curProvPred.Actor = controlStatus.ActorLogin
 	curProvPred.ActivityType = controlStatus.ActivityType
+	curProvPred.Branch = pa.gh_connection.GetFullBranch()
 	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
 	curProvPred.Properties[controlStatus.ControlLevel] = levelProp
 

@@ -54,7 +54,7 @@ func (ghc GitHubConnection) commitActivity(ctx context.Context, commit string) (
 		return nil, err
 	}
 
-	targetRef := fmt.Sprintf("refs/heads/%s", ghc.Branch)
+	targetRef := ghc.GetFullBranch()
 	monitoredTypes := []string{"push", "force_push", "pr_merge"}
 	for _, activity := range result {
 		if !slices.Contains(monitoredTypes, activity.ActivityType) {
@@ -100,6 +100,11 @@ func (ghc GitHubConnection) getRuleTime(ctx context.Context, rules []*github.Rep
 	}
 
 	return oldestTime, oldestRule, nil
+}
+
+// Returns the fully qualified branch (e.g. 'refs/heads/main').
+func (ghc GitHubConnection) GetFullBranch() string {
+	return fmt.Sprintf("refs/heads/%s", ghc.Branch)
 }
 
 // Determines the source level using GitHub's built in controls only.
