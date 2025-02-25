@@ -41,7 +41,7 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 		log.Fatal("Must set commit, owner, repo, and branch flags.")
 	}
 
-	gh_connection := gh_control.NewGhConnection(owner, repo, branch)
+	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
 	ctx := context.Background()
 
 	controlStatus, err := gh_connection.DetermineSourceLevelControlOnly(ctx, commit)

@@ -26,7 +26,7 @@ type activity struct {
 	Actor        actor  `json:"actor"`
 }
 
-func (ghc GitHubConnection) commitActivity(ctx context.Context, commit string) (*activity, error) {
+func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit string) (*activity, error) {
 	// Unfortunately the gh_client doesn't have native support for this...'
 	reqUrl := fmt.Sprintf("repos/%s/%s/activity", ghc.Owner, ghc.Repo)
 	req, err := ghc.Client.NewRequest("GET", reqUrl, nil)
@@ -68,7 +68,7 @@ type GhControlStatus struct {
 	ActivityType string
 }
 
-func (ghc GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
+func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
 		ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
@@ -89,7 +89,7 @@ func (ghc GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*gi
 // This is a useful demonstration on how SLSA Level 2 can be achieved with ~minimal effort.
 //
 // Returns the determined source level (level 2 max) or error.
-func (ghc GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context, commit string) (*GhControlStatus, error) {
+func (ghc *GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context, commit string) (*GhControlStatus, error) {
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
 	activity, err := ghc.commitActivity(ctx, commit)
 	if err != nil {
