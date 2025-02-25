@@ -66,6 +66,33 @@ type GhControlStatus struct {
 	ActorLogin string
 	// The type of activity that created the commit.
 	ActivityType string
+	// True if the branch requires review
+	RequiresReview      bool
+	RequiresReviewSince time.Time
+}
+
+func (ghc *GitHubConnection) populateRequiresReview(ctx context.Context, rules []*github.PullRequestBranchRule, controlStatus *GhControlStatus) error {
+	var oldestActive *github.RepositoryRuleset
+	for _, rule := range rules {
+		if rule.Parameters.RequiredApprovingReviewCount > 1 {
+			ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
+			if err != nil {
+				return err
+			}
+			if ruleset.Enforcement == "active" {
+				if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
+					oldestActive = ruleset
+				}
+			}
+		}
+	}
+
+	if oldestActive != nil {
+		controlStatus.RequiresReview = true
+		controlStatus.RequiresReviewSince = oldestActive.UpdatedAt.Time
+	}
+
+	return nil
 }
 
 func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
@@ -139,6 +166,12 @@ func (ghc *GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context
 	// All the rules required for L2 are enabled.
 	controlStatus.ControlLevel = slsa_types.SlsaSourceLevel2
 	controlStatus.ControlLevelSince = newestRule.UpdatedAt.Time
+
+	// Let's get some extra information, like do they require reviews?
+	err = ghc.populateRequiresReview(ctx, rules.PullRequest, &controlStatus)
+	if err != nil {
+		log.Printf("failed to populate requires review information: %s", err)
+	}
 
 	return &controlStatus, nil
 }
