@@ -45,7 +45,7 @@ var (
 
 func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	gh_connection :=
-		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch)
+		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch).WithAuthToken(githubToken)
 	ctx := context.Background()
 
 	ver_options := attest.DefaultVerifierOptions

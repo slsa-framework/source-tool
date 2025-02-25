@@ -32,7 +32,7 @@ var (
 )
 
 func doProv(prevAttPath, commit, prevCommit, owner, repo, branch string) {
-	gh_connection := gh_control.NewGhConnection(owner, repo, branch)
+	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
 	ctx := context.Background()
 	pa := attest.NewProvenanceAttestor(gh_connection, attest.DefaultVerifierOptions)
 	newProv, err := pa.CreateSourceProvenance(ctx, prevAttPath, commit, prevCommit)
