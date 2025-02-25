@@ -13,7 +13,7 @@ this tool meets the SLSA Source Requirements.
 
 [DESIGN.md](DESIGN.md) explains more specifically how the system works.
 
-## SLSA Source VSAs
+## Components
 
 [compute_slsa_source.yml](.github/workflows/compute_slsa_source.yml) is a reusable workflow that
 is calculates a SLSA source level and produces 'source provenance' and a 'verification summary'
