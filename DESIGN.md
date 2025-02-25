@@ -21,7 +21,7 @@ using GitHub's existing functionality.
 ## SLSA Requirements
 
 For detailed information on how this tool meets the SLSA requirements see
-[POLICY.md](./POLICY.md).
+[REQUIREMENTS_MAPPING.md](./REQUIREMENTS_MAPPING.md).
 
 ## Approaches
 There are two main approaches taken in this proof-of-concept:
