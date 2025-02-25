@@ -1,8 +1,8 @@
-# SLSA Source PoC - Policy
+# SLSA Source PoC - Requirements Mapping
 
 This file describes how this tool comes to a conclusion about what SLSA Source Level a given commit meets.
 
-It is currently written based on https://slsa.dev/spec/draft/source-requirements as of 2024-01-06
+It is currently written based on https://slsa.dev/spec/draft/source-requirements as of 2025-01-06
 
 ## Safe Expunging Process
 

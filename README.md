@@ -6,11 +6,12 @@ The code in this repository should not be relied upon for production purposes.
 
 Status: in development
 
-## Policy & Design
+## Design
 
-[POLICY.md](POLICY.md) defines the rationale behind labeling a given commit at a particular SLSA level.
+[REQUIREMENTS_MAPPING.md](REQUIREMENTS_MAPPING.md) defines the rationale for how
+this tool meets the SLSA Source Requirements.
 
-[DESIGN.md](DESIGN.md) explains how the system works.
+[DESIGN.md](DESIGN.md) explains more specifically how the system works.
 
 ## SLSA Source VSAs
 
