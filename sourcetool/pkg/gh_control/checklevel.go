@@ -60,18 +60,21 @@ type SlsaLevelControl struct {
 	EnabledSince time.Time
 }
 
+type ReviewControl struct {
+	RequiresReview bool
+	EnabledSince   time.Time
+}
+
 type GhControlStatus struct {
 	// The SLSA Source Level the _controls_ in this repo meet.
 	SlsaLevelControl SlsaLevelControl
+	ReviewControl    ReviewControl
 	// The time the commit we're evaluating was pushed.
 	CommitPushTime time.Time
 	// The actor that pushed the commit.
 	ActorLogin string
 	// The type of activity that created the commit.
 	ActivityType string
-	// True if the branch requires review
-	RequiresReview      bool
-	RequiresReviewSince time.Time
 }
 
 func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBranchRule) bool {
@@ -98,8 +101,8 @@ func (ghc *GitHubConnection) populateRequiresReview(ctx context.Context, rules [
 	}
 
 	if oldestActive != nil {
-		controlStatus.RequiresReview = true
-		controlStatus.RequiresReviewSince = oldestActive.UpdatedAt.Time
+		controlStatus.ReviewControl.RequiresReview = true
+		controlStatus.ReviewControl.EnabledSince = oldestActive.UpdatedAt.Time
 	}
 
 	return nil

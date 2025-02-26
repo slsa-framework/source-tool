@@ -132,8 +132,8 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	levelProp := SourceProvenanceProperty{Since: curTime}
 	curProvPred.Properties[controlStatus.SlsaLevelControl.Level] = levelProp
 
-	if controlStatus.RequiresReview {
-		levelProp = SourceProvenanceProperty{Since: controlStatus.RequiresReviewSince}
+	if controlStatus.ReviewControl.RequiresReview {
+		levelProp = SourceProvenanceProperty{Since: controlStatus.ReviewControl.EnabledSince}
 		curProvPred.Properties[slsa_types.ReviewEnforced] = levelProp
 	}
 
