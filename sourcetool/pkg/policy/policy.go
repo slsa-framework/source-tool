@@ -172,7 +172,7 @@ func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnec
 	}
 
 	// The control needs to have been enabled for at least as long as the policy says.
-	if branchPolicy.Since.Before(controlStatus.ControlLevelSince) {
+	if branchPolicy.Since.Before(controlStatus.SlsaLevelControl.EnabledSince) {
 		if branchPolicy.TargetSlsaSourceLevel != slsa_types.SlsaSourceLevel1 {
 			return "", "", fmt.Errorf("Policy sets target level %s, but control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel1)
 		}
@@ -183,7 +183,7 @@ func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnec
 
 	// Seems fine, so they get whatever the control status is.
 	// TODO: should we cap them at whatever the policies target is?
-	return controlStatus.ControlLevel, policyPath, nil
+	return controlStatus.SlsaLevelControl.Level, policyPath, nil
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
