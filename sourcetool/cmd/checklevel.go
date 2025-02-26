@@ -54,7 +54,7 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 	}
 	fmt.Print(level)
 
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, controlStatus.ControlLevel, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, level, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}

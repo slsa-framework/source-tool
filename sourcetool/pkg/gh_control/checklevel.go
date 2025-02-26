@@ -55,17 +55,57 @@ func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit string) 
 	return nil, fmt.Errorf("could not find repo activity for commit %s", commit)
 }
 
+type SlsaLevelControl struct {
+	Level        string
+	EnabledSince time.Time
+}
+
+type ReviewControl struct {
+	RequiresReview bool
+	EnabledSince   time.Time
+}
+
 type GhControlStatus struct {
 	// The SLSA Source Level the _controls_ in this repo meet.
-	ControlLevel string
-	// The time the control has been enabled since.
-	ControlLevelSince time.Time
+	SlsaLevelControl SlsaLevelControl
+	ReviewControl    ReviewControl
 	// The time the commit we're evaluating was pushed.
 	CommitPushTime time.Time
 	// The actor that pushed the commit.
 	ActorLogin string
 	// The type of activity that created the commit.
 	ActivityType string
+}
+
+func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBranchRule) bool {
+	return rule.Parameters.RequiredApprovingReviewCount > 0 &&
+		rule.Parameters.DismissStaleReviewsOnPush &&
+		rule.Parameters.RequireCodeOwnerReview &&
+		rule.Parameters.RequireLastPushApproval
+}
+
+func (ghc *GitHubConnection) populateRequiresReview(ctx context.Context, rules []*github.PullRequestBranchRule, controlStatus *GhControlStatus) error {
+	var oldestActive *github.RepositoryRuleset
+	for _, rule := range rules {
+		if ghc.ruleMeetsRequiresReview(rule) {
+			ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
+			if err != nil {
+				return err
+			}
+			if ruleset.Enforcement == "active" {
+				if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
+					oldestActive = ruleset
+				}
+			}
+		}
+	}
+
+	if oldestActive != nil {
+		controlStatus.ReviewControl.RequiresReview = true
+		controlStatus.ReviewControl.EnabledSince = oldestActive.UpdatedAt.Time
+	}
+
+	return nil
 }
 
 func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
@@ -98,11 +138,12 @@ func (ghc *GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context
 
 	controlStatus := GhControlStatus{
 		// Default to L1, but upgrade later if possible.
-		ControlLevel:      slsa_types.SlsaSourceLevel1,
-		ControlLevelSince: time.Time{},
-		CommitPushTime:    activity.Timestamp,
-		ActivityType:      activity.ActivityType,
-		ActorLogin:        activity.Actor.Login}
+		SlsaLevelControl: SlsaLevelControl{
+			Level:        slsa_types.SlsaSourceLevel1,
+			EnabledSince: time.Time{}},
+		CommitPushTime: activity.Timestamp,
+		ActivityType:   activity.ActivityType,
+		ActorLogin:     activity.Actor.Login}
 
 	rules, _, err := ghc.Client.Repositories.GetRulesForBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch)
 
@@ -137,8 +178,14 @@ func (ghc *GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context
 	}
 
 	// All the rules required for L2 are enabled.
-	controlStatus.ControlLevel = slsa_types.SlsaSourceLevel2
-	controlStatus.ControlLevelSince = newestRule.UpdatedAt.Time
+	controlStatus.SlsaLevelControl.Level = slsa_types.SlsaSourceLevel2
+	controlStatus.SlsaLevelControl.EnabledSince = newestRule.UpdatedAt.Time
+
+	// Let's get some extra information, like do they require reviews?
+	err = ghc.populateRequiresReview(ctx, rules.PullRequest, &controlStatus)
+	if err != nil {
+		log.Printf("failed to populate requires review information: %s", err)
+	}
 
 	return &controlStatus, nil
 }

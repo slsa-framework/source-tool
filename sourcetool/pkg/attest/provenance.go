@@ -115,8 +115,8 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	// The only requirement needed for level 3, beyond the level 2 requirements
 	// (in this implementation) is _source provenance_.  Since that's what we're
 	// creating here we can upgrade to level 3.
-	if controlStatus.ControlLevel == slsa_types.SlsaSourceLevel2 {
-		controlStatus.ControlLevel = slsa_types.SlsaSourceLevel3
+	if controlStatus.SlsaLevelControl.Level == slsa_types.SlsaSourceLevel2 {
+		controlStatus.SlsaLevelControl.Level = slsa_types.SlsaSourceLevel3
 	}
 
 	curTime := time.Now()
@@ -130,7 +130,12 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.CreatedOn = curTime
 	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
 	levelProp := SourceProvenanceProperty{Since: curTime}
-	curProvPred.Properties[controlStatus.ControlLevel] = levelProp
+	curProvPred.Properties[controlStatus.SlsaLevelControl.Level] = levelProp
+
+	if controlStatus.ReviewControl.RequiresReview {
+		levelProp = SourceProvenanceProperty{Since: controlStatus.ReviewControl.EnabledSince}
+		curProvPred.Properties[slsa_types.ReviewEnforced] = levelProp
+	}
 
 	return addPredToStatement(&curProvPred, commit)
 }

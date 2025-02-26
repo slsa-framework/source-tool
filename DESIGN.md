@@ -210,6 +210,20 @@ Specifically, the reusable workflow provides the following guarantees:
 3. It lets us ensure the provenance was created contemporaneously with the
    introduction of the current commit to the current branch.
 
+## Additional Controls
+
+### REVIEW_ENFORCED
+
+This tool can also check to see if the GitHub repo/ref is configured to require
+2-party review.  To do so it checks that the repo:
+
+1. Is configured to require the use of Pull Requests.
+2. That the pull requests rule configures:
+    * Required approvals = 1
+    * "Dismiss stale pull request approvals when new commits are pushed"
+    * "Require review from Code Owners"
+    * "Require approval of the most recent reviewable push"
+
 ## Open Issues
 
 ### Dealing with reliability

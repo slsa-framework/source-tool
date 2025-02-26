@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, sourceLevel string, policy string) (string, error) {
+func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, level string, policy string) (string, error) {
 	resourceUri := fmt.Sprintf("git+%s", gh_connection.GetRepoUri())
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
@@ -20,7 +20,7 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		ResourceUri:        resourceUri,
 		Policy:             &vpb.VerificationSummary_Policy{Uri: policy},
 		VerificationResult: "PASSED",
-		VerifiedLevels:     []string{sourceLevel},
+		VerifiedLevels:     []string{level},
 	}
 
 	predJson, err := protojson.Marshal(vsaPred)
