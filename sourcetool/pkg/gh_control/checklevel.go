@@ -71,10 +71,17 @@ type GhControlStatus struct {
 	RequiresReviewSince time.Time
 }
 
+func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBranchRule) bool {
+	return rule.Parameters.RequiredApprovingReviewCount > 0 &&
+		rule.Parameters.DismissStaleReviewsOnPush &&
+		rule.Parameters.RequireCodeOwnerReview &&
+		rule.Parameters.RequireLastPushApproval
+}
+
 func (ghc *GitHubConnection) populateRequiresReview(ctx context.Context, rules []*github.PullRequestBranchRule, controlStatus *GhControlStatus) error {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
-		if rule.Parameters.RequiredApprovingReviewCount > 1 {
+		if ghc.ruleMeetsRequiresReview(rule) {
 			ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
 			if err != nil {
 				return err
