@@ -157,7 +157,7 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	return path, nil
 }
 
-func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (string, error) {
+func evaluateSlsaLevelControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (string, error) {
 	// Level 1 is easy...
 	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel1 {
 		// No point in checking anything else.
@@ -197,44 +197,54 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 	return "", fmt.Errorf("policy sets an unknown target level: %s", branchPolicy.TargetSlsaSourceLevel)
 }
 
+// Returns a list of controls to include in the vsa's 'verifiedLevels' field.
+func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
+	slsaSourceLevel, err := evaluateSlsaLevelControls(branchPolicy, controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error evaluating slsa level controls: %w", err)
+	}
+
+	return slsa_types.SourceVerifiedLevels{slsaSourceLevel}, nil
+}
+
 // Evaluates the control against the policy and returns the resulting source level and policy path.
-func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (string, string, error) {
+func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
 	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
-		return "", "", err
+		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
 	if controlStatus.CommitPushTime.Before(branchPolicy.Since) {
 		// This commit was pushed before they had an explicit policy.
-		return slsa_types.SlsaSourceLevel1, policyPath, nil
+		return slsa_types.SourceVerifiedLevels{slsa_types.SlsaSourceLevel1}, policyPath, nil
 	}
 
-	level, err := evaluateControls(branchPolicy, controlStatus.Controls)
+	verifiedLevels, err := evaluateControls(branchPolicy, controlStatus.Controls)
 	if err != nil {
-		return "", policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
+		return verifiedLevels, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
-	return level, policyPath, nil
+	return verifiedLevels, policyPath, nil
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (string, string, error) {
+func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
 	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
-		return "", "", err
+		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
 	provPred, err := attest.GetProvPred(prov)
 	if err != nil {
-		return "", "", err
+		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
-	level, err := evaluateControls(branchPolicy, provPred.Controls)
+	verifiedLevels, err := evaluateControls(branchPolicy, provPred.Controls)
 	if err != nil {
-		return "", policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
+		return slsa_types.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
 
 	// Looks good!
-	return level, policyPath, nil
+	return verifiedLevels, policyPath, nil
 }

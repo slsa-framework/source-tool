@@ -45,3 +45,5 @@ func (controls Controls) GetControl(name string) *Control {
 	}
 	return nil
 }
+
+type SourceVerifiedLevels []string

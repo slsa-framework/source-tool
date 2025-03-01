@@ -6,12 +6,13 @@ import (
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, level string, policy string) (string, error) {
+func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, verifiedLevels slsa_types.SourceVerifiedLevels, policy string) (string, error) {
 	resourceUri := fmt.Sprintf("git+%s", gh_connection.GetRepoUri())
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
@@ -20,7 +21,7 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		ResourceUri:        resourceUri,
 		Policy:             &vpb.VerificationSummary_Policy{Uri: policy},
 		VerificationResult: "PASSED",
-		VerifiedLevels:     []string{level},
+		VerifiedLevels:     verifiedLevels,
 	}
 
 	predJson, err := protojson.Marshal(vsaPred)
