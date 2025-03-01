@@ -24,10 +24,13 @@ const (
 	SourcePolicyRepo      = "slsa-source-poc"
 )
 
+// When a branch requires multiple controls, they must all be enabled
+// at or before 'Since'.
 type ProtectedBranch struct {
 	Name                  string
 	Since                 time.Time
 	TargetSlsaSourceLevel string `json:"target_slsa_source_level"`
+	RequireReview         bool   `json:"require_review"`
 }
 
 type RepoPolicy struct {
@@ -157,7 +160,7 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	return path, nil
 }
 
-func evaluateSlsaLevelControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (string, error) {
+func computeSlsaLevel(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (string, error) {
 	// Level 1 is easy...
 	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel1 {
 		// No point in checking anything else.
@@ -197,14 +200,41 @@ func evaluateSlsaLevelControls(branchPolicy *ProtectedBranch, controls slsa_type
 	return "", fmt.Errorf("policy sets an unknown target level: %s", branchPolicy.TargetSlsaSourceLevel)
 }
 
-// Returns a list of controls to include in the vsa's 'verifiedLevels' field.
-func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
-	slsaSourceLevel, err := evaluateSlsaLevelControls(branchPolicy, controls)
-	if err != nil {
-		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error evaluating slsa level controls: %w", err)
+func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
+	if !branchPolicy.RequireReview {
+		return false, nil
 	}
 
-	return slsa_types.SourceVerifiedLevels{slsaSourceLevel}, nil
+	reviewControl := controls.GetControl(slsa_types.ReviewEnforced)
+	if reviewControl == nil {
+		return false, fmt.Errorf("policy requires review, but that control is not enabled")
+	}
+
+	if branchPolicy.Since.Before(reviewControl.Since) {
+		return false, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.Since, reviewControl.Since)
+	}
+
+	return true, nil
+}
+
+// Returns a list of controls to include in the vsa's 'verifiedLevels' field.
+func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
+	slsaSourceLevel, err := computeSlsaLevel(branchPolicy, controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing slsa level: %w", err)
+	}
+
+	verifiedLevels := slsa_types.SourceVerifiedLevels{slsaSourceLevel}
+
+	reviewEnforced, err := computeReviewEnforced(branchPolicy, controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing review enforced: %w", err)
+	}
+	if reviewEnforced {
+		verifiedLevels = append(verifiedLevels, slsa_types.ReviewEnforced)
+	}
+
+	return verifiedLevels, nil
 }
 
 // Evaluates the control against the policy and returns the resulting source level and policy path.
