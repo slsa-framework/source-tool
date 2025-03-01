@@ -157,6 +157,52 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	return path, nil
 }
 
+func evaluateControls(branchPolicy *ProtectedBranch, continuityEnabled bool, continuitySince *time.Time, provAvailable bool, provAvailableSince *time.Time) (string, error) {
+	// Level 1 is easy...
+	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel1 {
+		// No point in checking anything else.
+		return slsa_types.SlsaSourceLevel1, nil
+	}
+
+	// Level 2 requires continuity and nothing else.
+	if !continuityEnabled {
+		return "", fmt.Errorf("policy sets target level %s, but continuity is not enabled so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel1)
+	}
+
+	if continuitySince == nil {
+		return "", fmt.Errorf("continuity control required but continuitySince is nil")
+	}
+
+	if branchPolicy.Since.Before(*continuitySince) {
+		return "", fmt.Errorf("policy sets target level %s since %v, but continuity has only been enabled since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, *continuitySince)
+	}
+
+	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel2 {
+		// Meets all the L2 control requirements.
+		return slsa_types.SlsaSourceLevel2, nil
+	}
+
+	// In addition to continuity level 3 also requires provenance.
+	if !provAvailable {
+		return "", fmt.Errorf("policy sets target level %s, but no provenance is available so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel2)
+	}
+
+	if provAvailableSince == nil {
+		return "", fmt.Errorf("provenance is available but provAvailableSince is nil")
+	}
+
+	if branchPolicy.Since.Before(*provAvailableSince) {
+		return "", fmt.Errorf("policy sets target level %s since %v, but provenance has only been available since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, *provAvailableSince)
+	}
+
+	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel3 {
+		// Meets all the L3 control requirements.
+		return slsa_types.SlsaSourceLevel3, nil
+	}
+
+	return "", fmt.Errorf("policy sets an unknown target level: %s", branchPolicy.TargetSlsaSourceLevel)
+}
+
 // Evaluates the control against the policy and returns the resulting source level and policy path.
 func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (string, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
@@ -171,19 +217,11 @@ func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnec
 		return slsa_types.SlsaSourceLevel1, policyPath, nil
 	}
 
-	// The control needs to have been enabled for at least as long as the policy says.
-	if branchPolicy.Since.Before(controlStatus.SlsaLevelControl.EnabledSince) {
-		if branchPolicy.TargetSlsaSourceLevel != slsa_types.SlsaSourceLevel1 {
-			return "", "", fmt.Errorf("Policy sets target level %s, but control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel1)
-		}
-
-		// Level 1 doesn't really require any controls.
-		return slsa_types.SlsaSourceLevel1, policyPath, nil
+	level, err := evaluateControls(branchPolicy, controlStatus.ContinuityControl.RequiresContinuity, &controlStatus.ContinuityControl.EnabledSince, false, nil)
+	if err != nil {
+		return "", policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
-
-	// Seems fine, so they get whatever the control status is.
-	// TODO: should we cap them at whatever the policies target is?
-	return controlStatus.SlsaLevelControl.Level, policyPath, nil
+	return level, policyPath, nil
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
@@ -198,18 +236,14 @@ func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnectio
 		return "", "", err
 	}
 
-	levelProp, ok := provPred.Properties[branchPolicy.TargetSlsaSourceLevel]
-	if !ok {
-		// Error, or do we take the min?
-		return "", "", fmt.Errorf("target level %s not found in provenance %v", branchPolicy.TargetSlsaSourceLevel, provPred)
-	}
+	continuityProp, continuityEnabled := provPred.Properties[slsa_types.ContinuityEnforced]
+	provAvailableProp, provAvailable := provPred.Properties[slsa_types.ProvenanceAvailable]
 
-	// Unlike the control only approach, the provenance approach doesn't care how long GitHub claims the control
-	// was in place. The only thing that matters is how long the provenance claims it was in place.
-	if branchPolicy.Since.Before(levelProp.Since) {
-		return "", "", fmt.Errorf("level %s only in effect since %v, policy requires it since at least %v", branchPolicy.TargetSlsaSourceLevel, levelProp.Since, branchPolicy.Since)
+	level, err := evaluateControls(branchPolicy, continuityEnabled, &continuityProp.Since, provAvailable, &provAvailableProp.Since)
+	if err != nil {
+		return "", policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
 
 	// Looks good!
-	return branchPolicy.TargetSlsaSourceLevel, policyPath, nil
+	return level, policyPath, nil
 }

@@ -106,17 +106,11 @@ func doesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
 	return false
 }
 
+// Create provenance for the current commit without any context from the previous provenance (if any).
 func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit string) (*spb.Statement, error) {
 	controlStatus, err := pa.gh_connection.DetermineSourceLevelControlOnly(ctx, commit)
 	if err != nil {
 		return nil, err
-	}
-
-	// The only requirement needed for level 3, beyond the level 2 requirements
-	// (in this implementation) is _source provenance_.  Since that's what we're
-	// creating here we can upgrade to level 3.
-	if controlStatus.SlsaLevelControl.Level == slsa_types.SlsaSourceLevel2 {
-		controlStatus.SlsaLevelControl.Level = slsa_types.SlsaSourceLevel3
 	}
 
 	curTime := time.Now()
@@ -129,13 +123,19 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.Branch = pa.gh_connection.GetFullBranch()
 	curProvPred.CreatedOn = curTime
 	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
-	levelProp := SourceProvenanceProperty{Since: curTime}
-	curProvPred.Properties[controlStatus.SlsaLevelControl.Level] = levelProp
+
+	if controlStatus.ContinuityControl.RequiresContinuity {
+		prop := SourceProvenanceProperty{Since: controlStatus.ContinuityControl.EnabledSince}
+		curProvPred.Properties[slsa_types.ContinuityEnforced] = prop
+	}
 
 	if controlStatus.ReviewControl.RequiresReview {
-		levelProp = SourceProvenanceProperty{Since: controlStatus.ReviewControl.EnabledSince}
-		curProvPred.Properties[slsa_types.ReviewEnforced] = levelProp
+		prop := SourceProvenanceProperty{Since: controlStatus.ReviewControl.EnabledSince}
+		curProvPred.Properties[slsa_types.ReviewEnforced] = prop
 	}
+
+	// At the very least provenance is available starting now. :)
+	curProvPred.Properties[slsa_types.ProvenanceAvailable] = SourceProvenanceProperty{Since: curTime}
 
 	return addPredToStatement(&curProvPred, commit)
 }

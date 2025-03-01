@@ -7,8 +7,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
-
 	"github.com/google/go-github/v69/github"
 )
 
@@ -55,9 +53,9 @@ func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit string) 
 	return nil, fmt.Errorf("could not find repo activity for commit %s", commit)
 }
 
-type SlsaLevelControl struct {
-	Level        string
-	EnabledSince time.Time
+type ContinuityControl struct {
+	RequiresContinuity bool
+	EnabledSince       time.Time
 }
 
 type ReviewControl struct {
@@ -66,9 +64,8 @@ type ReviewControl struct {
 }
 
 type GhControlStatus struct {
-	// The SLSA Source Level the _controls_ in this repo meet.
-	SlsaLevelControl SlsaLevelControl
-	ReviewControl    ReviewControl
+	ContinuityControl ContinuityControl
+	ReviewControl     ReviewControl
 	// The time the commit we're evaluating was pushed.
 	CommitPushTime time.Time
 	// The actor that pushed the commit.
@@ -84,13 +81,44 @@ func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBra
 		rule.Parameters.RequireLastPushApproval
 }
 
-func (ghc *GitHubConnection) populateRequiresReview(ctx context.Context, rules []*github.PullRequestBranchRule, controlStatus *GhControlStatus) error {
+func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commit string, rules *github.BranchRules, activity *activity) (ContinuityControl, error) {
+	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
+	if err != nil {
+		return ContinuityControl{}, err
+	}
+
+	oldestNoFf, err := ghc.getOldestActiveRule(ctx, rules.NonFastForward)
+	if err != nil {
+		return ContinuityControl{}, err
+	}
+
+	if oldestDeletion == nil || oldestNoFf == nil {
+		log.Printf("oldestDeletion (%v) or oldestNoFastForward (%v) is nil, cannot be L2+", oldestDeletion, oldestNoFf)
+		return ContinuityControl{RequiresContinuity: false, EnabledSince: time.Time{}}, nil
+	}
+
+	newestRule := oldestDeletion
+	if newestRule.UpdatedAt.Time.Before(oldestNoFf.UpdatedAt.Time) {
+		newestRule = oldestNoFf
+	}
+
+	// Check that the commit was created after the newest rule was enabled...
+	// to be sure folks aren't somehow sneaking something through...
+	if activity.Timestamp.Before(newestRule.UpdatedAt.Time) {
+		return ContinuityControl{}, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRule.UpdatedAt.Time)
+	}
+
+	// All the rules required for L2 are enabled.
+	return ContinuityControl{RequiresContinuity: true, EnabledSince: newestRule.UpdatedAt.Time}, nil
+}
+
+func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*github.PullRequestBranchRule) (ReviewControl, error) {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
 		if ghc.ruleMeetsRequiresReview(rule) {
 			ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
 			if err != nil {
-				return err
+				return ReviewControl{}, err
 			}
 			if ruleset.Enforcement == "active" {
 				if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
@@ -101,11 +129,10 @@ func (ghc *GitHubConnection) populateRequiresReview(ctx context.Context, rules [
 	}
 
 	if oldestActive != nil {
-		controlStatus.ReviewControl.RequiresReview = true
-		controlStatus.ReviewControl.EnabledSince = oldestActive.UpdatedAt.Time
+		return ReviewControl{RequiresReview: true, EnabledSince: oldestActive.UpdatedAt.Time}, nil
 	}
 
-	return nil
+	return ReviewControl{}, nil
 }
 
 func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
@@ -137,10 +164,10 @@ func (ghc *GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context
 	}
 
 	controlStatus := GhControlStatus{
-		// Default to L1, but upgrade later if possible.
-		SlsaLevelControl: SlsaLevelControl{
-			Level:        slsa_types.SlsaSourceLevel1,
-			EnabledSince: time.Time{}},
+		// Assume continuity isn't required until we find otherwise.
+		ContinuityControl: ContinuityControl{
+			RequiresContinuity: false,
+			EnabledSince:       time.Time{}},
 		CommitPushTime: activity.Timestamp,
 		ActivityType:   activity.ActivityType,
 		ActorLogin:     activity.Actor.Login}
@@ -151,40 +178,15 @@ func (ghc *GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context
 		return nil, err
 	}
 
-	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
+	// Compute the controls enforced.
+	controlStatus.ContinuityControl, err = ghc.computeContinuityControl(ctx, commit, rules, activity)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not populate ContinuityControl: %w", err)
 	}
 
-	oldestNoFastForward, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
+	controlStatus.ReviewControl, err = ghc.computeReviewControl(ctx, rules.PullRequest)
 	if err != nil {
-		return nil, err
-	}
-
-	if oldestDeletion == nil || oldestNoFastForward == nil {
-		log.Printf("oldestDeletion (%v) or oldestNoFastForward (%v) is nil, cannot be L2+", oldestDeletion, oldestNoFastForward)
-		return &controlStatus, nil
-	}
-
-	newestRule := oldestDeletion
-	if newestRule.UpdatedAt.Time.Before(oldestNoFastForward.UpdatedAt.Time) {
-		newestRule = oldestNoFastForward
-	}
-
-	// Check that the commit was created after the newest rule was enabled...
-	// to be sure folks aren't somehow sneaking something through...
-	if activity.Timestamp.Before(newestRule.UpdatedAt.Time) {
-		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRule.UpdatedAt.Time)
-	}
-
-	// All the rules required for L2 are enabled.
-	controlStatus.SlsaLevelControl.Level = slsa_types.SlsaSourceLevel2
-	controlStatus.SlsaLevelControl.EnabledSince = newestRule.UpdatedAt.Time
-
-	// Let's get some extra information, like do they require reviews?
-	err = ghc.populateRequiresReview(ctx, rules.PullRequest, &controlStatus)
-	if err != nil {
-		log.Printf("failed to populate requires review information: %s", err)
+		return nil, fmt.Errorf("could not populate ReviewControl: %w", err)
 	}
 
 	return &controlStatus, nil
