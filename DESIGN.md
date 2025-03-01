@@ -127,7 +127,7 @@ Source provenance indicates:
 
 1. The commit the data applies to
 2. The commit prior to this one
-3. When each of some set of controls (properties) started being enforced.
+3. The set of controls that are enabled and when they started being enforced.
 4. The actor that pushed the commit.
 5. The branch the commit was pushed to.
 6. When the commit was pushed.
@@ -144,18 +144,23 @@ Source provenance indicates:
       }
     }
   ],
-  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1",
+  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft",
   "predicate": {
     "activity_type": "pr_merge",
     "actor": "TomHennen",
     "branch": "refs/heads/main",
-    "created_on": "2025-02-24T16:14:11.497058337Z",
-    "prev_commit": "a552404f404933e685daa6f1d189127cef49aa90",
-    "properties": {
-      "SLSA_SOURCE_LEVEL_3": {
-        "since": "2025-02-24T15:24:23.245811209Z"
+    "controls": [
+      {
+        "name": "CONTINUITY_ENFORCED",
+        "since": "2025-01-26T02:23:18.106Z"
+      },
+      {
+        "name": "PROVENANCE_AVAILABLE",
+        "since": "2025-03-01T21:28:30.941538615Z"
       }
-    },
+    ],
+    "created_on": "2025-03-01T21:28:30.941538615Z",
+    "prev_commit": "a552404f404933e685daa6f1d189127cef49aa90",
     "repo_uri": "https://github.com/slsa-framework/slsa-source-poc"
   }
 }

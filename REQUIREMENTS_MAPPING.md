@@ -37,15 +37,7 @@ TODO: Now enabling people to set a canonical location in a policy file.  Not yet
 
 ### Distribute summary attestations
 
-This tool stores summary attestations as `git notes`.
-
-To display attestations:
-
-1. Clone the repo in question
-2. `git fetch origin "refs/notes/*:refs/notes/*"`
-3. `git notes show <COMMIT> | jq -r .payload | base64 --decode | jq`
-
-NOTE: This **does not** verify the signature at all.  That work is TBD.
+This tool stores summary attestations with other attestations in `git notes`, one attestation per line.
 
 ### Distribute provenance attestations
 
@@ -55,13 +47,7 @@ Level 2: N/A
 
 Level 3:
 
-This tool stores provenance attestations (with summary attestations) as `git notes`.
-
-To display attestations:
-
-1. Clone the repo in question
-2. `git fetch origin "refs/notes/*:refs/notes/*"`
-3. `git notes show <COMMIT> | jq -r .payload | base64 --decode | jq`
+This tool stores provenance attestations with other attestations in `git notes`, one attestation per line.
 
 ## Source Control System Requirements
 
@@ -86,13 +72,7 @@ Open question: Is this duplicative of "Revisions are immutable and uniquely iden
 
 Level 1+: This is the tool that is generating these summary attestations.
 
-This tool stores summary attestations (with provenance attestations) as `git notes`.
-
-To display attestations:
-
-1. Clone the repo in question
-2. `git fetch origin "refs/notes/*:refs/notes/*"`
-3. `git notes show <COMMIT> | jq -r .payload | base64 --decode | jq`
+This tool stores summary attestations with other attestations in `git notes`, one attestation per line.
 
 Open question: Is this duplicative of "Distribute summary attestations"
 
