@@ -63,13 +63,13 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	}
 
 	// check p against policy
-	level, policyPath, err := policy.EvaluateProv(ctx, gh_connection, p)
+	verifiedLevels, policyPath, err := policy.EvaluateProv(ctx, gh_connection, p)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// create vsa
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, checkLevelProvArgs.commit, level, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, checkLevelProvArgs.commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		log.Printf("unsigned prov: %s\n", unsignedProv)
 		log.Printf("unsigned vsa: %s\n", unsignedVsa)
 	}
-	fmt.Print(level)
+	fmt.Print(verifiedLevels)
 }
 
 func init() {

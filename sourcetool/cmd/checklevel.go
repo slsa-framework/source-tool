@@ -48,13 +48,13 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 	if err != nil {
 		log.Fatal(err)
 	}
-	level, policyPath, err := policy.EvaluateControl(ctx, gh_connection, controlStatus)
+	verifiedLevels, policyPath, err := policy.EvaluateControl(ctx, gh_connection, controlStatus)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Print(level)
+	fmt.Print(verifiedLevels)
 
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, level, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}

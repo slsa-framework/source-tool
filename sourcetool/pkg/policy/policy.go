@@ -24,10 +24,13 @@ const (
 	SourcePolicyRepo      = "slsa-source-poc"
 )
 
+// When a branch requires multiple controls, they must all be enabled
+// at or before 'Since'.
 type ProtectedBranch struct {
 	Name                  string
 	Since                 time.Time
 	TargetSlsaSourceLevel string `json:"target_slsa_source_level"`
+	RequireReview         bool   `json:"require_review"`
 }
 
 type RepoPolicy struct {
@@ -96,7 +99,7 @@ func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnecti
 		return err
 	}
 	if !status.IsClean() {
-		return fmt.Errorf("You must run this command in a clean clone of %s", SourcePolicyUri)
+		return fmt.Errorf("you must run this command in a clean clone of %s", SourcePolicyUri)
 	}
 
 	path := getPolicyRepoPath(pathToClone, gh_connection)
@@ -108,14 +111,14 @@ func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnecti
 			return err
 		}
 	} else {
-		return fmt.Errorf("Policy already exists at %s", path)
+		return fmt.Errorf("policy already exists at %s", path)
 	}
 
 	// Is there a remote policy?
 	// TODO: Look for errors that _aren't_ 404.
 	rp, _, _ := getRemotePolicy(ctx, gh_connection)
 	if rp != nil {
-		return fmt.Errorf("Policy already exists remotely for %s", getPolicyPath(gh_connection))
+		return fmt.Errorf("policy already exists remotely for %s", getPolicyPath(gh_connection))
 	}
 	return nil
 }
@@ -157,59 +160,121 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	return path, nil
 }
 
+func computeSlsaLevel(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (string, error) {
+	// Level 1 is easy...
+	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel1 {
+		// No point in checking anything else.
+		return slsa_types.SlsaSourceLevel1, nil
+	}
+
+	// Level 2 requires continuity and nothing else.
+	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
+	if continuityControl == nil {
+		return "", fmt.Errorf("policy sets target level %s, but continuity is not enabled so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel1)
+	}
+
+	if branchPolicy.Since.Before(continuityControl.Since) {
+		return "", fmt.Errorf("policy sets target level %s since %v, but continuity has only been enabled since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, continuityControl.Since)
+	}
+
+	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel2 {
+		// Meets all the L2 control requirements.
+		return slsa_types.SlsaSourceLevel2, nil
+	}
+
+	// In addition to continuity level 3 also requires provenance.
+	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
+	if provControl == nil {
+		return "", fmt.Errorf("policy sets target level %s, but no provenance is available so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel2)
+	}
+
+	if branchPolicy.Since.Before(provControl.Since) {
+		return "", fmt.Errorf("policy sets target level %s since %v, but provenance has only been available since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, provControl.Since)
+	}
+
+	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel3 {
+		// Meets all the L3 control requirements.
+		return slsa_types.SlsaSourceLevel3, nil
+	}
+
+	return "", fmt.Errorf("policy sets an unknown target level: %s", branchPolicy.TargetSlsaSourceLevel)
+}
+
+func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
+	if !branchPolicy.RequireReview {
+		return false, nil
+	}
+
+	reviewControl := controls.GetControl(slsa_types.ReviewEnforced)
+	if reviewControl == nil {
+		return false, fmt.Errorf("policy requires review, but that control is not enabled")
+	}
+
+	if branchPolicy.Since.Before(reviewControl.Since) {
+		return false, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.Since, reviewControl.Since)
+	}
+
+	return true, nil
+}
+
+// Returns a list of controls to include in the vsa's 'verifiedLevels' field.
+func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
+	slsaSourceLevel, err := computeSlsaLevel(branchPolicy, controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing slsa level: %w", err)
+	}
+
+	verifiedLevels := slsa_types.SourceVerifiedLevels{slsaSourceLevel}
+
+	reviewEnforced, err := computeReviewEnforced(branchPolicy, controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing review enforced: %w", err)
+	}
+	if reviewEnforced {
+		verifiedLevels = append(verifiedLevels, slsa_types.ReviewEnforced)
+	}
+
+	return verifiedLevels, nil
+}
+
 // Evaluates the control against the policy and returns the resulting source level and policy path.
-func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (string, string, error) {
+func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
 	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
-		return "", "", err
+		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
 	if controlStatus.CommitPushTime.Before(branchPolicy.Since) {
 		// This commit was pushed before they had an explicit policy.
-		return slsa_types.SlsaSourceLevel1, policyPath, nil
+		return slsa_types.SourceVerifiedLevels{slsa_types.SlsaSourceLevel1}, policyPath, nil
 	}
 
-	// The control needs to have been enabled for at least as long as the policy says.
-	if branchPolicy.Since.Before(controlStatus.SlsaLevelControl.EnabledSince) {
-		if branchPolicy.TargetSlsaSourceLevel != slsa_types.SlsaSourceLevel1 {
-			return "", "", fmt.Errorf("Policy sets target level %s, but control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel1)
-		}
-
-		// Level 1 doesn't really require any controls.
-		return slsa_types.SlsaSourceLevel1, policyPath, nil
+	verifiedLevels, err := evaluateControls(branchPolicy, controlStatus.Controls)
+	if err != nil {
+		return verifiedLevels, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
-
-	// Seems fine, so they get whatever the control status is.
-	// TODO: should we cap them at whatever the policies target is?
-	return controlStatus.SlsaLevelControl.Level, policyPath, nil
+	return verifiedLevels, policyPath, nil
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (string, string, error) {
+func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
 	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
-		return "", "", err
+		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
 	provPred, err := attest.GetProvPred(prov)
 	if err != nil {
-		return "", "", err
+		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
-	levelProp, ok := provPred.Properties[branchPolicy.TargetSlsaSourceLevel]
-	if !ok {
-		// Error, or do we take the min?
-		return "", "", fmt.Errorf("target level %s not found in provenance %v", branchPolicy.TargetSlsaSourceLevel, provPred)
-	}
-
-	// Unlike the control only approach, the provenance approach doesn't care how long GitHub claims the control
-	// was in place. The only thing that matters is how long the provenance claims it was in place.
-	if branchPolicy.Since.Before(levelProp.Since) {
-		return "", "", fmt.Errorf("level %s only in effect since %v, policy requires it since at least %v", branchPolicy.TargetSlsaSourceLevel, levelProp.Since, branchPolicy.Since)
+	verifiedLevels, err := evaluateControls(branchPolicy, provPred.Controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
 
 	// Looks good!
-	return branchPolicy.TargetSlsaSourceLevel, policyPath, nil
+	return verifiedLevels, policyPath, nil
 }
