@@ -19,12 +19,7 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 )
 
-type SourceProvenanceProperty struct {
-	// The time from which this property has been continuously enforced.
-	Since time.Time `json:"since"`
-}
-
-const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1"
+const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft"
 
 // The predicate that encodes source provenance data.
 // The git commit this corresponds to is encoded in the surrounding statement.
@@ -38,9 +33,8 @@ type SourceProvenancePred struct {
 	CreatedOn    time.Time `json:"created_on"`
 	// TODO: get the author of the PR (if this was from a PR).
 
-	// The properties observed for this commit.
-	// For now we're just storing the level here, but later we'll add other stuff
-	Properties map[string]SourceProvenanceProperty `json:"properties"`
+	// The controls enabled at the time this commit was pushed.
+	Controls slsa_types.Controls `json:"controls"`
 }
 
 type ProvenanceAttestor struct {
@@ -64,7 +58,7 @@ func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(predStruct.Properties) == 0 {
+	if len(predStruct.Controls) == 0 {
 		return nil, fmt.Errorf("expected %v to have non-zero properties", predStruct)
 	}
 	return &predStruct, nil
@@ -122,20 +116,10 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.ActivityType = controlStatus.ActivityType
 	curProvPred.Branch = pa.gh_connection.GetFullBranch()
 	curProvPred.CreatedOn = curTime
-	curProvPred.Properties = make(map[string]SourceProvenanceProperty)
-
-	if controlStatus.ContinuityControl.RequiresContinuity {
-		prop := SourceProvenanceProperty{Since: controlStatus.ContinuityControl.EnabledSince}
-		curProvPred.Properties[slsa_types.ContinuityEnforced] = prop
-	}
-
-	if controlStatus.ReviewControl.RequiresReview {
-		prop := SourceProvenanceProperty{Since: controlStatus.ReviewControl.EnabledSince}
-		curProvPred.Properties[slsa_types.ReviewEnforced] = prop
-	}
+	curProvPred.Controls = controlStatus.Controls
 
 	// At the very least provenance is available starting now. :)
-	curProvPred.Properties[slsa_types.ProvenanceAvailable] = SourceProvenanceProperty{Since: curTime}
+	curProvPred.Controls.AddControl(&slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: curTime})
 
 	return addPredToStatement(&curProvPred, commit)
 }
@@ -233,14 +217,15 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 
 	// There was prior provenance, so update the Since field for each property
 	// to the oldest encountered.
-	for propName, curProp := range curProvPred.Properties {
-		prevProp, ok := prevProvPred.Properties[propName]
-		if !ok {
+	for _, curControl := range curProvPred.Controls {
+		prevControl := prevProvPred.Controls.GetControl(curControl.Name)
+		// No prior version of this control
+		if prevControl == nil {
 			continue
 		}
-		if prevProp.Since.Before(curProp.Since) {
-			curProp.Since = prevProp.Since
-			curProvPred.Properties[propName] = curProp
+		// Use the oldest Since of the two
+		if prevControl.Since.Before(curControl.Since) {
+			curControl.Since = prevControl.Since
 		}
 	}
 

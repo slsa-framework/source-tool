@@ -96,7 +96,7 @@ func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnecti
 		return err
 	}
 	if !status.IsClean() {
-		return fmt.Errorf("You must run this command in a clean clone of %s", SourcePolicyUri)
+		return fmt.Errorf("you must run this command in a clean clone of %s", SourcePolicyUri)
 	}
 
 	path := getPolicyRepoPath(pathToClone, gh_connection)
@@ -108,14 +108,14 @@ func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnecti
 			return err
 		}
 	} else {
-		return fmt.Errorf("Policy already exists at %s", path)
+		return fmt.Errorf("policy already exists at %s", path)
 	}
 
 	// Is there a remote policy?
 	// TODO: Look for errors that _aren't_ 404.
 	rp, _, _ := getRemotePolicy(ctx, gh_connection)
 	if rp != nil {
-		return fmt.Errorf("Policy already exists remotely for %s", getPolicyPath(gh_connection))
+		return fmt.Errorf("policy already exists remotely for %s", getPolicyPath(gh_connection))
 	}
 	return nil
 }
@@ -157,7 +157,7 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	return path, nil
 }
 
-func evaluateControls(branchPolicy *ProtectedBranch, continuityEnabled bool, continuitySince *time.Time, provAvailable bool, provAvailableSince *time.Time) (string, error) {
+func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (string, error) {
 	// Level 1 is easy...
 	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel1 {
 		// No point in checking anything else.
@@ -165,16 +165,13 @@ func evaluateControls(branchPolicy *ProtectedBranch, continuityEnabled bool, con
 	}
 
 	// Level 2 requires continuity and nothing else.
-	if !continuityEnabled {
+	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
+	if continuityControl == nil {
 		return "", fmt.Errorf("policy sets target level %s, but continuity is not enabled so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel1)
 	}
 
-	if continuitySince == nil {
-		return "", fmt.Errorf("continuity control required but continuitySince is nil")
-	}
-
-	if branchPolicy.Since.Before(*continuitySince) {
-		return "", fmt.Errorf("policy sets target level %s since %v, but continuity has only been enabled since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, *continuitySince)
+	if branchPolicy.Since.Before(continuityControl.Since) {
+		return "", fmt.Errorf("policy sets target level %s since %v, but continuity has only been enabled since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, continuityControl.Since)
 	}
 
 	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel2 {
@@ -183,16 +180,13 @@ func evaluateControls(branchPolicy *ProtectedBranch, continuityEnabled bool, con
 	}
 
 	// In addition to continuity level 3 also requires provenance.
-	if !provAvailable {
+	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
+	if provControl == nil {
 		return "", fmt.Errorf("policy sets target level %s, but no provenance is available so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel2)
 	}
 
-	if provAvailableSince == nil {
-		return "", fmt.Errorf("provenance is available but provAvailableSince is nil")
-	}
-
-	if branchPolicy.Since.Before(*provAvailableSince) {
-		return "", fmt.Errorf("policy sets target level %s since %v, but provenance has only been available since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, *provAvailableSince)
+	if branchPolicy.Since.Before(provControl.Since) {
+		return "", fmt.Errorf("policy sets target level %s since %v, but provenance has only been available since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, provControl.Since)
 	}
 
 	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel3 {
@@ -217,7 +211,7 @@ func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnec
 		return slsa_types.SlsaSourceLevel1, policyPath, nil
 	}
 
-	level, err := evaluateControls(branchPolicy, controlStatus.ContinuityControl.RequiresContinuity, &controlStatus.ContinuityControl.EnabledSince, false, nil)
+	level, err := evaluateControls(branchPolicy, controlStatus.Controls)
 	if err != nil {
 		return "", policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
@@ -236,10 +230,7 @@ func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnectio
 		return "", "", err
 	}
 
-	continuityProp, continuityEnabled := provPred.Properties[slsa_types.ContinuityEnforced]
-	provAvailableProp, provAvailable := provPred.Properties[slsa_types.ProvenanceAvailable]
-
-	level, err := evaluateControls(branchPolicy, continuityEnabled, &continuityProp.Since, provAvailable, &provAvailableProp.Since)
+	level, err := evaluateControls(branchPolicy, provPred.Controls)
 	if err != nil {
 		return "", policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
