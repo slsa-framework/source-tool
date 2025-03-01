@@ -86,7 +86,7 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	}
 
 	if oldestDeletion == nil || oldestNoFf == nil {
-		log.Printf("oldestDeletion (%v) or oldestNoFastForward (%v) is nil, cannot be L2+", oldestDeletion, oldestNoFf)
+		log.Printf("oldestDeletion (%v) or oldestNoFf (%v) is nil, cannot be L2+", oldestDeletion, oldestNoFf)
 		return nil, nil
 	}
 
@@ -101,7 +101,6 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRule.UpdatedAt.Time)
 	}
 
-	// All the rules required for L2 are enabled.
 	return &slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
 }
 
