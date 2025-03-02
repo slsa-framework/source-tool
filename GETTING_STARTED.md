@@ -41,3 +41,15 @@ jobs:
 4. Submit the change to your main branch
 
 ## Validate Source PoC workflow
+
+Let's verify that everything is working
+
+1. Go to the GitHub repo
+2. Click the 'Actions' option
+3. Find the most recent run of `SLSA Source` (it should have a green check mark)
+4. Click into it
+5. You should see the summary listing "SLSA Source Properties": `[SLSA_SOURCE_LEVEL_1]`
+
+## Create a policy file
+
+TODO
