@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	spb "github.com/in-toto/attestation/go/v1"
@@ -141,18 +142,21 @@ func (pa ProvenanceAttestor) convertLineToStatement(line string) (*spb.Statement
 	return nil, errors.New("could not convert line to statement")
 }
 
-func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, *SourceProvenancePred, error) {
-	if prevAttPath == "" {
-		// There is no prior provenance
+// Gets provenance for the commit from git notes.
+func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit string) (*spb.Statement, *SourceProvenancePred, error) {
+	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
+	if notes == "" {
+		log.Printf("didn't find prev commit %s for branch %s", commit, pa.gh_connection.Branch)
 		return nil, nil, nil
 	}
 
-	f, err := os.Open(prevAttPath)
 	if err != nil {
-		return nil, nil, err
+		log.Fatal(err)
 	}
-	reader := bufio.NewReader(f)
+	return pa.getProvFromReader(bufio.NewReader(strings.NewReader(notes)), commit)
+}
 
+func (pa ProvenanceAttestor) getProvFromReader(reader *bufio.Reader, commit string) (*spb.Statement, *SourceProvenancePred, error) {
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
@@ -176,17 +180,30 @@ func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (
 			if err != nil {
 				return nil, nil, err
 			}
-			if doesSubjectIncludeCommit(sp, prevCommit) && prevProdPred.Branch == pa.gh_connection.GetFullBranch() {
+			if doesSubjectIncludeCommit(sp, commit) && prevProdPred.Branch == pa.gh_connection.GetFullBranch() {
 				// Should be good!
 				return sp, prevProdPred, nil
 			} else {
-				log.Printf("prev prov '%v' does not reference previous commit '%s' for branch '%s', skipping", sp, prevCommit, pa.gh_connection.GetFullBranch())
+				log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", sp, commit, pa.gh_connection.GetFullBranch())
 			}
 		}
 	}
 
-	log.Printf("didn't find prev commit %s for branch %s", prevCommit, pa.gh_connection.Branch)
+	log.Printf("didn't find commit %s for branch %s", commit, pa.gh_connection.Branch)
 	return nil, nil, nil
+}
+
+func (pa ProvenanceAttestor) getPrevProvenance(ctx context.Context, prevAttPath, prevCommit string) (*spb.Statement, *SourceProvenancePred, error) {
+	if prevAttPath != "" {
+		f, err := os.Open(prevAttPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		return pa.getProvFromReader(bufio.NewReader(f), prevCommit)
+	}
+
+	// Try to get the previous bundle ourselves...
+	return pa.GetProvenance(ctx, prevCommit)
 }
 
 func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit string) (*spb.Statement, error) {
@@ -199,7 +216,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		return nil, err
 	}
 
-	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(prevAttPath, prevCommit)
+	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(ctx, prevAttPath, prevCommit)
 	if err != nil {
 		return nil, err
 	}
@@ -217,13 +234,15 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 
 	// There was prior provenance, so update the Since field for each property
 	// to the oldest encountered.
-	for _, curControl := range curProvPred.Controls {
+	for i, curControl := range curProvPred.Controls {
 		prevControl := prevProvPred.Controls.GetControl(curControl.Name)
 		// No prior version of this control
 		if prevControl == nil {
 			continue
 		}
 		curControl.Since = slsa_types.EarlierTime(curControl.Since, prevControl.Since)
+		// Update the value.
+		curProvPred.Controls[i] = curControl
 	}
 
 	return addPredToStatement(curProvPred, commit)
