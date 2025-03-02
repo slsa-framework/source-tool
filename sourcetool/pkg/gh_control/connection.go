@@ -46,3 +46,23 @@ func (ghc *GitHubConnection) GetLatestCommit(ctx context.Context) (string, error
 	}
 	return *branch.Commit.SHA, nil
 }
+
+// Gets the previous commit to 'sha' if it has one.
+// If there are more than one parents this fails with an error.
+// (This tool generally operates in an environment of linear history)
+func (ghc *GitHubConnection) GetPriorCommit(ctx context.Context, sha string) (string, error) {
+	commit, _, err := ghc.Client.Git.GetCommit(ctx, ghc.Owner, ghc.Repo, sha)
+	if err != nil {
+		return "", fmt.Errorf("cannot get commit data for %s: %w", sha, err)
+	}
+
+	if len(commit.Parents) == 0 {
+		return "", fmt.Errorf("there is no commit earlier than %s, that isn't yet supported", sha)
+	}
+
+	if len(commit.Parents) > 1 {
+		return "", fmt.Errorf("commit %s has more than one parent (%v), which is not supported", sha, commit.Parents)
+	}
+
+	return *commit.Parents[0].SHA, nil
+}

@@ -57,8 +57,17 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		ver_options.ExpectedSan = checkLevelProvArgs.expectedSan
 	}
 
+	prevCommit := checkLevelProvArgs.prevCommit
+	var err error
+	if prevCommit == "" {
+		prevCommit, err = gh_connection.GetPriorCommit(ctx, checkLevelProvArgs.commit)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	pa := attest.NewProvenanceAttestor(gh_connection, ver_options)
-	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit)
+	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit)
 	if err != nil {
 		log.Fatal(err)
 	}
