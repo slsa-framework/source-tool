@@ -64,6 +64,12 @@ e.g.
 
 `go run github.com/slsa-framework/slsa-source-poc/sourcetool@latest createpolicy --owner TomHennen --repo wrangle --branch main`
 
-4. Add & commit the created policy file.
-5. Send a PR with the change to https://github.com/slsa-framework/slsa-source-poc
-6. Once it's approved you'll be at SLSA Source Level 3 for your next change.
+4. Edit the created policy file to set the `canonical_repo` field to the canonical repo for this source
+
+(TODO: see if we can remove this annoyance at some point)
+
+e.g. `"canonical_repo": "https://github.com/TomHennen/wrangle",`
+
+5. Add & commit the created policy file.
+6. Send a PR with the change to https://github.com/slsa-framework/slsa-source-poc
+7. Once it's approved you'll be at SLSA Source Level 3 for your next change.
