@@ -146,13 +146,29 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 
 	path := getPolicyRepoPath(pathToClone, gh_connection)
 
+	// What's their latest commit (needed for checking control status)
+	latestCommit, err := gh_connection.GetLatestCommit(ctx)
+	if err != nil {
+		return "", fmt.Errorf("could not get latest commit: %w", err)
+	}
+
+	controls, err := gh_connection.GetControls(ctx, latestCommit)
+	if err != nil {
+		return "", fmt.Errorf("could not get controls: %w", err)
+	}
+	eligibleLevel, _ := computeEligibleSlsaLevel(controls.Controls)
+	eligibleSince, err := computeEligibleSince(controls.Controls, eligibleLevel)
+	if err != nil {
+		return "", fmt.Errorf("could not compute eligible since: %w", err)
+	}
+
 	p := RepoPolicy{
 		CanonicalRepo: "TODO fill this in",
 		ProtectedBranches: []ProtectedBranch{
 			{
 				Name:                  gh_connection.Branch,
-				Since:                 time.Now(),
-				TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2,
+				Since:                 *eligibleSince,
+				TargetSlsaSourceLevel: eligibleLevel,
 			},
 		},
 	}
