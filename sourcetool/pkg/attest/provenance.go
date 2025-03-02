@@ -223,10 +223,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		if prevControl == nil {
 			continue
 		}
-		// Use the oldest Since of the two
-		if prevControl.Since.Before(curControl.Since) {
-			curControl.Since = prevControl.Since
-		}
+		curControl.Since = slsa_types.EarlierTime(curControl.Since, prevControl.Since)
 	}
 
 	return addPredToStatement(curProvPred, commit)
