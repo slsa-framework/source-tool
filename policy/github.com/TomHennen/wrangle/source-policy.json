@@ -1,0 +1,11 @@
+{
+  "canonical_repo": "TODO fill this in",
+  "protected_branches": [
+    {
+      "Name": "main",
+      "Since": "2025-03-02T18:57:10.726102104Z",
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3",
+      "require_review": false
+    }
+  ]
+}
