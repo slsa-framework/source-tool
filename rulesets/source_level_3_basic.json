@@ -1,0 +1,25 @@
+{
+    "id": 3410552,
+    "name": "SLSA Level 3 Basic",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "slsa-framework/slsa-source-poc",
+    "enforcement": "active",
+    "conditions": {
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "~DEFAULT_BRANCH"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      }
+    ],
+    "bypass_actors": []
+  }
