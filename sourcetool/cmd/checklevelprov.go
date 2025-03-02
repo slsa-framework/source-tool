@@ -28,6 +28,7 @@ type CheckLevelProvArgs struct {
 	outputSignedBundle   string
 	expectedIssuer       string
 	expectedSan          string
+	useLocalPolicy       string
 }
 
 // checklevelprovCmd represents the checklevelprov command
@@ -57,13 +58,15 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	}
 
 	pa := attest.NewProvenanceAttestor(gh_connection, ver_options)
-	p, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit)
+	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, checkLevelProvArgs.prevCommit)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// check p against policy
-	verifiedLevels, policyPath, err := policy.EvaluateProv(ctx, gh_connection, p)
+	pol := policy.NewPolicy()
+	pol.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
+	verifiedLevels, policyPath, err := pol.EvaluateProv(ctx, gh_connection, prov)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,7 +77,7 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		log.Fatal(err)
 	}
 
-	unsignedProv, err := protojson.Marshal(p)
+	unsignedProv, err := protojson.Marshal(prov)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -132,5 +135,6 @@ func init() {
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedSan, "expected_san", "", "The expect san of attestations.")
+	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
 
 }

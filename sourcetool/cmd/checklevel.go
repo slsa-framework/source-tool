@@ -17,7 +17,7 @@ import (
 )
 
 type CheckLevelArgs struct {
-	commit, owner, repo, branch, outputVsa, outputUnsignedVsa string
+	commit, owner, repo, branch, outputVsa, outputUnsignedVsa, useLocalPolicy string
 }
 
 // checklevelCmd represents the checklevel command
@@ -48,7 +48,9 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 	if err != nil {
 		log.Fatal(err)
 	}
-	verifiedLevels, policyPath, err := policy.EvaluateControl(ctx, gh_connection, controlStatus)
+	pol := policy.NewPolicy()
+	pol.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
+	verifiedLevels, policyPath, err := pol.EvaluateControl(ctx, gh_connection, controlStatus)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -89,4 +91,6 @@ func init() {
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.branch, "branch", "", "The branch within the repository - required.")
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.outputVsa, "output_vsa", "", "The path to write a signed VSA with the determined level.")
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.outputUnsignedVsa, "output_unsigned_vsa", "", "The path to write an unsigned vsa with the determined level.")
+	checklevelCmd.Flags().StringVar(&checkLevelArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
+
 }

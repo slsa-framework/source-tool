@@ -302,8 +302,18 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 	return verifiedLevels, nil
 }
 
+type Policy struct {
+	// UNSAFE!
+	// Instead of grabbing the policy from the canonical repo, use the policy at this path instead.
+	UseLocalPolicy string
+}
+
+func NewPolicy() *Policy {
+	return &Policy{}
+}
+
 // Evaluates the control against the policy and returns the resulting source level and policy path.
-func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
+func (policy Policy) EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
 	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
@@ -324,7 +334,7 @@ func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnec
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
+func (policy Policy) EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
 	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
