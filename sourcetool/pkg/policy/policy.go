@@ -81,22 +81,20 @@ func GetBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnec
 		return nil, "", err
 	}
 
-	if p == nil {
-		// No policy so return the default branch policy.
-		return &ProtectedBranch{
-			Name:                  gh_connection.Branch,
-			Since:                 time.Now(),
-			TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1,
-			RequireReview:         false}, "DEFAULT", nil
-	}
-
-	for _, pb := range p.ProtectedBranches {
-		if pb.Name == gh_connection.Branch {
-			return &pb, path, nil
+	if p != nil {
+		for _, pb := range p.ProtectedBranches {
+			if pb.Name == gh_connection.Branch {
+				return &pb, path, nil
+			}
 		}
 	}
 
-	return nil, "", fmt.Errorf("could not find rule for branch %s", gh_connection.Branch)
+	// No policy so return the default branch policy.
+	return &ProtectedBranch{
+		Name:                  gh_connection.Branch,
+		Since:                 time.Now(),
+		TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1,
+		RequireReview:         false}, "DEFAULT", nil
 }
 
 // Check to see if the local directory is a clean clone or not
