@@ -1,4 +1,4 @@
-name: Attest to this repo's source
+name: SLSA Source
 on:
   push:
     branches: [ "main" ]
