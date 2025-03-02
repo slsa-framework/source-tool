@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -47,10 +48,15 @@ func getPolicyRepoPath(pathToClone string, gh_connection *gh_control.GitHubConne
 	return fmt.Sprintf("%s/%s", pathToClone, getPolicyPath(gh_connection))
 }
 
+// If we can't find a policy we return a nil policy.
 func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
 	path := getPolicyPath(gh_connection)
 
-	policyContents, _, _, err := gh_connection.Client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	policyContents, _, resp, err := gh_connection.Client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return nil, "", nil
+	}
+
 	if err != nil {
 		return nil, "", err
 	}
@@ -70,8 +76,18 @@ func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnec
 // Gets the policy for the indicated branch direct from the GitHub repo.
 func GetBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*ProtectedBranch, string, error) {
 	p, path, err := getRemotePolicy(ctx, gh_connection)
+
 	if err != nil {
 		return nil, "", err
+	}
+
+	if p == nil {
+		// No policy so return the default branch policy.
+		return &ProtectedBranch{
+			Name:                  gh_connection.Branch,
+			Since:                 time.Now(),
+			TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1,
+			RequireReview:         false}, "DEFAULT", nil
 	}
 
 	for _, pb := range p.ProtectedBranches {
