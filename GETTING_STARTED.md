@@ -23,7 +23,7 @@ Now, enable a workflow that will evaluate the SLSA level, create provenance, etc
 3. Add the following content
 
 ```yaml
-name: Attest to this repo's source
+name: SLSA Source
 on:
   push:
     branches: [ "main" ]
