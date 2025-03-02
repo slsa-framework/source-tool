@@ -73,9 +73,30 @@ func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnec
 	return &p, *policyContents.HTMLURL, nil
 }
 
+func getLocalPolicy(path string) (*RepoPolicy, string, error) {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var p RepoPolicy
+	err = json.Unmarshal([]byte(contents), &p)
+	if err != nil {
+		return nil, "", err
+	}
+	return &p, path, nil
+}
+
+func (policy Policy) getPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
+	if policy.UseLocalPolicy == "" {
+		return getRemotePolicy(ctx, gh_connection)
+	}
+	return getLocalPolicy(policy.UseLocalPolicy)
+}
+
 // Gets the policy for the indicated branch direct from the GitHub repo.
-func GetBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*ProtectedBranch, string, error) {
-	p, path, err := getRemotePolicy(ctx, gh_connection)
+func (policy Policy) GetBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*ProtectedBranch, string, error) {
+	p, path, err := policy.getPolicy(ctx, gh_connection)
 
 	if err != nil {
 		return nil, "", err
@@ -316,7 +337,7 @@ func NewPolicy() *Policy {
 func (policy Policy) EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
-	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
+	branchPolicy, policyPath, err := policy.GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
@@ -335,7 +356,7 @@ func (policy Policy) EvaluateControl(ctx context.Context, gh_connection *gh_cont
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
 func (policy Policy) EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
-	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
+	branchPolicy, policyPath, err := policy.GetBranchPolicy(ctx, gh_connection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
