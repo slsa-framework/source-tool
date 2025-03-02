@@ -102,7 +102,7 @@ func doesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
 
 // Create provenance for the current commit without any context from the previous provenance (if any).
 func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit string) (*spb.Statement, error) {
-	controlStatus, err := pa.gh_connection.DetermineSourceLevelControlOnly(ctx, commit)
+	controlStatus, err := pa.gh_connection.GetControls(ctx, commit)
 	if err != nil {
 		return nil, err
 	}

@@ -144,12 +144,9 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 	return oldestActive, nil
 }
 
-// Determines the source level using GitHub's built in controls only.
+// Determines the controls that are in place using GitHub's APIs.
 // This is necessarily only as good as GitHub's controls and existing APIs.
-// This is a useful demonstration on how SLSA Level 2 can be achieved with ~minimal effort.
-//
-// Returns the determined source level (level 2 max) or error.
-func (ghc *GitHubConnection) DetermineSourceLevelControlOnly(ctx context.Context, commit string) (*GhControlStatus, error) {
+func (ghc *GitHubConnection) GetControls(ctx context.Context, commit string) (*GhControlStatus, error) {
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
 	activity, err := ghc.commitActivity(ctx, commit)
 	if err != nil {

@@ -44,7 +44,7 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
 	ctx := context.Background()
 
-	controlStatus, err := gh_connection.DetermineSourceLevelControlOnly(ctx, commit)
+	controlStatus, err := gh_connection.GetControls(ctx, commit)
 	if err != nil {
 		log.Fatal(err)
 	}
