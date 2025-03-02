@@ -169,6 +169,7 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 				Name:                  gh_connection.Branch,
 				Since:                 *eligibleSince,
 				TargetSlsaSourceLevel: eligibleLevel,
+				// TODO support filling in other controls too.
 			},
 		},
 	}
