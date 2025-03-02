@@ -25,7 +25,7 @@ runs:
     - id: determine_level
       run: |
         echo "## SLSA Source Properties" >> $GITHUB_STEP_SUMMARY
-        go run github.com/slsa-framework/slsa-source-poc/sourcetool@c58c9e2c5690605babdc58a2da9bf8d6d89c694a --github_token ${{ github.token }} checklevelprov --commit ${{ github.sha }} --prev_commit ${{ github.event.before }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
+        go run github.com/slsa-framework/slsa-source-poc/sourcetool@8de659f119d933d4cfaed300e7d8bd78528a48c7 --github_token ${{ github.token }} checklevelprov --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - id: summary
       run: |
