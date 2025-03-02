@@ -1,6 +1,7 @@
 package gh_control
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/go-github/v69/github"
@@ -36,4 +37,12 @@ func (ghc *GitHubConnection) GetFullBranch() string {
 // Returns the URI of the repo this connection tracks.
 func (ghc *GitHubConnection) GetRepoUri() string {
 	return fmt.Sprintf("https://github.com/%s/%s", ghc.Owner, ghc.Repo)
+}
+
+func (ghc *GitHubConnection) GetLatestCommit(ctx context.Context) (string, error) {
+	branch, _, err := ghc.Client.Repositories.GetBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch, 1)
+	if err != nil {
+		return "", fmt.Errorf("could not get info on specified branch %s: %w", ghc.Branch, err)
+	}
+	return *branch.Commit.SHA, nil
 }

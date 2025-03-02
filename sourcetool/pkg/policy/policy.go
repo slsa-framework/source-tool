@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -29,8 +30,8 @@ const (
 type ProtectedBranch struct {
 	Name                  string
 	Since                 time.Time
-	TargetSlsaSourceLevel string `json:"target_slsa_source_level"`
-	RequireReview         bool   `json:"require_review"`
+	TargetSlsaSourceLevel slsa_types.SlsaSourceLevel `json:"target_slsa_source_level"`
+	RequireReview         bool                       `json:"require_review"`
 }
 
 type RepoPolicy struct {
@@ -47,10 +48,15 @@ func getPolicyRepoPath(pathToClone string, gh_connection *gh_control.GitHubConne
 	return fmt.Sprintf("%s/%s", pathToClone, getPolicyPath(gh_connection))
 }
 
+// If we can't find a policy we return a nil policy.
 func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
 	path := getPolicyPath(gh_connection)
 
-	policyContents, _, _, err := gh_connection.Client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	policyContents, _, resp, err := gh_connection.Client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return nil, "", nil
+	}
+
 	if err != nil {
 		return nil, "", err
 	}
@@ -67,20 +73,49 @@ func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnec
 	return &p, *policyContents.HTMLURL, nil
 }
 
-// Gets the policy for the indicated branch direct from the GitHub repo.
-func GetBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*ProtectedBranch, string, error) {
-	p, path, err := getRemotePolicy(ctx, gh_connection)
+func getLocalPolicy(path string) (*RepoPolicy, string, error) {
+	contents, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", err
 	}
 
-	for _, pb := range p.ProtectedBranches {
-		if pb.Name == gh_connection.Branch {
-			return &pb, path, nil
+	var p RepoPolicy
+	err = json.Unmarshal([]byte(contents), &p)
+	if err != nil {
+		return nil, "", err
+	}
+	return &p, path, nil
+}
+
+func (policy Policy) getPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
+	if policy.UseLocalPolicy == "" {
+		return getRemotePolicy(ctx, gh_connection)
+	}
+	return getLocalPolicy(policy.UseLocalPolicy)
+}
+
+// Gets the policy for the indicated branch direct from the GitHub repo.
+func (policy Policy) getBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*ProtectedBranch, string, error) {
+	p, path, err := policy.getPolicy(ctx, gh_connection)
+
+	if err != nil {
+		return nil, "", err
+	}
+
+	if p != nil {
+		for _, pb := range p.ProtectedBranches {
+			if pb.Name == gh_connection.Branch {
+				return &pb, path, nil
+			}
 		}
 	}
 
-	return nil, "", fmt.Errorf("could not find rule for branch %s", gh_connection.Branch)
+	// No policy so return the default branch policy.
+	return &ProtectedBranch{
+		Name:                  gh_connection.Branch,
+		Since:                 time.Now(),
+		TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1,
+		RequireReview:         false}, "DEFAULT", nil
 }
 
 // Check to see if the local directory is a clean clone or not
@@ -132,14 +167,30 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 
 	path := getPolicyRepoPath(pathToClone, gh_connection)
 
-	// TODO check to make sure we're in a clean copy of the repo.
+	// What's their latest commit (needed for checking control status)
+	latestCommit, err := gh_connection.GetLatestCommit(ctx)
+	if err != nil {
+		return "", fmt.Errorf("could not get latest commit: %w", err)
+	}
+
+	controls, err := gh_connection.GetControls(ctx, latestCommit)
+	if err != nil {
+		return "", fmt.Errorf("could not get controls: %w", err)
+	}
+	eligibleLevel, _ := computeEligibleSlsaLevel(controls.Controls)
+	eligibleSince, err := computeEligibleSince(controls.Controls, eligibleLevel)
+	if err != nil {
+		return "", fmt.Errorf("could not compute eligible since: %w", err)
+	}
+
 	p := RepoPolicy{
 		CanonicalRepo: "TODO fill this in",
 		ProtectedBranches: []ProtectedBranch{
-			ProtectedBranch{
+			{
 				Name:                  gh_connection.Branch,
-				Since:                 time.Now(),
-				TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2,
+				Since:                 *eligibleSince,
+				TargetSlsaSourceLevel: eligibleLevel,
+				// TODO support filling in other controls too.
 			},
 		},
 	}
@@ -160,44 +211,79 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	return path, nil
 }
 
-func computeSlsaLevel(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (string, error) {
-	// Level 1 is easy...
-	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel1 {
-		// No point in checking anything else.
-		return slsa_types.SlsaSourceLevel1, nil
-	}
-
-	// Level 2 requires continuity and nothing else.
+// Computes the eligible SLSA level, and when they started being eligible for it,
+// if only they had a policy.  Also returns a rationale for why it's eligible for this level.
+func computeEligibleSlsaLevel(controls slsa_types.Controls) (slsa_types.SlsaSourceLevel, string) {
 	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
-	if continuityControl == nil {
-		return "", fmt.Errorf("policy sets target level %s, but continuity is not enabled so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel1)
-	}
-
-	if branchPolicy.Since.Before(continuityControl.Since) {
-		return "", fmt.Errorf("policy sets target level %s since %v, but continuity has only been enabled since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, continuityControl.Since)
-	}
-
-	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel2 {
-		// Meets all the L2 control requirements.
-		return slsa_types.SlsaSourceLevel2, nil
-	}
-
-	// In addition to continuity level 3 also requires provenance.
 	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
-	if provControl == nil {
-		return "", fmt.Errorf("policy sets target level %s, but no provenance is available so control only qualifies for %s", branchPolicy.TargetSlsaSourceLevel, slsa_types.SlsaSourceLevel2)
+
+	if continuityControl != nil && provControl != nil {
+		// Both continuity and prov means it can get level 3
+		return slsa_types.SlsaSourceLevel3, "continuity is enable and provenance is available"
 	}
 
-	if branchPolicy.Since.Before(provControl.Since) {
-		return "", fmt.Errorf("policy sets target level %s since %v, but provenance has only been available since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, provControl.Since)
+	if continuityControl != nil {
+		// Just continuity control means it can get level 2
+		return slsa_types.SlsaSourceLevel2, "continuity is enabled but provenance is not available"
 	}
 
-	if branchPolicy.TargetSlsaSourceLevel == slsa_types.SlsaSourceLevel3 {
-		// Meets all the L3 control requirements.
-		return slsa_types.SlsaSourceLevel3, nil
+	// If nothing else, level 1.
+	// The time here is tricky, it's really probably since whenever they created the repo
+	// But also, they don't qualify for much so maybe it doesn't matter.
+	// Just return now for now.
+	return slsa_types.SlsaSourceLevel1, "continuity is not enabled"
+}
+
+// Computes the time since these controls have been eligible for the level, nil if not eligible.
+func computeEligibleSince(controls slsa_types.Controls, level slsa_types.SlsaSourceLevel) (*time.Time, error) {
+	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
+	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
+
+	if level == slsa_types.SlsaSourceLevel3 {
+		if continuityControl != nil && provControl != nil {
+			t := slsa_types.LaterTime(continuityControl.Since, provControl.Since)
+			return &t, nil
+		}
+		return nil, nil
 	}
 
-	return "", fmt.Errorf("policy sets an unknown target level: %s", branchPolicy.TargetSlsaSourceLevel)
+	if level == slsa_types.SlsaSourceLevel2 {
+		if continuityControl != nil {
+			return &continuityControl.Since, nil
+		}
+		return nil, nil
+	}
+
+	if level == slsa_types.SlsaSourceLevel1 {
+		// Use an uninitialized time to indicate it's always been eligible.
+		return &time.Time{}, nil
+	}
+
+	// Unknown level
+	return nil, fmt.Errorf("unknown level %s", level)
+}
+
+func computeSlsaLevel(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SlsaSourceLevel, error) {
+	eligibleLevel, eligibleWhy := computeEligibleSlsaLevel(controls)
+
+	if !slsa_types.IsLevelHigherOrEqualTo(eligibleLevel, branchPolicy.TargetSlsaSourceLevel) {
+		return "", fmt.Errorf("policy sets target level %s, but branch is only eligible for %s because %s", branchPolicy.TargetSlsaSourceLevel, eligibleLevel, eligibleWhy)
+	}
+
+	// Check to see when this branch became eligible for the current target level.
+	eligibleSince, err := computeEligibleSince(controls, branchPolicy.TargetSlsaSourceLevel)
+	if err != nil {
+		return "", fmt.Errorf("could not compute eligible since: %w", err)
+	}
+	if eligibleSince == nil {
+		return "", fmt.Errorf("policy sets target level %s, but cannot compute when controls made it eligible for that level", branchPolicy.TargetSlsaSourceLevel)
+	}
+
+	if branchPolicy.Since.Before(*eligibleSince) {
+		return "", fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, eligibleSince)
+	}
+
+	return branchPolicy.TargetSlsaSourceLevel, nil
 }
 
 func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
@@ -224,7 +310,7 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing slsa level: %w", err)
 	}
 
-	verifiedLevels := slsa_types.SourceVerifiedLevels{slsaSourceLevel}
+	verifiedLevels := slsa_types.SourceVerifiedLevels{string(slsaSourceLevel)}
 
 	reviewEnforced, err := computeReviewEnforced(branchPolicy, controls)
 	if err != nil {
@@ -237,18 +323,28 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 	return verifiedLevels, nil
 }
 
+type Policy struct {
+	// UNSAFE!
+	// Instead of grabbing the policy from the canonical repo, use the policy at this path instead.
+	UseLocalPolicy string
+}
+
+func NewPolicy() *Policy {
+	return &Policy{}
+}
+
 // Evaluates the control against the policy and returns the resulting source level and policy path.
-func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
+func (policy Policy) EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
-	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
+	branchPolicy, policyPath, err := policy.getBranchPolicy(ctx, gh_connection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
 	if controlStatus.CommitPushTime.Before(branchPolicy.Since) {
 		// This commit was pushed before they had an explicit policy.
-		return slsa_types.SourceVerifiedLevels{slsa_types.SlsaSourceLevel1}, policyPath, nil
+		return slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, policyPath, nil
 	}
 
 	verifiedLevels, err := evaluateControls(branchPolicy, controlStatus.Controls)
@@ -259,8 +355,8 @@ func EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnec
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
-	branchPolicy, policyPath, err := GetBranchPolicy(ctx, gh_connection)
+func (policy Policy) EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
+	branchPolicy, policyPath, err := policy.getBranchPolicy(ctx, gh_connection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
