@@ -1,5 +1,5 @@
 {
-  "canonical_repo": "TODO fill this in",
+  "canonical_repo": "https://github.com/TomHennen/wrangle",
   "protected_branches": [
     {
       "Name": "main",
