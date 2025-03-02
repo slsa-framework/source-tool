@@ -173,12 +173,15 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 		return "", fmt.Errorf("could not get latest commit: %w", err)
 	}
 
-	controls, err := gh_connection.GetControls(ctx, latestCommit)
+	ver_options := attest.DefaultVerifierOptions
+	pa := attest.NewProvenanceAttestor(gh_connection, ver_options)
+	_, provPred, err := pa.GetProvenance(ctx, latestCommit)
 	if err != nil {
-		return "", fmt.Errorf("could not get controls: %w", err)
+		return "", fmt.Errorf("could not get provenance for latest commit: %w", err)
 	}
-	eligibleLevel, _ := computeEligibleSlsaLevel(controls.Controls)
-	eligibleSince, err := computeEligibleSince(controls.Controls, eligibleLevel)
+
+	eligibleLevel, _ := computeEligibleSlsaLevel(provPred.Controls)
+	eligibleSince, err := computeEligibleSince(provPred.Controls, eligibleLevel)
 	if err != nil {
 		return "", fmt.Errorf("could not compute eligible since: %w", err)
 	}
