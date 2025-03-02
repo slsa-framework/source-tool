@@ -52,4 +52,16 @@ Let's verify that everything is working
 
 ## Create a policy file
 
-TODO
+Now let's create the policy file that will upgrade your SLSA level to level 3.
+
+1. Create a fork of https://github.com/slsa-framework/slsa-source-poc
+2. Within that fork create a new branch for your policy
+3. Within a clean working directory run
+`go run github.com/slsa-framework/slsa-source-poc/sourcetool@latest createpolicy --owner <YOUR REPO'S ORG> --repo <YOUR REPO'S NAME> --branch main`
+
+e.g.
+`go run github.com/slsa-framework/slsa-source-poc/sourcetool@latest createpolicy --owner TomHennen --repo wrangle --branch main`
+
+4. Add & commit the created policy file.
+5. Send a PR with the change to https://github.com/slsa-framework/slsa-source-poc
+6. Once it's approved you'll be at SLSA Source Level 3 for your next change.
