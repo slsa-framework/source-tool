@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	spb "github.com/in-toto/attestation/go/v1"
@@ -141,17 +142,27 @@ func (pa ProvenanceAttestor) convertLineToStatement(line string) (*spb.Statement
 	return nil, errors.New("could not convert line to statement")
 }
 
-func (pa ProvenanceAttestor) getPrevProvenance(prevAttPath, prevCommit string) (*spb.Statement, *SourceProvenancePred, error) {
-	if prevAttPath == "" {
-		// There is no prior provenance
-		return nil, nil, nil
-	}
+func (pa ProvenanceAttestor) getPrevProvenance(ctx context.Context, prevAttPath, prevCommit string) (*spb.Statement, *SourceProvenancePred, error) {
+	var reader *bufio.Reader
+	if prevAttPath != "" {
+		f, err := os.Open(prevAttPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		reader = bufio.NewReader(f)
+	} else {
+		// Try to get the previous bundle ourselves...
+		notes, err := pa.gh_connection.GetNotesForCommit(ctx, prevCommit)
+		if notes == "" {
+			log.Printf("didn't find prev commit %s for branch %s", prevCommit, pa.gh_connection.Branch)
+			return nil, nil, nil
+		}
 
-	f, err := os.Open(prevAttPath)
-	if err != nil {
-		return nil, nil, err
+		if err != nil {
+			log.Fatal(err)
+		}
+		reader = bufio.NewReader(strings.NewReader(notes))
 	}
-	reader := bufio.NewReader(f)
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -199,7 +210,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		return nil, err
 	}
 
-	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(prevAttPath, prevCommit)
+	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(ctx, prevAttPath, prevCommit)
 	if err != nil {
 		return nil, err
 	}
