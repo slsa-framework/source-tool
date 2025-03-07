@@ -1,0 +1,11 @@
+{
+  "canonical_repo": "https://github.com/whiskeytastingfoundation/wtf-frontend",
+  "protected_branches": [
+    {
+      "Name": "main",
+      "Since": "2025-03-07T18:13:04.225908438Z",
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3",
+      "require_review": false
+    }
+  ]
+}
