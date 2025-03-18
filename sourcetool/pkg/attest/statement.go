@@ -36,10 +36,26 @@ func (br BundleReader) convertLineToStatement(line string) (*spb.Statement, erro
 	return nil, errors.New("could not convert line to statement")
 }
 
+type StatementMatcher func(*spb.Statement) bool
+
+func MatchesTypeAndCommit(predicateType, commit string) StatementMatcher {
+	return func(statement *spb.Statement) bool {
+		if statement.PredicateType != predicateType {
+			log.Printf("statement predicate type (%s) doesn't match %s", statement.PredicateType, predicateType)
+			return false
+		}
+		if !DoesSubjectIncludeCommit(statement, commit) {
+			log.Printf("statement %v does not match commit %s", statement, commit)
+			return false
+		}
+		return true
+	}
+}
+
 // Reads all the statements that:
 // 1. Have the specified predicate type.
 // 2. Have a subject that matches the specified git commit.
-func (br *BundleReader) ReadStatement(predicateType, commit string) (*spb.Statement, error) {
+func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*spb.Statement, error) {
 	// Read until we get a statement or end of file.
 	for {
 		line, err := br.reader.ReadString('\n')
@@ -61,15 +77,8 @@ func (br *BundleReader) ReadStatement(predicateType, commit string) (*spb.Statem
 			// Not sure what this is, just continue
 			continue
 		}
-		if statement.PredicateType != predicateType {
-			log.Printf("statement predicate type (%s) doesn't match %s", statement.PredicateType, predicateType)
-			continue
-		}
-		if DoesSubjectIncludeCommit(statement, commit) {
-			// A match!
+		if matcher(statement) {
 			return statement, nil
-		} else {
-			log.Printf("statement %v does not match commit %s", statement, commit)
 		}
 		// If we loop again it's because that line didn't have a matching statement
 	}

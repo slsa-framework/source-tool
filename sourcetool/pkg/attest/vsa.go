@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
@@ -92,6 +93,29 @@ func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 		return nil, err
 	}
 	return &predStruct, nil
+}
+
+func MatchesTypeCommitAndBranch(predicateType, commit, branch string) StatementMatcher {
+	return func(statement *spb.Statement) bool {
+		if statement.PredicateType != predicateType {
+			log.Printf("statement predicate type (%s) doesn't match %s", statement.PredicateType, predicateType)
+			return false
+		}
+		subject := GetSubjectForCommit(statement, commit)
+		if subject == nil {
+			log.Printf("statement %v does not match commit %s", statement, commit)
+			return false
+		}
+		branches, ok := subject.Annotations.AsMap()["source_branches"]
+		if !ok {
+			log.Printf("statement has no branches: %v", statement)
+			return false
+		}
+		if !slices.Contains(branches, branch) {
+			log.Printf("source_branches (%v) does not contain %s", branches, branch)
+		}
+		return true
+	}
 }
 
 func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit string) (*spb.Statement, *vpb.VerificationSummary, error) {

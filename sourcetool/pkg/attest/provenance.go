@@ -133,7 +133,7 @@ func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit string) (
 
 func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit string) (*spb.Statement, *SourceProvenancePred, error) {
 	for {
-		stmt, err := reader.ReadStatement(SourceProvPredicateType, commit)
+		stmt, err := reader.ReadStatement(MatchesTypeAndCommit(SourceProvPredicateType, commit))
 		if err != nil {
 			return nil, nil, err
 		}
