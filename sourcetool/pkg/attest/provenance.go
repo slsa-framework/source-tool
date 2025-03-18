@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -119,7 +118,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit string) (*spb.Statement, *SourceProvenancePred, error) {
 	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
 	if notes == "" {
-		log.Printf("didn't notes for commit %s", commit)
+		log.Printf("didn't find notes for commit %s", commit)
 		return nil, nil, nil
 	}
 

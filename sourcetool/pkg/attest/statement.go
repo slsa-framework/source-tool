@@ -77,10 +77,16 @@ func (br *BundleReader) ReadStatement(predicateType, commit string) (*spb.Statem
 }
 
 func DoesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
+	return GetSubjectForCommit(statement, commit) != nil
+}
+
+// Returns the _first_ subject that includes the commit.
+// TODO: add support for multiple subjects...
+func GetSubjectForCommit(statement *spb.Statement, commit string) *spb.ResourceDescriptor {
 	for _, subject := range statement.Subject {
 		if subject.Digest["gitCommit"] == commit {
-			return true
+			return subject
 		}
 	}
-	return false
+	return nil
 }

@@ -4,9 +4,12 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +24,7 @@ var (
 		Use:   "verifycommit",
 		Short: "Verifies the specified commit is valid",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("verifycommit called")
+			doVerifyCommit(verifyCommitArgs.commit, verifyCommitArgs.owner, verifyCommitArgs.repo, verifyCommitArgs.branch)
 		},
 	}
 )
@@ -33,6 +36,20 @@ func doVerifyCommit(commit, owner, repo, branch string) {
 
 	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
 	ctx := context.Background()
+
+	// TODO: support overriding default verification options
+	pa := attest.NewProvenanceAttestor(gh_connection, attest.DefaultVerifierOptions)
+
+	_, vsaPred, err := pa.GetVsa(ctx, commit)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if vsaPred == nil {
+		fmt.Printf("FAILED: could not verify commit %s, no VSA found\n", commit)
+		return
+	}
+
+	fmt.Printf("SUCCESS: commit %s verified with %v\n", commit, vsaPred.VerifiedLevels)
 }
 
 func init() {

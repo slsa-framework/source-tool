@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const VsaPredicateType = "https://slsa.dev/verification_summary/v1"
+
 func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, verifiedLevels slsa_types.SourceVerifiedLevels, policy string) (string, error) {
 	resourceUri := fmt.Sprintf("git+%s", gh_connection.GetRepoUri())
 	vsaPred := &vpb.VerificationSummary{
@@ -52,7 +54,7 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 	statementPb := spb.Statement{
 		Type:          spb.StatementTypeUri,
 		Subject:       sub,
-		PredicateType: "https://slsa.dev/verification_summary/v1",
+		PredicateType: VsaPredicateType,
 		Predicate:     &predPb,
 	}
 
@@ -64,20 +66,20 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 }
 
 // Gets provenance for the commit from git notes.
-func (pa ProvenanceAttestor) GetVsa(ctx context.Context, commit string) (*spb.Statement, *SourceProvenancePred, error) {
+func (pa ProvenanceAttestor) GetVsa(ctx context.Context, commit string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
 	if notes == "" {
-		log.Printf("didn't notes for commit %s", commit)
+		log.Printf("didn't find notes for commit %s", commit)
 		return nil, nil, nil
 	}
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	return pa.getProvFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verification_options), commit)
+	return pa.getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verification_options), commit)
 }
 
-func GetVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
+func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 	predJson, err := protojson.Marshal(statement.Predicate)
 	if err != nil {
 		return nil, err
@@ -94,7 +96,7 @@ func GetVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 
 func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	for {
-		stmt, err := reader.ReadStatement(SourceProvPredicateType, commit)
+		stmt, err := reader.ReadStatement(VsaPredicateType, commit)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -109,17 +111,16 @@ func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit strin
 			break
 		}
 
-		vsaPred, err := GetVsaPred(stmt)
+		vsaPred, err := getVsaPred(stmt)
 		if err != nil {
 			return nil, nil, err
 		}
-		stme
-		if vsaPred.Branch == pa.gh_connection.GetFullBranch() {
-			// Should be good!
-			return stmt, prevProdPred, nil
-		} else {
-			log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, pa.gh_connection.GetFullBranch())
-		}
+
+		// TODO: check that it came from the correct branch...
+		// // Does this VSA come from the right branch?
+		// subject := GetSubjectForCommit(stmt, commit)
+		// if subject.Annotations.AsMap()
+		return stmt, vsaPred, nil
 	}
 
 	log.Printf("didn't find commit %s for branch %s", commit, pa.gh_connection.Branch)
