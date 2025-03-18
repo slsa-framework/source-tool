@@ -111,8 +111,10 @@ func MatchesTypeCommitAndBranch(predicateType, commit, branch string) StatementM
 			log.Printf("statement has no branches: %v", statement)
 			return false
 		}
-		if !slices.Contains(branches, branch) {
+		branches_str, _ := branches.([]string)
+		if !slices.Contains(branches_str, branch) {
 			log.Printf("source_branches (%v) does not contain %s", branches, branch)
+			return false
 		}
 		return true
 	}
@@ -120,10 +122,7 @@ func MatchesTypeCommitAndBranch(predicateType, commit, branch string) StatementM
 
 func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	for {
-		stmt, err := reader.ReadStatement(VsaPredicateType, commit)
-		if err != nil {
-			return nil, nil, err
-		}
+		stmt, err := reader.ReadStatement(MatchesTypeCommitAndBranch(VsaPredicateType, commit, pa.gh_connection.GetFullBranch()))
 		if err != nil {
 			// Ignore errors, we want to check all the lines.
 			log.Printf("error while processing line: %v", err)
@@ -140,10 +139,6 @@ func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit strin
 			return nil, nil, err
 		}
 
-		// TODO: check that it came from the correct branch...
-		// // Does this VSA come from the right branch?
-		// subject := GetSubjectForCommit(stmt, commit)
-		// if subject.Annotations.AsMap()
 		return stmt, vsaPred, nil
 	}
 
