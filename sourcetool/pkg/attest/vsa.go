@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"slices"
 	"strings"
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
@@ -95,7 +94,7 @@ func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 	return &predStruct, nil
 }
 
-func MatchesTypeCommitAndBranch(predicateType, commit, branch string) StatementMatcher {
+func MatchesTypeCommitAndBranch(predicateType, commit, targetBranch string) StatementMatcher {
 	return func(statement *spb.Statement) bool {
 		if statement.PredicateType != predicateType {
 			log.Printf("statement predicate type (%s) doesn't match %s", statement.PredicateType, predicateType)
@@ -106,17 +105,14 @@ func MatchesTypeCommitAndBranch(predicateType, commit, branch string) StatementM
 			log.Printf("statement %v does not match commit %s", statement, commit)
 			return false
 		}
-		branches, ok := subject.Annotations.AsMap()["source_branches"]
-		if !ok {
-			log.Printf("statement has no branches: %v", statement)
-			return false
+		branches := subject.GetAnnotations().Fields["source_branches"].GetListValue()
+		for _, branch := range branches.Values {
+			if branch.GetStringValue() == targetBranch {
+				return true
+			}
 		}
-		branches_str, _ := branches.([]string)
-		if !slices.Contains(branches_str, branch) {
-			log.Printf("source_branches (%v) does not contain %s", branches, branch)
-			return false
-		}
-		return true
+		log.Printf("source_branches (%v) does not contain %s", branches, targetBranch)
+		return false
 	}
 }
 
