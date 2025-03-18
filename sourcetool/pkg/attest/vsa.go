@@ -1,7 +1,11 @@
 package attest
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"log"
+	"strings"
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
@@ -57,4 +61,67 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		return "", err
 	}
 	return string(statement), nil
+}
+
+// Gets provenance for the commit from git notes.
+func (pa ProvenanceAttestor) GetVsa(ctx context.Context, commit string) (*spb.Statement, *SourceProvenancePred, error) {
+	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
+	if notes == "" {
+		log.Printf("didn't notes for commit %s", commit)
+		return nil, nil, nil
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	return pa.getProvFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verification_options), commit)
+}
+
+func GetVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
+	predJson, err := protojson.Marshal(statement.Predicate)
+	if err != nil {
+		return nil, err
+	}
+
+	var predStruct vpb.VerificationSummary
+	// Using regular json.Unmarshal because this is just a regular struct.
+	err = protojson.Unmarshal(predJson, &predStruct)
+	if err != nil {
+		return nil, err
+	}
+	return &predStruct, nil
+}
+
+func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit string) (*spb.Statement, *vpb.VerificationSummary, error) {
+	for {
+		stmt, err := reader.ReadStatement(SourceProvPredicateType, commit)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err != nil {
+			// Ignore errors, we want to check all the lines.
+			log.Printf("error while processing line: %v", err)
+			continue
+		}
+
+		if stmt == nil {
+			// No statements left.
+			break
+		}
+
+		vsaPred, err := GetVsaPred(stmt)
+		if err != nil {
+			return nil, nil, err
+		}
+		stme
+		if vsaPred.Branch == pa.gh_connection.GetFullBranch() {
+			// Should be good!
+			return stmt, prevProdPred, nil
+		} else {
+			log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, pa.gh_connection.GetFullBranch())
+		}
+	}
+
+	log.Printf("didn't find commit %s for branch %s", commit, pa.gh_connection.Branch)
+	return nil, nil, nil
 }
