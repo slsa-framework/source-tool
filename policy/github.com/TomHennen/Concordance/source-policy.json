@@ -1,0 +1,11 @@
+{
+  "canonical_repo": "https://github.com/TomHennen/Concordance",
+  "protected_branches": [
+    {
+      "Name": "master",
+      "Since": "2025-03-18T20:20:20.25099739Z",
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3",
+      "require_review": false
+    }
+  ]
+}
