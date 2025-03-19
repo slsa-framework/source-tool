@@ -6,11 +6,14 @@ package cmd
 import (
 	"os"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/spf13/cobra"
 )
 
 var (
-	githubToken string
+	githubToken    string
+	expectedIssuer string
+	expectedSan    string
 
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
@@ -28,6 +31,17 @@ to quickly create a Cobra application.`,
 	}
 )
 
+func getVerificationOptions() attest.VerificationOptions {
+	options := attest.DefaultVerifierOptions
+	if checkLevelProvArgs.expectedIssuer != "" {
+		options.ExpectedIssuer = checkLevelProvArgs.expectedIssuer
+	}
+	if checkLevelProvArgs.expectedSan != "" {
+		options.ExpectedSan = checkLevelProvArgs.expectedSan
+	}
+	return options
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -42,11 +56,8 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.sourcetool.yaml)")
-
 	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
+	rootCmd.PersistentFlags().StringVar(&expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
+	rootCmd.PersistentFlags().StringVar(&expectedSan, "expected_san", "", "The expect san of attestations.")
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

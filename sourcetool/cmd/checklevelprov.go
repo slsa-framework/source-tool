@@ -49,14 +49,6 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch).WithAuthToken(githubToken)
 	ctx := context.Background()
 
-	ver_options := attest.DefaultVerifierOptions
-	if checkLevelProvArgs.expectedIssuer != "" {
-		ver_options.ExpectedIssuer = checkLevelProvArgs.expectedIssuer
-	}
-	if checkLevelProvArgs.expectedSan != "" {
-		ver_options.ExpectedSan = checkLevelProvArgs.expectedSan
-	}
-
 	prevCommit := checkLevelProvArgs.prevCommit
 	var err error
 	if prevCommit == "" {
@@ -66,7 +58,7 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		}
 	}
 
-	pa := attest.NewProvenanceAttestor(gh_connection, ver_options)
+	pa := attest.NewProvenanceAttestor(gh_connection, getVerificationOptions())
 	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit)
 	if err != nil {
 		log.Fatal(err)
@@ -142,8 +134,6 @@ func init() {
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.branch, "branch", "", "The branch within the repository - required.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.expectedSan, "expected_san", "", "The expect san of attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
 
 }

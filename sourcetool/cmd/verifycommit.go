@@ -37,8 +37,7 @@ func doVerifyCommit(commit, owner, repo, branch string) {
 	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
 	ctx := context.Background()
 
-	// TODO: support overriding default verification options
-	pa := attest.NewProvenanceAttestor(gh_connection, attest.DefaultVerifierOptions)
+	pa := attest.NewProvenanceAttestor(gh_connection, getVerificationOptions())
 
 	_, vsaPred, err := pa.GetVsa(ctx, commit)
 	if err != nil {
