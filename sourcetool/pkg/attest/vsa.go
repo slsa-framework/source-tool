@@ -102,16 +102,17 @@ func MatchesTypeCommitAndBranch(predicateType, commit, targetBranch string) Stat
 		}
 		subject := GetSubjectForCommit(statement, commit)
 		if subject == nil {
-			log.Printf("statement %v does not match commit %s", statement, commit)
+			log.Printf("statement \n%v\n does not match commit %s", StatementToString(statement), commit)
 			return false
 		}
 		branches := subject.GetAnnotations().Fields["source_branches"].GetListValue()
 		for _, branch := range branches.Values {
 			if branch.GetStringValue() == targetBranch {
+				log.Printf("statement \n%v\n matches commit '%s' on branch '%s'", StatementToString(statement), commit, targetBranch)
 				return true
 			}
 		}
-		log.Printf("source_branches (%v) does not contain %s", branches, targetBranch)
+		log.Printf("source_branches (%v) in VSA does not contain %s", branches, targetBranch)
 		return false
 	}
 }

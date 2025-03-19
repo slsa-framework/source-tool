@@ -8,6 +8,7 @@ import (
 	"log"
 
 	spb "github.com/in-toto/attestation/go/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type BundleReader struct {
@@ -45,7 +46,7 @@ func MatchesTypeAndCommit(predicateType, commit string) StatementMatcher {
 			return false
 		}
 		if !DoesSubjectIncludeCommit(statement, commit) {
-			log.Printf("statement %v does not match commit %s", statement, commit)
+			log.Printf("statement \n%v\n does not match commit %s", StatementToString(statement), commit)
 			return false
 		}
 		return true
@@ -98,4 +99,24 @@ func GetSubjectForCommit(statement *spb.Statement, commit string) *spb.ResourceD
 		}
 	}
 	return nil
+}
+
+// Just make this easy for logging...
+func StatementToString(stmt *spb.Statement) string {
+	if stmt == nil {
+		return "<nil>"
+	}
+
+	options := protojson.MarshalOptions{
+		Multiline:     true,
+		Indent:        " ",
+		AllowPartial:  true,
+		UseProtoNames: false,
+	}
+
+	jsonBytes, err := options.Marshal(stmt)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+	return string(jsonBytes)
 }

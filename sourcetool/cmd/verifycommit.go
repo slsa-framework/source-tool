@@ -44,7 +44,7 @@ func doVerifyCommit(commit, owner, repo, branch string) {
 		log.Fatal(err)
 	}
 	if vsaPred == nil {
-		fmt.Printf("FAILED: could not verify commit %s, no VSA found\n", commit)
+		fmt.Printf("FAILED: no VSA matching commit '%s' on branch '%s' found in github.com/%s/%s\n", commit, branch, owner, repo)
 		return
 	}
 
