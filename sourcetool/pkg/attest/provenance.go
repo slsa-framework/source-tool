@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
@@ -92,15 +90,6 @@ func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Sta
 	return &statementPb, nil
 }
 
-func doesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
-	for _, subject := range statement.Subject {
-		if subject.Digest["gitCommit"] == commit {
-			return true
-		}
-	}
-	return false
-}
-
 // Create provenance for the current commit without any context from the previous provenance (if any).
 func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit string) (*spb.Statement, error) {
 	controlStatus, err := pa.gh_connection.GetControls(ctx, commit)
@@ -125,67 +114,49 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	return addPredToStatement(&curProvPred, commit)
 }
 
-func (pa ProvenanceAttestor) convertLineToStatement(line string) (*spb.Statement, error) {
-	// Is this a sigstore bundle with a statement?
-	vr, err := Verify(line, pa.verification_options)
-	if err == nil {
-		// This is it.
-		return vr.Statement, nil
-	} else {
-		// We ignore errors because there could be other stuff in the
-		// bundle this line came from.
-		log.Printf("Line %s failed verification: %v", line, err)
-	}
-
-	// TODO: add support for 'regular' DSSEs.
-
-	return nil, errors.New("could not convert line to statement")
-}
-
 // Gets provenance for the commit from git notes.
 func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit string) (*spb.Statement, *SourceProvenancePred, error) {
 	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
 	if notes == "" {
-		log.Printf("didn't find prev commit %s for branch %s", commit, pa.gh_connection.Branch)
+		log.Printf("didn't find notes for commit %s", commit)
 		return nil, nil, nil
 	}
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	return pa.getProvFromReader(bufio.NewReader(strings.NewReader(notes)), commit)
+
+	bundleReader := NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verification_options)
+
+	return pa.getProvFromReader(bundleReader, commit)
 }
 
-func (pa ProvenanceAttestor) getProvFromReader(reader *bufio.Reader, commit string) (*spb.Statement, *SourceProvenancePred, error) {
+func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit string) (*spb.Statement, *SourceProvenancePred, error) {
 	for {
-		line, err := reader.ReadString('\n')
+		stmt, err := reader.ReadStatement(MatchesTypeAndCommit(SourceProvPredicateType, commit))
 		if err != nil {
-			// Handle end of file gracefully
-			if err != io.EOF {
-				return nil, nil, err
-			}
-			if line == "" {
-				// Nothing to see here.
-				break
-			}
+			return nil, nil, err
 		}
-		// Is this source provenance?
-		sp, err := pa.convertLineToStatement(line)
-		if err == nil {
-			if sp.PredicateType != SourceProvPredicateType {
-				log.Printf("statement %v isn't source provenance", sp)
-				continue
-			}
-			prevProdPred, err := GetProvPred(sp)
-			if err != nil {
-				return nil, nil, err
-			}
-			if doesSubjectIncludeCommit(sp, commit) && prevProdPred.Branch == pa.gh_connection.GetFullBranch() {
-				// Should be good!
-				return sp, prevProdPred, nil
-			} else {
-				log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", sp, commit, pa.gh_connection.GetFullBranch())
-			}
+		if err != nil {
+			// Ignore errors, we want to check all the lines.
+			log.Printf("error while processing line: %v", err)
+			continue
+		}
+
+		if stmt == nil {
+			// No statements left.
+			break
+		}
+
+		prevProdPred, err := GetProvPred(stmt)
+		if err != nil {
+			return nil, nil, err
+		}
+		if prevProdPred.Branch == pa.gh_connection.GetFullBranch() {
+			// Should be good!
+			return stmt, prevProdPred, nil
+		} else {
+			log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, pa.gh_connection.GetFullBranch())
 		}
 	}
 
@@ -199,7 +170,7 @@ func (pa ProvenanceAttestor) getPrevProvenance(ctx context.Context, prevAttPath,
 		if err != nil {
 			return nil, nil, err
 		}
-		return pa.getProvFromReader(bufio.NewReader(f), prevCommit)
+		return pa.getProvFromReader(NewBundleReader(bufio.NewReader(f), pa.verification_options), prevCommit)
 	}
 
 	// Try to get the previous bundle ourselves...

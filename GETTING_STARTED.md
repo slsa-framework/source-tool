@@ -19,7 +19,7 @@ First, enable continuity controls within the target GitHub repo.
 Now, enable a workflow that will evaluate the SLSA level, create provenance, etc...
 
 1. Create a clean checkout of the target repo
-2. Create a new file named `./github/workflows/compute_slsa_source.yml`
+2. Create a new file named `.github/workflows/compute_slsa_source.yml`
 3. Add the following content
 
 ```yaml
@@ -44,11 +44,15 @@ jobs:
 
 Let's verify that everything is working
 
-1. Go to the GitHub repo
-2. Click the 'Actions' option
-3. Find the most recent run of `SLSA Source` (it should have a green check mark)
-4. Click into it
-5. You should see the summary listing "SLSA Source Properties": `[SLSA_SOURCE_LEVEL_1]`
+1. Note the digest of **merged** commit that added the workflow above
+2. Run the verification command
+
+`go run github.com/slsa-framework/slsa-source-poc/sourcetool@latest verifycommit --commit <commit digest> --owner <YOUR REPO'S ORG> --repo <YOUR REPO'S NAME> --branch main`
+
+3. You should see the message
+`SUCCESS: commit <commit digest> verified with [SLSA_SOURCE_LEVEL_1]`
+
+Move to the next section to get to `SLSA_SOURCE_LEVEL_3`.
 
 ## Create a policy file
 
@@ -73,3 +77,16 @@ e.g. `"canonical_repo": "https://github.com/TomHennen/wrangle",`
 5. Add & commit the created policy file.
 6. Send a PR with the change to https://github.com/slsa-framework/slsa-source-poc
 7. Once it's approved you'll be at SLSA Source Level 3 for your next change.
+
+## Validate Source Level 3 workflow
+
+Let's verify that everything is working
+
+1. Make and merge a change to the protected branch (`main`) in **your** repo.
+2. Note the digest of **merged** commit
+3. Run the verification command
+
+`go run github.com/slsa-framework/slsa-source-poc/sourcetool@latest verifycommit --commit <commit digest> --owner <YOUR REPO'S ORG> --repo <YOUR REPO'S NAME> --branch main`
+
+4. You should see the message
+`SUCCESS: commit <commit digest> verified with [SLSA_SOURCE_LEVEL_3]`
