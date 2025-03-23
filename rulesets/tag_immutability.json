@@ -1,0 +1,28 @@
+{
+  "id": 4317154,
+  "name": "SLSA Tag Controls",
+  "target": "tag",
+  "source_type": "Repository",
+  "source": "TomHennen/Concordance",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "~ALL"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "update"
+    }
+  ],
+  "bypass_actors": []
+}

@@ -229,6 +229,19 @@ This tool can also check to see if the GitHub repo/ref is configured to require
     * "Require review from Code Owners"
     * "Require approval of the most recent reviewable push"
 
+### IMMUTABLE_TAGS
+
+This tool can also check to see if the GitHub repo is configured to require
+immutable tags.  To do so it checks that the repo:
+
+1. Doesn't allow tag updates
+2. Doesn't allow tag deletions
+3. Doesn't allow tag fast-forwards
+
+Importing [rulesets/tag_immutability.json](rulesets/tag_immutability.json)
+to a repos rulesets will enable the repo controls. The `immutable_tags`
+field in the policy then needs to be enabled too.
+
 ## Open Issues
 
 ### Dealing with reliability
