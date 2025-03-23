@@ -307,12 +307,12 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Co
 	return true, nil
 }
 
-func computeTagImmutabilityEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
+func computeImmutableTags(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
 	if !branchPolicy.ImmutableTags {
 		return false, nil
 	}
 
-	immutableTags := controls.GetControl(slsa_types.TagImmutabilityEnforced)
+	immutableTags := controls.GetControl(slsa_types.ImmutableTags)
 	if immutableTags == nil {
 		return false, fmt.Errorf("policy requires immutable tags, but that control is not enabled")
 	}
@@ -341,12 +341,12 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 		verifiedLevels = append(verifiedLevels, slsa_types.ReviewEnforced)
 	}
 
-	tagImmutabilityEnforced, err := computeTagImmutabilityEnforced(branchPolicy, controls)
+	immutableTags, err := computeImmutableTags(branchPolicy, controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
-	if tagImmutabilityEnforced {
-		verifiedLevels = append(verifiedLevels, slsa_types.TagImmutabilityEnforced)
+	if immutableTags {
+		verifiedLevels = append(verifiedLevels, slsa_types.ImmutableTags)
 	}
 
 	return verifiedLevels, nil

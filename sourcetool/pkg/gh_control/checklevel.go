@@ -104,7 +104,7 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	return &slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
 }
 
-func enforcesTagImmutability(ruleset *github.RepositoryRuleset) bool {
+func enforcesImmutableTags(ruleset *github.RepositoryRuleset) bool {
 	if ruleset.Rules != nil &&
 		ruleset.Rules.Update != nil &&
 		ruleset.Rules.Deletion != nil &&
@@ -116,7 +116,7 @@ func enforcesTagImmutability(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
-func (ghc *GitHubConnection) computeTagImmutabilityControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activity *activity) (*slsa_types.Control, error) {
+func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activity *activity) (*slsa_types.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
 		if *ruleset.Target != github.RulesetTargetTag {
@@ -134,7 +134,7 @@ func (ghc *GitHubConnection) computeTagImmutabilityControl(ctx context.Context, 
 			return nil, fmt.Errorf("could not get full ruleset for ruleset id %d", ruleset.GetID())
 		}
 
-		if !enforcesTagImmutability(fullRuleset) {
+		if !enforcesImmutableTags(fullRuleset) {
 			continue
 		}
 		if validRuleset == nil || validRuleset.UpdatedAt.After(ruleset.UpdatedAt.Time) {
@@ -151,7 +151,7 @@ func (ghc *GitHubConnection) computeTagImmutabilityControl(ctx context.Context, 
 		return nil, nil
 	}
 
-	return &slsa_types.Control{Name: slsa_types.TagImmutabilityEnforced, Since: validRuleset.UpdatedAt.Time}, nil
+	return &slsa_types.Control{Name: slsa_types.ImmutableTags, Since: validRuleset.UpdatedAt.Time}, nil
 }
 
 // Computes the review control returning nil if it's not enabled.
@@ -226,11 +226,11 @@ func (ghc *GitHubConnection) GetControls(ctx context.Context, commit string) (*G
 	}
 	controlStatus.Controls.AddControl(continuityControl)
 
-	tagImmutabilityControl, err := ghc.computeTagImmutabilityControl(ctx, commit, allRulesets, activity)
+	ImmutableTagsControl, err := ghc.computeImmutableTagsControl(ctx, commit, allRulesets, activity)
 	if err != nil {
-		return nil, fmt.Errorf("could not populate TagImmutabilityControl: %w", err)
+		return nil, fmt.Errorf("could not populate ImmutableTagsControl: %w", err)
 	}
-	controlStatus.Controls.AddControl(tagImmutabilityControl)
+	controlStatus.Controls.AddControl(ImmutableTagsControl)
 
 	reviewControl, err := ghc.computeReviewControl(ctx, branchRules.PullRequest)
 	if err != nil {
