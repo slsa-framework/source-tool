@@ -104,6 +104,56 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	return &slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
 }
 
+func enforcesTagImmutability(ruleset *github.RepositoryRuleset) bool {
+	if ruleset.Rules != nil &&
+		ruleset.Rules.Update != nil &&
+		ruleset.Rules.Deletion != nil &&
+		ruleset.Rules.NonFastForward != nil &&
+		len(ruleset.Conditions.RefName.Exclude) == 0 &&
+		slices.Contains(ruleset.Conditions.RefName.Include, "~ALL") {
+		return true
+	}
+	return false
+}
+
+func (ghc *GitHubConnection) computeTagImmutabilityControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activity *activity) (*slsa_types.Control, error) {
+	var validRuleset *github.RepositoryRuleset
+	for _, ruleset := range allRulesets {
+		if *ruleset.Target != github.RulesetTargetTag {
+			continue
+		}
+
+		if ruleset.Enforcement != github.RulesetEnforcementActive {
+			continue
+		}
+
+		// The GitHub API only seems to return a partial ruleset when asking for 'all' the rules
+		// So we'll ask for this specific rule here so we can get all the data.
+		fullRuleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, ruleset.GetID(), false)
+		if err != nil {
+			return nil, fmt.Errorf("could not get full ruleset for ruleset id %d", ruleset.GetID())
+		}
+
+		if !enforcesTagImmutability(fullRuleset) {
+			continue
+		}
+		if validRuleset == nil || validRuleset.UpdatedAt.After(ruleset.UpdatedAt.Time) {
+			validRuleset = ruleset
+		}
+	}
+
+	if validRuleset == nil {
+		return nil, nil
+	}
+
+	// Check that the commit was created after this rule was enabled.
+	if activity.Timestamp.Before(validRuleset.UpdatedAt.Time) {
+		return nil, nil
+	}
+
+	return &slsa_types.Control{Name: slsa_types.TagImmutabilityEnforced, Since: validRuleset.UpdatedAt.Time}, nil
+}
+
 // Computes the review control returning nil if it's not enabled.
 func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*github.PullRequestBranchRule) (*slsa_types.Control, error) {
 	var oldestActive *github.RepositoryRuleset
@@ -159,20 +209,30 @@ func (ghc *GitHubConnection) GetControls(ctx context.Context, commit string) (*G
 		ActorLogin:     activity.Actor.Login,
 		Controls:       slsa_types.Controls{}}
 
-	rules, _, err := ghc.Client.Repositories.GetRulesForBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch)
+	branchRules, _, err := ghc.Client.Repositories.GetRulesForBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch)
+	if err != nil {
+		return nil, err
+	}
 
+	allRulesets, _, err := ghc.Client.Repositories.GetAllRulesets(ctx, ghc.Owner, ghc.Repo, true)
 	if err != nil {
 		return nil, err
 	}
 
 	// Compute the controls enforced.
-	continuityControl, err := ghc.computeContinuityControl(ctx, commit, rules, activity)
+	continuityControl, err := ghc.computeContinuityControl(ctx, commit, branchRules, activity)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate ContinuityControl: %w", err)
 	}
 	controlStatus.Controls.AddControl(continuityControl)
 
-	reviewControl, err := ghc.computeReviewControl(ctx, rules.PullRequest)
+	tagImmutabilityControl, err := ghc.computeTagImmutabilityControl(ctx, commit, allRulesets, activity)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate TagImmutabilityControl: %w", err)
+	}
+	controlStatus.Controls.AddControl(tagImmutabilityControl)
+
+	reviewControl, err := ghc.computeReviewControl(ctx, branchRules.PullRequest)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate ReviewControl: %w", err)
 	}

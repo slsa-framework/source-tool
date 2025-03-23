@@ -5,12 +5,13 @@ import "time"
 type SlsaSourceLevel string
 
 const (
-	SlsaSourceLevel1    SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
-	SlsaSourceLevel2    SlsaSourceLevel = "SLSA_SOURCE_LEVEL_2"
-	SlsaSourceLevel3    SlsaSourceLevel = "SLSA_SOURCE_LEVEL_3"
-	ContinuityEnforced                  = "CONTINUITY_ENFORCED"
-	ProvenanceAvailable                 = "PROVENANCE_AVAILABLE"
-	ReviewEnforced                      = "REVIEW_ENFORCED"
+	SlsaSourceLevel1        SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
+	SlsaSourceLevel2        SlsaSourceLevel = "SLSA_SOURCE_LEVEL_2"
+	SlsaSourceLevel3        SlsaSourceLevel = "SLSA_SOURCE_LEVEL_3"
+	ContinuityEnforced                      = "CONTINUITY_ENFORCED"
+	ProvenanceAvailable                     = "PROVENANCE_AVAILABLE"
+	ReviewEnforced                          = "REVIEW_ENFORCED"
+	TagImmutabilityEnforced                 = "TAG_IMMUTABILITY_ENFORCED"
 )
 
 func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {
