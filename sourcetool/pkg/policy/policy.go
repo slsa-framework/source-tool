@@ -32,6 +32,7 @@ type ProtectedBranch struct {
 	Since                 time.Time
 	TargetSlsaSourceLevel slsa_types.SlsaSourceLevel `json:"target_slsa_source_level"`
 	RequireReview         bool                       `json:"require_review"`
+	ImmutableTags         bool                       `json:"immutable_tags"`
 }
 
 type RepoPolicy struct {
@@ -306,6 +307,23 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Co
 	return true, nil
 }
 
+func computeTagImmutabilityEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
+	if !branchPolicy.ImmutableTags {
+		return false, nil
+	}
+
+	immutableTags := controls.GetControl(slsa_types.TagImmutabilityEnforced)
+	if immutableTags == nil {
+		return false, fmt.Errorf("policy requires immutable tags, but that control is not enabled")
+	}
+
+	if branchPolicy.Since.Before(immutableTags.Since) {
+		return false, fmt.Errorf("policy requires immutable tags since %v, but that control has only been enabled since %v", branchPolicy.Since, immutableTags.Since)
+	}
+
+	return true, nil
+}
+
 // Returns a list of controls to include in the vsa's 'verifiedLevels' field.
 func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
 	slsaSourceLevel, err := computeSlsaLevel(branchPolicy, controls)
@@ -321,6 +339,14 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 	}
 	if reviewEnforced {
 		verifiedLevels = append(verifiedLevels, slsa_types.ReviewEnforced)
+	}
+
+	tagImmutabilityEnforced, err := computeTagImmutabilityEnforced(branchPolicy, controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
+	}
+	if tagImmutabilityEnforced {
+		verifiedLevels = append(verifiedLevels, slsa_types.TagImmutabilityEnforced)
 	}
 
 	return verifiedLevels, nil
