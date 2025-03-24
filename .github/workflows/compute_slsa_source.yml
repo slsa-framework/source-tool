@@ -1,14 +1,12 @@
-name: "Computes the SLSA source information"
-
+name: SLSA Source
 on:
-  workflow_call:
+  push:
+    branches: [ "main" ]
 
 jobs:
-  compute_slsa_source:
+  # Whenever new source is pushed recompute the slsa source information.
+  check-change:
     permissions:
-      contents: write # needed for storing attestations in the repo
+      contents: write # needed for storing the vsa in the repo.
       id-token: write
-    runs-on: ubuntu-latest
-    steps:
-    - name: prov
-      uses: slsa-framework/slsa-source-poc/actions/slsa_with_provenance@main
+    uses: slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@main
