@@ -1,0 +1,11 @@
+{
+  "canonical_repo": "https://github.com/kairoaraujo/tufie",
+  "protected_branches": [
+    {
+      "Name": "main",
+      "Since": "2025-03-24T17:19:57.850255401Z",
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3",
+      "require_review": false
+    }
+  ]
+}
