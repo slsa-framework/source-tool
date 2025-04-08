@@ -168,9 +168,10 @@ Source provenance indicates:
 
 ## Policy
 
-This PoC uses user supplied 'policy' files (stored in a public git repo outside of user
-control) to indicate what controls _ought_ to be enforced and when that enforcement should
-start.
+This PoC uses user supplied 'policy' files (stored in
+[a public git repo](https://github.com/slsa-framework/slsa-source-poc/tree/main/policy/github.com)
+outside of user control) to indicate what controls _ought_ to be enforced and when that
+enforcement should start.
 
 This is used to prevent users from disabling controls, making changes, and reenabling the
 controls.  Now, if a user wanted to do so they'd also have to update their 'Since' date
