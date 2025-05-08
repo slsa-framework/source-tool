@@ -3,8 +3,10 @@ module github.com/slsa-framework/slsa-source-poc/sourcetool
 go 1.23.5
 
 require (
+	github.com/carabiner-dev/bnd v0.0.1-pre1.0.20250219220316-b7a2b5a6034b
 	github.com/go-git/go-git/v5 v5.13.2
-	github.com/google/go-github/v68 v68.0.0
+	github.com/google/go-github/v69 v69.2.0
+	github.com/google/go-github/v72 v72.0.0
 	github.com/in-toto/attestation v1.1.1
 	github.com/sigstore/sigstore-go v0.7.0
 	github.com/spf13/cobra v1.9.1
@@ -22,7 +24,6 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/carabiner-dev/ampel v0.0.0-20250209210344-7b306497c927 // indirect
-	github.com/carabiner-dev/bnd v0.0.1-pre1.0.20250219220316-b7a2b5a6034b // indirect
 	github.com/carabiner-dev/github v0.0.0-20250210222226-442fdacc1d16 // indirect
 	github.com/carabiner-dev/hasher v0.1.0 // indirect
 	github.com/carabiner-dev/osv v0.0.0-20250124012120-b8ce4531cd92 // indirect
@@ -57,9 +58,8 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/certificate-transparency-go v1.3.1 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.20.3 // indirect
-	github.com/google/go-github/v69 v69.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
