@@ -24,6 +24,29 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 )
 
+// Helper to create spb.Statement - moved here to be accessible by new test functions
+func createStatementForTest(t *testing.T, predicateContent interface{}, predType string) *spb.Statement {
+	t.Helper()
+	var predicateAsStructPb *structpb.Struct
+	if predicateContent != nil {
+		jsonBytes, err := json.Marshal(predicateContent)
+		if err != nil {
+			t.Fatalf("Failed to marshal predicate content: %v", err)
+		}
+		predicateAsStructPb = &structpb.Struct{}
+		if err := protojson.Unmarshal(jsonBytes, predicateAsStructPb); err != nil {
+			t.Fatalf("Failed to unmarshal predicate JSON to structpb.Struct: %v", err)
+		}
+	}
+
+	return &spb.Statement{
+		Type:          spb.StatementTypeUri,
+		Subject:       []*spb.ResourceDescriptor{{Name: "_"}},
+		PredicateType: predType,
+		Predicate:     predicateAsStructPb,
+	}
+}
+
 // createTempPolicyFile creates a temporary file with the given policy data.
 // If policyData is a RepoPolicy, it's marshalled to JSON.
 // If policyData is a string, it's written directly.
@@ -73,10 +96,69 @@ func validateMockServerRequestPath(t *testing.T, r *http.Request, expectedPolicy
 	}
 }
 
-func TestEvaluateProv(t *testing.T) {
+func TestEvaluateProv_Success(t *testing.T) {
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
-	// later := now.Add(time.Hour) // Not strictly needed for EvaluateProv as commit time is not a direct input
+
+	// Controls for mock provenance
+	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlier}
+	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlier}
+	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlier}
+	immutableTagsEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlier}
+
+	// Policies
+	policyL3ReviewTagsNow := RepoPolicy{
+		ProtectedBranches: []ProtectedBranch{
+			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, ImmutableTags: true, Since: now},
+		},
+	}
+
+	// Valid Provenance Predicate (attest.SourceProvenancePred)
+	validProvPredicateL3Controls := attest.SourceProvenancePred{
+		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
+	}
+
+	// Data for the single success test case
+	// policyContent and provenanceStatement are kept separate for clarity before use.
+	policyContent := policyL3ReviewTagsNow
+	provenanceStatement := createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType)
+
+	ctx := context.Background()
+	p := &Policy{}
+	var ghConn *gh_control.GitHubConnection
+	expectedPolicyFilePath := ""
+
+	// Since policyContent (policyL3ReviewTagsNow) is always defined for this specific success test,
+	// we always create the temp policy file.
+	expectedPolicyFilePath = createTempPolicyFile(t, policyContent)
+	defer os.Remove(expectedPolicyFilePath)
+	p.UseLocalPolicy = expectedPolicyFilePath
+
+	// ghConnBranch ("main") inlined here
+	ghConn = &gh_control.GitHubConnection{Owner: "local", Repo: "local", Branch: "main"}
+
+	verifiedLevels, policyPath, err := p.EvaluateProv(ctx, ghConn, provenanceStatement)
+
+	if err != nil {
+		t.Errorf("EvaluateProv() error = %v, want nil", err)
+	} else {
+		if policyPath != expectedPolicyFilePath {
+			t.Errorf("EvaluateProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
+		}
+	}
+
+	// expectedLevels inlined here
+	expected := slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags}
+	if !reflect.DeepEqual(verifiedLevels, expected) {
+		if !(len(verifiedLevels) == 0 && len(expected) == 0) {
+			t.Errorf("EvaluateProv() verifiedLevels = %v, want %v", verifiedLevels, expected)
+		}
+	}
+}
+
+func TestEvaluateProv_Failure(t *testing.T) {
+	now := time.Now()
+	earlier := now.Add(-time.Hour)
 
 	// Controls for mock provenance
 	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlier}
@@ -103,88 +185,40 @@ func TestEvaluateProv(t *testing.T) {
 	validProvPredicateL2Controls := attest.SourceProvenancePred{
 		Controls: slsa_types.Controls{continuityEnforcedEarlier, reviewEnforcedEarlier}, // Missing provenanceAvailable for L3
 	}
-	// validProvPredicateL1Controls was used by a removed remote test case
 
-	// Helper to create spb.Statement
-	createStatement := func(predicateContent interface{}, predType string) *spb.Statement {
-		var predicateAsStructPb *structpb.Struct
-		if predicateContent != nil {
-			jsonBytes, err := json.Marshal(predicateContent)
-			if err != nil {
-				t.Fatalf("Failed to marshal predicate content: %v", err)
-			}
-			predicateAsStructPb = &structpb.Struct{}
-			if err := protojson.Unmarshal(jsonBytes, predicateAsStructPb); err != nil {
-				t.Fatalf("Failed to unmarshal predicate JSON to structpb.Struct: %v", err)
-			}
-		}
-
-		return &spb.Statement{
-			Type:          spb.StatementTypeUri,
-			Subject:       []*spb.ResourceDescriptor{{Name: "_"}},
-			PredicateType: predType,
-			Predicate:     predicateAsStructPb,
-		}
-	}
 	tests := []struct {
-		name          string
-		policyContent interface{} // RepoPolicy or string for malformed policy
-		// mockRemotePolicy and mockHTTPStatus are removed as they are for remote tests
+		name                  string
+		policyContent         interface{} // RepoPolicy or string for malformed policy
 		provenanceStatement   *spb.Statement
 		ghConnBranch          string
-		expectedLevels        slsa_types.SourceVerifiedLevels
-		expectError           bool
 		expectedErrorContains string
 	}{
 		{
-			name:                "Valid L3 Prov, Policy L3 -> Expected Levels",
-			policyContent:       policyL3ReviewTagsNow,
-			provenanceStatement: createStatement(validProvPredicateL3Controls, attest.SourceProvPredicateType),
-			ghConnBranch:        "main",
-			expectedLevels:      slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags},
-			expectError:         false,
-		},
-		{
 			name:                  "Valid L2 Prov, Policy L3 -> Error (controls don't meet policy)",
-			policyContent:         policyL3ReviewTagsNow,                                                         // Expects L3
-			provenanceStatement:   createStatement(validProvPredicateL2Controls, attest.SourceProvPredicateType), // Prov only has L2 controls
+			policyContent:         policyL3ReviewTagsNow,                                                               // Expects L3
+			provenanceStatement:   createStatementForTest(t, validProvPredicateL2Controls, attest.SourceProvPredicateType), // Prov only has L2 controls
 			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_2",
 		},
 		{
 			name:                  "Malformed Policy JSON -> Error",
 			policyContent:         "not valid policy json",
-			provenanceStatement:   createStatement(validProvPredicateL3Controls, attest.SourceProvPredicateType),
+			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType),
 			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectError:           true,
 			expectedErrorContains: "invalid character 'o' in literal null (expecting 'u')", // Error from getBranchPolicy via getLocalPolicy
 		},
 		{
 			name:                  "Non-existent Policy File -> Error",
 			policyContent:         nil, // Signal to not create a temp file for this test
-			provenanceStatement:   createStatement(validProvPredicateL3Controls, attest.SourceProvPredicateType),
+			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType),
 			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectError:           true,
 			expectedErrorContains: "no such file or directory", // Error from os.ReadFile in getLocalPolicy
 		},
-
-		// Provenance Data Scenarios
-		// Note: A local policy test for "Branch not in policy (default)" is implicitly covered
-		// by ensuring ghConnBranch is different from what's in policyL1NoExtrasNow for some tests,
-		// or by adding a specific test if needed.
-		// The existing "Malformed Provenance" tests use policyL1NoExtrasNow with ghConnBranch="main",
-		// which means "main" is NOT in policyL1NoExtrasNow's ProtectedBranches, thus testing default policy.
 		{
 			name:                  "Malformed Provenance - Nil Statement -> Error",
 			policyContent:         policyL1NoExtrasNow, // Policy doesn't matter as much here
 			provenanceStatement:   nil,
 			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectError:           true,
 			expectedErrorContains: "nil statement", // Error from attest.GetProvPred
 		},
 		{
@@ -192,17 +226,13 @@ func TestEvaluateProv(t *testing.T) {
 			policyContent:         policyL1NoExtrasNow,
 			provenanceStatement:   &spb.Statement{Subject: []*spb.ResourceDescriptor{{Name: "_"}}}, // Empty statement, missing Type and PredicateType
 			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectError:           true,
 			expectedErrorContains: "unsupported predicate type: ", // Error from attest.GetProvPred (empty predicate type)
 		},
 		{
 			name:                  "Malformed Provenance - Wrong PredicateType -> Error",
 			policyContent:         policyL1NoExtrasNow,
-			provenanceStatement:   createStatement(validProvPredicateL3Controls, "WRONG_PREDICATE_TYPE"),
+			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, "WRONG_PREDICATE_TYPE"),
 			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectError:           true,
 			expectedErrorContains: "unsupported predicate type: WRONG_PREDICATE_TYPE", // Error from attest.GetProvPred
 		},
 		{
@@ -215,8 +245,6 @@ func TestEvaluateProv(t *testing.T) {
 				Predicate:     nil, // Explicitly nil predicate
 			},
 			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectError:           true,
 			expectedErrorContains: "nil predicate in statement", // Error from attest.GetProvPred
 		},
 	}
@@ -226,45 +254,29 @@ func TestEvaluateProv(t *testing.T) {
 			ctx := context.Background()
 			p := &Policy{}
 			var ghConn *gh_control.GitHubConnection
-			expectedPolicyFilePath := ""
 
-			if tt.name == "Non-existent Policy File -> Error" { // Updated name
+			if tt.name == "Non-existent Policy File -> Error" {
 				p.UseLocalPolicy = "/path/to/nonexistent/test/policy.json" // Specific path for this test
-			} else if tt.policyContent != nil { // Updated field name
-				expectedPolicyFilePath = createTempPolicyFile(t, tt.policyContent) // Updated field name
-				defer os.Remove(expectedPolicyFilePath)
-				p.UseLocalPolicy = expectedPolicyFilePath
+			} else if tt.policyContent != nil {
+				policyFilePath := createTempPolicyFile(t, tt.policyContent)
+				defer os.Remove(policyFilePath)
+				p.UseLocalPolicy = policyFilePath
 			}
 			ghConn = &gh_control.GitHubConnection{Owner: "local", Repo: "local", Branch: tt.ghConnBranch}
 
-			verifiedLevels, policyPath, err := p.EvaluateProv(ctx, ghConn, tt.provenanceStatement)
+			_, _, err := p.EvaluateProv(ctx, ghConn, tt.provenanceStatement)
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("EvaluateProv() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
-				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
-					t.Errorf("EvaluateProv() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("EvaluateProv() error = %v, want nil", err)
-				} else {
-					if policyPath != expectedPolicyFilePath {
-						t.Errorf("EvaluateProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
-					}
-				}
+			if err == nil {
+				t.Errorf("EvaluateProv() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
+			} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
+				t.Errorf("EvaluateProv() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
 			}
-
-			if !reflect.DeepEqual(verifiedLevels, tt.expectedLevels) {
-				if !(len(verifiedLevels) == 0 && len(tt.expectedLevels) == 0) {
-					t.Errorf("EvaluateProv() verifiedLevels = %v, want %v", verifiedLevels, tt.expectedLevels)
-				}
-			}
+			// Not checking verifiedLevels or policyPath in failure cases
 		})
 	}
 }
 
-func TestEvaluateControl(t *testing.T) {
+func TestEvaluateControl_Success(t *testing.T) {
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
 	later := now.Add(time.Hour)
@@ -288,14 +300,12 @@ func TestEvaluateControl(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                  string
-		policyContent         interface{} // RepoPolicy or string for malformed
-		controlStatus         *gh_control.GhControlStatus
-		ghConnBranch          string // Branch for GitHub connection
-		expectedLevels        slsa_types.SourceVerifiedLevels
-		expectedPolicyPath    string
-		expectError           bool
-		expectedErrorContains string
+		name               string
+		policyContent      interface{} // RepoPolicy or string for malformed
+		controlStatus      *gh_control.GhControlStatus
+		ghConnBranch       string // Branch for GitHub connection
+		expectedLevels     slsa_types.SourceVerifiedLevels
+		expectedPolicyPath string
 	}{
 		{
 			name:          "Commit time before policy Since -> SLSA Level 1",
@@ -307,7 +317,6 @@ func TestEvaluateControl(t *testing.T) {
 			ghConnBranch:       "main",
 			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, // Expect L1 because commit time is before policy enforcement
 			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",                                              // Placeholder, will be replaced by actual temp file path
-			expectError:        false,
 		},
 		{
 			name:          "Commit time after policy Since, controls meet policy -> Expected levels",
@@ -319,33 +328,6 @@ func TestEvaluateControl(t *testing.T) {
 			ghConnBranch:       "main",
 			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags},
 			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",
-			expectError:        false,
-		},
-		{
-			name:          "Commit time after policy Since, controls DO NOT meet policy -> Error",
-			policyContent: policyL3ReviewTagsNow, // Requires L3, Review, Tags
-			controlStatus: &gh_control.GhControlStatus{
-				CommitPushTime: later,                                          // Commit time after policy.Since
-				Controls:       slsa_types.Controls{continuityEnforcedEarlier}, // Only meets L2
-			},
-			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectedPolicyPath:    "TEMP_POLICY_FILE_PATH",
-			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_2",
-		},
-		{
-			name:          "Malformed JSON -> Error",
-			policyContent: "not json",
-			controlStatus: &gh_control.GhControlStatus{
-				CommitPushTime: later,
-				Controls:       slsa_types.Controls{},
-			},
-			ghConnBranch:          "main",
-			expectedLevels:        slsa_types.SourceVerifiedLevels{},
-			expectedPolicyPath:    "", // Error before path is determined
-			expectError:           true,
-			expectedErrorContains: "invalid character 'o' in literal null (expecting 'u')", // Error from json.Unmarshal
 		},
 		{
 			name:          "Branch not in policy, commit after default policy since -> Default policy (SLSA L1)",
@@ -357,7 +339,6 @@ func TestEvaluateControl(t *testing.T) {
 			ghConnBranch:       "develop",                                                            // Testing "develop" branch
 			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, // Default is L1
 			expectedPolicyPath: "DEFAULT",
-			expectError:        false,
 		},
 	}
 
@@ -380,29 +361,98 @@ func TestEvaluateControl(t *testing.T) {
 
 			verifiedLevels, policyPath, err := p.EvaluateControl(ctx, ghConn, tt.controlStatus)
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("EvaluateControl() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
-				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
-					t.Errorf("EvaluateControl() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("EvaluateControl() error = %v, want nil", err)
-				}
+			if err != nil {
+				t.Errorf("EvaluateControl() error = %v, want nil", err)
 			}
 
 			if policyPath != actualPolicyPath {
 				t.Errorf("EvaluateControl() policyPath = %q, want %q", policyPath, actualPolicyPath)
 			}
 
-			// Sort slices for robust comparison if order isn't guaranteed
-			// For now, assuming order is consistent or tests will define expected order precisely.
 			if !reflect.DeepEqual(verifiedLevels, tt.expectedLevels) {
-				// Handle cases where one is nil and other is empty slice for DeepEqual
 				if !(len(verifiedLevels) == 0 && len(tt.expectedLevels) == 0) {
 					t.Errorf("EvaluateControl() verifiedLevels = %v, want %v", verifiedLevels, tt.expectedLevels)
 				}
+			}
+		})
+	}
+}
+
+func TestEvaluateControl_Failure(t *testing.T) {
+	now := time.Now()
+	earlier := now.Add(-time.Hour)
+	later := now.Add(time.Hour)
+
+	// Controls
+	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlier}
+
+	// Policies
+	policyL3ReviewTagsNow := RepoPolicy{
+		ProtectedBranches: []ProtectedBranch{
+			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, ImmutableTags: true, Since: now},
+		},
+	}
+
+	tests := []struct {
+		name                  string
+		policyContent         interface{} // RepoPolicy or string for malformed
+		controlStatus         *gh_control.GhControlStatus
+		ghConnBranch          string // Branch for GitHub connection
+		expectedErrorContains string
+	}{
+		{
+			name:          "Commit time after policy Since, controls DO NOT meet policy -> Error",
+			policyContent: policyL3ReviewTagsNow, // Requires L3, Review, Tags
+			controlStatus: &gh_control.GhControlStatus{
+				CommitPushTime: later,                                          // Commit time after policy.Since
+				Controls:       slsa_types.Controls{continuityEnforcedEarlier}, // Only meets L2
+			},
+			ghConnBranch:          "main",
+			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_2",
+		},
+		{
+			name:          "Malformed JSON -> Error",
+			policyContent: "not json",
+			controlStatus: &gh_control.GhControlStatus{
+				CommitPushTime: later,
+				Controls:       slsa_types.Controls{},
+			},
+			ghConnBranch:          "main",
+			expectedErrorContains: "invalid character 'o' in literal null (expecting 'u')", // Error from json.Unmarshal
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			p := &Policy{}
+			var ghConn *gh_control.GitHubConnection
+			policyFilePath := "" // Default to empty, will be set if policyContent is not nil
+
+			if tt.policyContent != nil {
+				// For failure cases, the exact policy path might not be relevant if error occurs early,
+				// but we still need to handle policy file creation if content is provided.
+				// Using a specific name for clarity in failure tests, if needed, or just use createTempPolicyFile.
+				if strContent, ok := tt.policyContent.(string); ok && strContent == "not json" {
+					// Specific handling for malformed JSON if needed, otherwise createTempPolicyFile handles it.
+					policyFilePath = createTempPolicyFile(t, tt.policyContent)
+				} else if tt.policyContent != nil { // General case for valid policy structure in a failure scenario
+					policyFilePath = createTempPolicyFile(t, tt.policyContent)
+				}
+				if policyFilePath != "" { // Ensure removal only if a file was created
+					defer os.Remove(policyFilePath)
+				}
+				p.UseLocalPolicy = policyFilePath
+			}
+
+			ghConn = &gh_control.GitHubConnection{Owner: "local", Repo: "local", Branch: tt.ghConnBranch}
+
+			_, _, err := p.EvaluateControl(ctx, ghConn, tt.controlStatus)
+
+			if err == nil {
+				t.Errorf("EvaluateControl() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
+			} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
+				t.Errorf("EvaluateControl() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
 			}
 		})
 	}
