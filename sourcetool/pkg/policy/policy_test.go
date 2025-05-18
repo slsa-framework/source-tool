@@ -213,6 +213,143 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 	}
 }
 
+func TestEvaluateControls(t *testing.T) {
+	now := time.Now()
+	earlier := now.Add(-time.Hour)
+	// later := now.Add(time.Hour) // Unused
+
+	// Controls
+	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlier}
+	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlier}
+	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlier}
+	immutableTagsEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlier}
+
+	// continuityEnforcedNow := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: now} // Unused
+	// provenanceAvailableNow := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: now} // Unused
+	// reviewEnforcedNow := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: now} // Unused
+	immutableTagsNow := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: now}
+
+	// Branch Policies
+	// Policy Since 'now' for most cases, implying controls should be active by 'now' or 'earlier'.
+	policyL3ReviewTagsNow := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, ImmutableTags: true, Since: now}
+	policyL1NoExtrasNow := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1, RequireReview: false, ImmutableTags: false, Since: now}
+	policyL2ReviewNoTagsNow := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, RequireReview: true, ImmutableTags: false, Since: now}
+	policyL2NoReviewTagsNow := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, RequireReview: false, ImmutableTags: true, Since: now}
+	policyL3ReviewNoTagsNow := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, ImmutableTags: false, Since: now}
+
+	// Policy Since 'earlier' for testing control.Since > policy.Since
+	policyL2TagsEarlier := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, RequireReview: false, ImmutableTags: true, Since: earlier}
+
+	tests := []struct {
+		name                  string
+		branchPolicy          *ProtectedBranch
+		controls              slsa_types.Controls
+		expectedLevels        slsa_types.SourceVerifiedLevels
+		expectError           bool
+		expectedErrorContains string
+	}{
+		{
+			name:           "Success - All Met (L3, Review, Tags)",
+			branchPolicy:   &policyL3ReviewTagsNow,
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
+			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags},
+			expectError:    false,
+		},
+		{
+			name:           "Success - Only SLSA Level (L1)",
+			branchPolicy:   &policyL1NoExtrasNow,
+			controls:       slsa_types.Controls{}, // L1 is met by default if policy targets L1 and other conditions pass
+			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)},
+			expectError:    false,
+		},
+		{
+			name:           "Success - SLSA & Review (L2, Review)",
+			branchPolicy:   &policyL2ReviewNoTagsNow,
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, reviewEnforcedEarlier}, // Provenance not needed for L2
+			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel2), slsa_types.ReviewEnforced},
+			expectError:    false,
+		},
+		{
+			name:           "Success - SLSA & Tags (L2, Tags)",
+			branchPolicy:   &policyL2NoReviewTagsNow,
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, immutableTagsEarlier}, // Provenance not needed for L2
+			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel2), slsa_types.ImmutableTags},
+			expectError:    false,
+		},
+		{
+			name:                  "Error - computeSlsaLevel Fails (Policy L3, Controls L1)",
+			branchPolicy:          &policyL3ReviewTagsNow, // Wants L3
+			controls:              slsa_types.Controls{},    // Only eligible for L1
+			expectedLevels:        slsa_types.SourceVerifiedLevels{},
+			expectError:           true,
+			expectedErrorContains: "error computing slsa level: policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+		},
+		{
+			name:                  "Error - computeReviewEnforced Fails (Policy L2+Review, Review control missing)",
+			branchPolicy:          &policyL2ReviewNoTagsNow,                // Wants L2 & Review
+			controls:              slsa_types.Controls{continuityEnforcedEarlier}, // Eligible for L2, but Review control missing
+			expectedLevels:        slsa_types.SourceVerifiedLevels{},
+			expectError:           true,
+			expectedErrorContains: "error computing review enforced: policy requires review, but that control is not enabled",
+		},
+		{
+			name:                  "Error - computeImmutableTags Fails (Policy L2+Tags, Tag control Since later than Policy Since)",
+			branchPolicy:          &policyL2TagsEarlier,                                      // Wants L2 & Tags, Policy.Since = earlier
+			controls:              slsa_types.Controls{continuityEnforcedEarlier, immutableTagsNow}, // Eligible L2, Tag.Since = now
+			expectedLevels:        slsa_types.SourceVerifiedLevels{},
+			expectError:           true,
+			expectedErrorContains: "error computing tag immutability enforced: policy requires immutable tags since", // ... but that control has only been enabled since ...
+		},
+		{
+			name:           "Success - Mixed Requirements (L3, Review, No Tags)",
+			branchPolicy:   &policyL3ReviewNoTagsNow,                                                          // Wants L3, Review, No Tags
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier}, // Satisfies L3 & Review
+			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced},
+			expectError:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotLevels, err := evaluateControls(tt.branchPolicy, tt.controls)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("evaluateControls() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
+				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
+					t.Errorf("evaluateControls() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("evaluateControls() error = %v, want nil", err)
+				}
+			}
+
+			// Sort slices for robust comparison
+			// slsa_types.SourceVerifiedLevels is []string, so we can use sort.Strings
+			// Need to import "sort"
+			// For now, let's assume the order is fixed by the implementation or ensure expectedLevels are in that order.
+			// If tests become flaky due to order, uncomment and import "sort":
+			// sort.Strings(gotLevels)
+			// sort.Strings(tt.expectedLevels)
+
+			if !reflect.DeepEqual(gotLevels, tt.expectedLevels) {
+				// To make debugging easier when DeepEqual fails on slices:
+				if len(gotLevels) == 0 && len(tt.expectedLevels) == 0 && tt.expectedLevels == nil && gotLevels != nil {
+					// This handles the specific case where expected is nil []string but got is empty non-nil []string
+					// reflect.DeepEqual(nil, []string{}) is false.
+					// For our purposes, an empty list of verified levels is the same whether it's nil or an empty slice.
+					// So if expected is nil and got is empty, we treat as equal.
+				} else if len(gotLevels) == 0 && tt.expectedLevels == nil {
+					// similar to above, if got is empty and expected is nil
+				} else {
+					t.Errorf("evaluateControls() gotLevels = %v, want %v", gotLevels, tt.expectedLevels)
+				}
+			}
+		})
+	}
+}
+
 func TestComputeImmutableTags(t *testing.T) {
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
