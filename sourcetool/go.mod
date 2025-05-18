@@ -5,7 +5,6 @@ go 1.23.5
 require (
 	github.com/carabiner-dev/bnd v0.0.1-pre1.0.20250219220316-b7a2b5a6034b
 	github.com/go-git/go-git/v5 v5.13.2
-	github.com/google/go-github/v50 v50.2.0
 	github.com/google/go-github/v69 v69.2.0
 	github.com/in-toto/attestation v1.1.1
 	github.com/sigstore/sigstore-go v0.7.0
