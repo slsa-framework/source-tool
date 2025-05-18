@@ -68,6 +68,33 @@ func validateMockServerRequestPath(t *testing.T, r *http.Request, expectedPolicy
 	}
 }
 
+// setupMockGitHubTestEnv creates a mock GitHub environment for testing.
+// It takes a handler function to simulate GitHub API responses.
+// It returns a GitHubConnection configured to use the mock server and the server itself.
+func setupMockGitHubTestEnv(t *testing.T, targetOwner string, targetRepo string, targetBranch string, handler http.HandlerFunc) (*gh_control.GitHubConnection, *httptest.Server) {
+	t.Helper()
+
+	server := httptest.NewServer(handler)
+
+	httpClient := server.Client()
+	ghClient := github.NewClient(httpClient)
+
+	baseURL, err := url.Parse(server.URL + "/")
+	if err != nil {
+		server.Close() // Close the server if URL parsing fails
+		t.Fatalf("Failed to parse mock server URL: %v", err)
+	}
+	ghClient.BaseURL = baseURL
+
+	ghConn := &gh_control.GitHubConnection{
+		Owner:  targetOwner,
+		Repo:   targetRepo,
+		Branch: targetBranch,
+		Client: ghClient,
+	}
+	return ghConn, server
+}
+
 // assertProtectedBranchEquals compares two ProtectedBranch structs for equality,
 // optionally ignoring the 'Since' field. It provides a detailed error message
 // if they are not equal.
@@ -351,7 +378,7 @@ func TestGetBranchPolicy_Remote_SpecificFound(t *testing.T) {
 			ctx := context.Background()
 			p := &Policy{UseLocalPolicy: ""}
 
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				validateMockServerRequestPath(t, r, tt.targetOwner, tt.targetRepo, tt.targetBranch)
 				w.WriteHeader(http.StatusOK) // Always OK for this test function
 				policyJSON, err := json.Marshal(tt.mockPolicyContent)
@@ -360,20 +387,20 @@ func TestGetBranchPolicy_Remote_SpecificFound(t *testing.T) {
 				}
 				encodedContent := base64.StdEncoding.EncodeToString(policyJSON)
 				mockFileContent := &github.RepositoryContent{
-					Type: github.String("file"), Encoding: github.String("base64"),
-					Content: github.String(encodedContent), HTMLURL: github.String(mockHTMLURL),
+					Type:    github.String("file"),
+					Encoding: github.String("base64"),
+					Content: github.String(encodedContent),
+					HTMLURL: github.String(mockHTMLURL),
 				}
 				respData, err := json.Marshal(mockFileContent)
 				if err != nil {
 					t.Fatalf("Failed to marshal mock RepositoryContent: %v", err)
 				}
 				_, _ = w.Write(respData)
-			}))
-			defer server.Close()
+			})
 
-			httpClient := server.Client(); ghClient := github.NewClient(httpClient)
-			baseURL, _ := url.Parse(server.URL + "/"); ghClient.BaseURL = baseURL
-			ghConn := &gh_control.GitHubConnection{Owner: tt.targetOwner, Repo: tt.targetRepo, Branch: tt.targetBranch, Client: ghClient}
+			ghConn, mockServer := setupMockGitHubTestEnv(t, tt.targetOwner, tt.targetRepo, tt.targetBranch, handler)
+			defer mockServer.Close()
 
 			gotBranch, gotPath, err := p.getBranchPolicy(ctx, ghConn)
 
@@ -454,7 +481,7 @@ func TestGetBranchPolicy_Remote_DefaultCases(t *testing.T) {
 			ctx := context.Background()
 			p := &Policy{UseLocalPolicy: ""}
 
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				validateMockServerRequestPath(t, r, tt.targetOwner, tt.targetRepo, tt.targetBranch)
 				w.WriteHeader(tt.mockHTTPStatus)
 				if tt.mockHTTPStatus == http.StatusOK && tt.mockPolicyContent != nil {
@@ -464,8 +491,10 @@ func TestGetBranchPolicy_Remote_DefaultCases(t *testing.T) {
 					}
 					encodedContent := base64.StdEncoding.EncodeToString(policyJSON)
 					mockFileContent := &github.RepositoryContent{
-						Type: github.String("file"), Encoding: github.String("base64"),
-						Content: github.String(encodedContent), HTMLURL: github.String(mockHTMLURL),
+						Type:    github.String("file"),
+						Encoding: github.String("base64"),
+						Content: github.String(encodedContent),
+						HTMLURL: github.String(mockHTMLURL),
 					}
 					respData, err := json.Marshal(mockFileContent)
 					if err != nil {
@@ -473,12 +502,10 @@ func TestGetBranchPolicy_Remote_DefaultCases(t *testing.T) {
 					}
 					_, _ = w.Write(respData)
 				}
-			}))
-			defer server.Close()
+			})
 
-			httpClient := server.Client(); ghClient := github.NewClient(httpClient)
-			baseURL, _ := url.Parse(server.URL + "/"); ghClient.BaseURL = baseURL
-			ghConn := &gh_control.GitHubConnection{Owner: tt.targetOwner, Repo: tt.targetRepo, Branch: tt.targetBranch, Client: ghClient}
+			ghConn, mockServer := setupMockGitHubTestEnv(t, tt.targetOwner, tt.targetRepo, tt.targetBranch, handler)
+			defer mockServer.Close()
 
 			gotBranch, gotPath, err := p.getBranchPolicy(ctx, ghConn)
 
@@ -511,27 +538,16 @@ func TestGetBranchPolicy_Remote_ServerError(t *testing.T) {
 	targetRepo := "test-repo"
 	targetBranch := "main"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		validateMockServerRequestPath(t, r, targetOwner, targetRepo, targetBranch)
 		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
+	})
 
-	httpClient := server.Client()
-	ghClient := github.NewClient(httpClient)
-	baseURL, err := url.Parse(server.URL + "/")
-	if err != nil {
-		t.Fatalf("Failed to parse server URL: %v", err)
-	}
-	ghClient.BaseURL = baseURL
+	ghConn, mockServer := setupMockGitHubTestEnv(t, targetOwner, targetRepo, targetBranch, handler)
+	defer mockServer.Close()
 
 	pol := Policy{UseLocalPolicy: ""}
-	ghConn := &gh_control.GitHubConnection{
-		Owner:  targetOwner,
-		Repo:   targetRepo,
-		Branch: targetBranch,
-		Client: ghClient,
-	}
+	// ghConn is now returned by setupMockGitHubTestEnv
 
 	branch, path, err := pol.getBranchPolicy(ctx, ghConn)
 	if err == nil {
@@ -569,9 +585,9 @@ func TestGetBranchPolicy_Remote_MalformedJSON(t *testing.T) {
 			targetRepo := "test-repo"
 			targetBranch := "main"
 
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				validateMockServerRequestPath(t, r, targetOwner, targetRepo, targetBranch)
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(http.StatusOK) // Status is OK, but content is bad
 				if tt.malformedOuterJSON {
 					_, _ = w.Write([]byte("this is not valid RepositoryContent JSON"))
 				} else if tt.badBase64Content {
@@ -587,24 +603,13 @@ func TestGetBranchPolicy_Remote_MalformedJSON(t *testing.T) {
 					}
 					_, _ = w.Write(respData)
 				}
-			}))
-			defer server.Close()
+			})
 
-			httpClient := server.Client()
-			ghClient := github.NewClient(httpClient)
-			baseURL, err := url.Parse(server.URL + "/")
-			if err != nil {
-				t.Fatalf("Failed to parse server URL: %v", err)
-			}
-			ghClient.BaseURL = baseURL
+			ghConn, mockServer := setupMockGitHubTestEnv(t, targetOwner, targetRepo, targetBranch, handler)
+			defer mockServer.Close()
 
 			pol := Policy{UseLocalPolicy: ""}
-			ghConn := &gh_control.GitHubConnection{
-				Owner:  targetOwner,
-				Repo:   targetRepo,
-				Branch: targetBranch,
-				Client: ghClient,
-			}
+			// ghConn is now returned by setupMockGitHubTestEnv
 
 			branch, path, err := pol.getBranchPolicy(ctx, ghConn)
 			if err == nil {
