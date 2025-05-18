@@ -106,53 +106,34 @@ func TestEvaluateProv_Success(t *testing.T) {
 	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlier}
 	immutableTagsEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlier}
 
-	// Policies
-	policyL3ReviewTagsNow := RepoPolicy{
-		ProtectedBranches: []ProtectedBranch{
-			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, ImmutableTags: true, Since: now},
-		},
-	}
-
 	// Valid Provenance Predicate (attest.SourceProvenancePred)
 	validProvPredicateL3Controls := attest.SourceProvenancePred{
 		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
 	}
 
-	// Data for the single success test case
-	// policyContent and provenanceStatement are kept separate for clarity before use.
-	policyContent := policyL3ReviewTagsNow
 	provenanceStatement := createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType)
 
-	ctx := context.Background()
-	p := &Policy{}
-	var ghConn *gh_control.GitHubConnection
-	expectedPolicyFilePath := ""
-
-	// Since policyContent (policyL3ReviewTagsNow) is always defined for this specific success test,
-	// we always create the temp policy file.
-	expectedPolicyFilePath = createTempPolicyFile(t, policyContent)
+	expectedPolicyFilePath := createTempPolicyFile(t, RepoPolicy{
+		ProtectedBranches: []ProtectedBranch{
+			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, ImmutableTags: true, Since: now},
+		},
+	})
 	defer os.Remove(expectedPolicyFilePath)
-	p.UseLocalPolicy = expectedPolicyFilePath
+	p := &Policy{UseLocalPolicy: expectedPolicyFilePath}
 
-	// ghConnBranch ("main") inlined here
-	ghConn = &gh_control.GitHubConnection{Owner: "local", Repo: "local", Branch: "main"}
+	ghConn := &gh_control.GitHubConnection{Owner: "local", Repo: "local", Branch: "main"}
 
-	verifiedLevels, policyPath, err := p.EvaluateProv(ctx, ghConn, provenanceStatement)
+	verifiedLevels, policyPath, err := p.EvaluateProv(context.Background(), ghConn, provenanceStatement)
 
 	if err != nil {
 		t.Errorf("EvaluateProv() error = %v, want nil", err)
-	} else {
-		if policyPath != expectedPolicyFilePath {
-			t.Errorf("EvaluateProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
-		}
 	}
-
-	// expectedLevels inlined here
+	if policyPath != expectedPolicyFilePath {
+		t.Errorf("EvaluateProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
+	}
 	expected := slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags}
 	if !reflect.DeepEqual(verifiedLevels, expected) {
-		if !(len(verifiedLevels) == 0 && len(expected) == 0) {
-			t.Errorf("EvaluateProv() verifiedLevels = %v, want %v", verifiedLevels, expected)
-		}
+		t.Errorf("EvaluateProv() verifiedLevels = %v, want %v", verifiedLevels, expected)
 	}
 }
 
@@ -195,7 +176,7 @@ func TestEvaluateProv_Failure(t *testing.T) {
 	}{
 		{
 			name:                  "Valid L2 Prov, Policy L3 -> Error (controls don't meet policy)",
-			policyContent:         policyL3ReviewTagsNow,                                                               // Expects L3
+			policyContent:         policyL3ReviewTagsNow,                                                                   // Expects L3
 			provenanceStatement:   createStatementForTest(t, validProvPredicateL2Controls, attest.SourceProvPredicateType), // Prov only has L2 controls
 			ghConnBranch:          "main",
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_2",
