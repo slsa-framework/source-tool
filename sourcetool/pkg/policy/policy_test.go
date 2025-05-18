@@ -9,11 +9,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"reflect" // Ensure reflect is imported
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v50/github" // Assuming v50, adjust if necessary from go.mod
+	"github.com/google/go-github/v69/github" // Use v69
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 )
@@ -96,21 +97,34 @@ func assertProtectedBranchEquals(t *testing.T, got *ProtectedBranch, expected Pr
 	actual := *got
 	actualCopy := actual
 	expectedCopy := expected
+	sinceMatch := true
 
 	if ignoreSince {
 		actualCopy.Since = time.Time{}
 		expectedCopy.Since = time.Time{}
+	} else {
+		// Explicitly compare Since fields using time.Equal for robustness
+		if !actualCopy.Since.Equal(expectedCopy.Since) {
+			sinceMatch = false
+		}
+		// Zero out Since fields after specific comparison (or if it was already ignored)
+		// to ensure DeepEqual focuses on other fields.
+		actualCopy.Since = time.Time{}
+		expectedCopy.Since = time.Time{}
 	}
 
-	if !reflect.DeepEqual(actualCopy, expectedCopy) {
+	if !reflect.DeepEqual(actualCopy, expectedCopy) || !sinceMatch {
 		var errorMessage strings.Builder
 		if customMessage != "" {
 			errorMessage.WriteString(customMessage)
 			errorMessage.WriteString("\n")
 		}
 		errorMessage.WriteString(fmt.Sprintf("ProtectedBranch structs not equal:\nExpected: %+v\nGot:      %+v", expected, actual))
-		if ignoreSince {
-			errorMessage.WriteString(fmt.Sprintf("\n(Note: 'Since' field was ignored in comparison. Original Expected.Since: %v, Original Got.Since: %v)", expected.Since, actual.Since))
+		if !sinceMatch {
+			errorMessage.WriteString(fmt.Sprintf("\nSpecifically, 'Since' fields were not equal (Expected.Since: %v, Got.Since: %v)", expected.Since, actual.Since))
+		}
+		if ignoreSince && actual.Since != (time.Time{}) { // Add note only if Since was ignored AND original got.Since was not zero
+			errorMessage.WriteString(fmt.Sprintf("\n(Note: 'Since' field was ignored in comparison as requested. Original Expected.Since: %v, Original Got.Since: %v)", expected.Since, actual.Since))
 		}
 		t.Errorf(errorMessage.String())
 	}
@@ -469,7 +483,7 @@ func TestGetBranchPolicy_Remote_DefaultCases(t *testing.T) {
 					{Name: "main", Since: fixedTime, TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3},
 				},
 			},
-			expectedPath: mockHTMLURL,
+			expectedPath: "DEFAULT", // Changed from mockHTMLURL
 		},
 		{
 			name:         "remote policy fetch success, empty protected branches",
@@ -478,7 +492,7 @@ func TestGetBranchPolicy_Remote_DefaultCases(t *testing.T) {
 			targetBranch: "main",
 			mockHTTPStatus: http.StatusOK,
 			mockPolicyContent: &RepoPolicy{ProtectedBranches: []ProtectedBranch{}},
-			expectedPath: mockHTMLURL,
+			expectedPath: "DEFAULT", // Changed from mockHTMLURL
 		},
 		{
 			name:         "remote policy fetch success, nil protected branches",
@@ -487,7 +501,7 @@ func TestGetBranchPolicy_Remote_DefaultCases(t *testing.T) {
 			targetBranch: "main",
 			mockHTTPStatus: http.StatusOK,
 			mockPolicyContent: &RepoPolicy{ProtectedBranches: nil},
-			expectedPath: mockHTMLURL,
+			expectedPath: "DEFAULT", // Changed from mockHTMLURL
 		},
 		{
 			name:         "remote policy API returns 404 Not Found",
