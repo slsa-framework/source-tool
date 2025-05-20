@@ -9,7 +9,7 @@ require (
 	github.com/in-toto/attestation v1.1.1
 	github.com/sigstore/sigstore-go v0.7.0
 	github.com/spf13/cobra v1.9.1
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
