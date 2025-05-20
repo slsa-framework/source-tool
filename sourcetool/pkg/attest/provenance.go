@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -46,20 +47,32 @@ func NewProvenanceAttestor(gh_connection *gh_control.GitHubConnection, verificat
 }
 
 func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
+	if statement == nil {
+		return nil, errors.New("nil statement")
+	}
+	if statement.PredicateType != SourceProvPredicateType {
+		return nil, fmt.Errorf("unsupported predicate type: %s", statement.PredicateType)
+	}
+	if statement.Predicate == nil {
+		return nil, errors.New("nil predicate in statement")
+	}
 	predJson, err := protojson.Marshal(statement.Predicate)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot marshal predicate to JSON: %w", err)
 	}
 
 	var predStruct SourceProvenancePred
 	// Using regular json.Unmarshal because this is just a regular struct.
 	err = json.Unmarshal(predJson, &predStruct)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshalling predicate: %w", err)
 	}
-	if len(predStruct.Controls) == 0 {
-		return nil, fmt.Errorf("expected %v to have non-zero properties", predStruct)
-	}
+	// It's valid for Controls to be empty if no controls are reported.
+	// The policy evaluation logic will determine if this is acceptable.
+	// For example, a policy might only require SLSA Level 1, which has no specific control requirements from this predicate.
+	// if len(predStruct.Controls) == 0 {
+	// 	return nil, fmt.Errorf("expected %v to have non-zero properties", predStruct)
+	// }
 	return &predStruct, nil
 }
 
