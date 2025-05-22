@@ -181,10 +181,18 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 		return "", fmt.Errorf("could not get provenance for latest commit: %w", err)
 	}
 
-	eligibleLevel, _ := computeEligibleSlsaLevel(provPred.Controls)
-	eligibleSince, err := computeEligibleSince(provPred.Controls, eligibleLevel)
-	if err != nil {
-		return "", fmt.Errorf("could not compute eligible since: %w", err)
+	// Default to SLSA1 since unset date
+	var eligibleSince = &time.Time{}
+	var eligibleLevel = slsa_types.SlsaSourceLevel1
+
+	// Unless there is previous provenance metadata, then we can compute
+	// a higher level
+	if provPred != nil {
+		eligibleLevel, _ = computeEligibleSlsaLevel(provPred.Controls)
+		eligibleSince, err = computeEligibleSince(provPred.Controls, eligibleLevel)
+		if err != nil {
+			return "", fmt.Errorf("could not compute eligible since: %w", err)
+		}
 	}
 
 	p := RepoPolicy{
