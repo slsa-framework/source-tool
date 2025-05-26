@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+# SPDX-License-Identifier: Apache-2.0
+---
+version: v2
+
+managed:
+  enabled: true
+plugins:
+  - protoc_builtin: go
+    out: ./sourcetool/pkg/api/v1
+    opt: 
+      - paths=import
+      - module=github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/api/v1
+
+inputs:
+  - directory: proto/v1
