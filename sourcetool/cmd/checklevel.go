@@ -41,22 +41,22 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 		log.Fatal("Must set commit, owner, repo, and branch flags.")
 	}
 
-	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
+	gh_connection := gh_control.NewGhConnection(owner, repo, gh_control.BranchToFullRef(branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
 
-	controlStatus, err := gh_connection.GetControls(ctx, commit)
+	controlStatus, err := gh_connection.GetBranchControls(ctx, commit, gh_connection.GetFullRef())
 	if err != nil {
 		log.Fatal(err)
 	}
-	pol := policy.NewPolicy()
-	pol.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
-	verifiedLevels, policyPath, err := pol.EvaluateControl(ctx, gh_connection, controlStatus)
+	pe := policy.NewPolicyEvaluator()
+	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
+	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, gh_connection, controlStatus)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Print(verifiedLevels)
 
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, commit, verifiedLevels, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection.GetRepoUri(), gh_connection.GetFullRef(), commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -46,7 +46,7 @@ var (
 
 func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	gh_connection :=
-		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, checkLevelProvArgs.branch).WithAuthToken(githubToken)
+		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, gh_control.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
 
 	prevCommit := checkLevelProvArgs.prevCommit
@@ -58,22 +58,22 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 		}
 	}
 
-	pa := attest.NewProvenanceAttestor(gh_connection, getVerificationOptions())
-	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit)
+	pa := attest.NewProvenanceAttestor(gh_connection, getVerifier())
+	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit, gh_connection.GetFullRef())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// check p against policy
-	pol := policy.NewPolicy()
-	pol.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
-	verifiedLevels, policyPath, err := pol.EvaluateProv(ctx, gh_connection, prov)
+	pe := policy.NewPolicyEvaluator()
+	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
+	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, gh_connection, prov)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// create vsa
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection, checkLevelProvArgs.commit, verifiedLevels, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection.GetRepoUri(), gh_connection.GetFullRef(), checkLevelProvArgs.commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}

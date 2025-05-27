@@ -35,7 +35,7 @@ var (
 )
 
 func doCreatePolicy(policyRepoPath, owner, repo, branch string) {
-	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
+	gh_connection := gh_control.NewGhConnection(owner, repo, gh_control.BranchToFullRef(branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
 	outpath, err := policy.CreateLocalPolicy(ctx, gh_connection, policyRepoPath)
 	if err != nil {

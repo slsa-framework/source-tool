@@ -34,12 +34,10 @@ func doVerifyCommit(commit, owner, repo, branch string) {
 		log.Fatal("Must set commit, owner, repo, and branch flags.")
 	}
 
-	gh_connection := gh_control.NewGhConnection(owner, repo, branch).WithAuthToken(githubToken)
+	gh_connection := gh_control.NewGhConnection(owner, repo, gh_control.BranchToFullRef(branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
 
-	pa := attest.NewProvenanceAttestor(gh_connection, getVerificationOptions())
-
-	_, vsaPred, err := pa.GetVsa(ctx, commit)
+	_, vsaPred, err := attest.GetVsa(ctx, gh_connection, getVerifier(), commit, gh_connection.GetFullRef())
 	if err != nil {
 		log.Fatal(err)
 	}

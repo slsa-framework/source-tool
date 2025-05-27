@@ -12,17 +12,17 @@ import (
 )
 
 type BundleReader struct {
-	reader               *bufio.Reader
-	verification_options VerificationOptions
+	reader   *bufio.Reader
+	verifier Verifier
 }
 
-func NewBundleReader(reader *bufio.Reader, verification_options VerificationOptions) *BundleReader {
-	return &BundleReader{reader: reader, verification_options: verification_options}
+func NewBundleReader(reader *bufio.Reader, verifier Verifier) *BundleReader {
+	return &BundleReader{reader: reader, verifier: verifier}
 }
 
 func (br BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
 	// Is this a sigstore bundle with a statement?
-	vr, err := Verify(line, br.verification_options)
+	vr, err := br.verifier.Verify(line)
 	if err == nil {
 		// This is it.
 		return vr.Statement, nil

@@ -31,7 +31,7 @@ to quickly create a Cobra application.`,
 	}
 )
 
-func getVerificationOptions() attest.VerificationOptions {
+func getVerifier() attest.Verifier {
 	options := attest.DefaultVerifierOptions
 	if checkLevelProvArgs.expectedIssuer != "" {
 		options.ExpectedIssuer = checkLevelProvArgs.expectedIssuer
@@ -39,7 +39,7 @@ func getVerificationOptions() attest.VerificationOptions {
 	if checkLevelProvArgs.expectedSan != "" {
 		options.ExpectedSan = checkLevelProvArgs.expectedSan
 	}
-	return options
+	return attest.NewBndVerifier(options)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

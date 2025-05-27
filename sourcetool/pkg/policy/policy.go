@@ -32,17 +32,41 @@ type ProtectedBranch struct {
 	Since                 time.Time
 	TargetSlsaSourceLevel slsa_types.SlsaSourceLevel `json:"target_slsa_source_level"`
 	RequireReview         bool                       `json:"require_review"`
-	ImmutableTags         bool                       `json:"immutable_tags"`
+}
+
+// The controls required for protected tags.
+type ProtectedTag struct {
+	Since         time.Time
+	ImmutableTags bool `json:"immutable_tags"`
 }
 
 type RepoPolicy struct {
-	// I'm actually not sure we need this.  Consider removing?
+	// TODO: I'm actually not sure we need this.  Consider removing?
 	CanonicalRepo     string            `json:"canonical_repo"`
 	ProtectedBranches []ProtectedBranch `json:"protected_branches"`
+	ProtectedTag      *ProtectedTag     `json:"protected_tag"`
+}
+
+// Returns the policy for the branch or nil if the branch doesn't have one.
+func (rp *RepoPolicy) getBranchPolicy(branch string) *ProtectedBranch {
+	for _, pb := range rp.ProtectedBranches {
+		if pb.Name == branch {
+			return &pb
+		}
+	}
+	return nil
+}
+
+func createDefaultBranchPolicy(branch string) *ProtectedBranch {
+	return &ProtectedBranch{
+		Name:                  branch,
+		Since:                 time.Now(),
+		TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1,
+		RequireReview:         false}
 }
 
 func getPolicyPath(gh_connection *gh_control.GitHubConnection) string {
-	return fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", gh_connection.Owner, gh_connection.Repo)
+	return fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", gh_connection.Owner(), gh_connection.Repo())
 }
 
 func getPolicyRepoPath(pathToClone string, gh_connection *gh_control.GitHubConnection) string {
@@ -53,7 +77,7 @@ func getPolicyRepoPath(pathToClone string, gh_connection *gh_control.GitHubConne
 func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
 	path := getPolicyPath(gh_connection)
 
-	policyContents, _, resp, err := gh_connection.Client.Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	policyContents, _, resp, err := gh_connection.Client().Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
 		return nil, "", nil
 	}
@@ -88,35 +112,11 @@ func getLocalPolicy(path string) (*RepoPolicy, string, error) {
 	return &p, path, nil
 }
 
-func (policy Policy) getPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
-	if policy.UseLocalPolicy == "" {
+func (pe PolicyEvaluator) getPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
+	if pe.UseLocalPolicy == "" {
 		return getRemotePolicy(ctx, gh_connection)
 	}
-	return getLocalPolicy(policy.UseLocalPolicy)
-}
-
-// Gets the policy for the indicated branch direct from the GitHub repo.
-func (policy Policy) getBranchPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*ProtectedBranch, string, error) {
-	p, path, err := policy.getPolicy(ctx, gh_connection)
-
-	if err != nil {
-		return nil, "", err
-	}
-
-	if p != nil {
-		for _, pb := range p.ProtectedBranches {
-			if pb.Name == gh_connection.Branch {
-				return &pb, path, nil
-			}
-		}
-	}
-
-	// No policy so return the default branch policy.
-	return &ProtectedBranch{
-		Name:                  gh_connection.Branch,
-		Since:                 time.Now(),
-		TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1,
-		RequireReview:         false}, "DEFAULT", nil
+	return getLocalPolicy(pe.UseLocalPolicy)
 }
 
 // Check to see if the local directory is a clean clone or not
@@ -169,14 +169,17 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	path := getPolicyRepoPath(pathToClone, gh_connection)
 
 	// What's their latest commit (needed for checking control status)
-	latestCommit, err := gh_connection.GetLatestCommit(ctx)
+	branch := gh_control.GetBranchFromRef(gh_connection.GetFullRef())
+	if branch == "" {
+		return "", fmt.Errorf("cannot create local policy, ref %s isn't a branch", gh_connection.GetFullRef())
+	}
+	latestCommit, err := gh_connection.GetLatestCommit(ctx, branch)
 	if err != nil {
 		return "", fmt.Errorf("could not get latest commit: %w", err)
 	}
 
-	ver_options := attest.DefaultVerifierOptions
-	pa := attest.NewProvenanceAttestor(gh_connection, ver_options)
-	_, provPred, err := pa.GetProvenance(ctx, latestCommit)
+	pa := attest.NewProvenanceAttestor(gh_connection, attest.GetDefaultVerifier())
+	_, provPred, err := pa.GetProvenance(ctx, latestCommit, gh_connection.GetFullRef())
 	if err != nil {
 		return "", fmt.Errorf("could not get provenance for latest commit: %w", err)
 	}
@@ -199,7 +202,7 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 		CanonicalRepo: "TODO fill this in",
 		ProtectedBranches: []ProtectedBranch{
 			{
-				Name:                  gh_connection.Branch,
+				Name:                  branch,
 				Since:                 *eligibleSince,
 				TargetSlsaSourceLevel: eligibleLevel,
 				// TODO support filling in other controls too.
@@ -315,8 +318,13 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Co
 	return true, nil
 }
 
-func computeImmutableTags(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
-	if !branchPolicy.ImmutableTags {
+func computeImmutableTags(tagPolicy *ProtectedTag, controls slsa_types.Controls) (bool, error) {
+	if tagPolicy == nil {
+		// There is no tag policy, so the control isn't met, but it's not an error.
+		return false, nil
+	}
+
+	if !tagPolicy.ImmutableTags {
 		return false, nil
 	}
 
@@ -325,15 +333,15 @@ func computeImmutableTags(branchPolicy *ProtectedBranch, controls slsa_types.Con
 		return false, fmt.Errorf("policy requires immutable tags, but that control is not enabled")
 	}
 
-	if branchPolicy.Since.Before(immutableTags.Since) {
-		return false, fmt.Errorf("policy requires immutable tags since %v, but that control has only been enabled since %v", branchPolicy.Since, immutableTags.Since)
+	if tagPolicy.Since.Before(immutableTags.Since) {
+		return false, fmt.Errorf("policy requires immutable tags since %v, but that control has only been enabled since %v", tagPolicy.Since, immutableTags.Since)
 	}
 
 	return true, nil
 }
 
-// Returns a list of controls to include in the vsa's 'verifiedLevels' field.
-func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
+// Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a branch.
+func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
 	slsaSourceLevel, err := computeSlsaLevel(branchPolicy, controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing slsa level: %w", err)
@@ -349,7 +357,7 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 		verifiedLevels = append(verifiedLevels, slsa_types.ReviewEnforced)
 	}
 
-	immutableTags, err := computeImmutableTags(branchPolicy, controls)
+	immutableTags, err := computeImmutableTags(tagPolicy, controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
@@ -360,23 +368,51 @@ func evaluateControls(branchPolicy *ProtectedBranch, controls slsa_types.Control
 	return verifiedLevels, nil
 }
 
-type Policy struct {
+// Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a tag.
+// Users provide a list of verifiedLevels that came from VSAs issued previously for the commit pointed to by this
+// tag.
+func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *attest.TagProvenancePred) (slsa_types.SourceVerifiedLevels, error) {
+	// As long as all the controls for tag protection are currently in force then we'll
+	// include the verifiedLevels.
+
+	// TODO: handle tag policy?
+	immutableTags, err := computeImmutableTags(tagPolicy, tagProvPred.Controls)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
+	}
+	if immutableTags {
+		// TODO: should we include the immutable tag field specifically?
+		return tagProvPred.VsaSummaries[0].VerifiedLevels, nil
+	}
+
+	// If tag immutability isn't enabled then we just return level 1.
+	return slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, nil
+}
+
+type PolicyEvaluator struct {
 	// UNSAFE!
 	// Instead of grabbing the policy from the canonical repo, use the policy at this path instead.
 	UseLocalPolicy string
 }
 
-func NewPolicy() *Policy {
-	return &Policy{}
+func NewPolicyEvaluator() *PolicyEvaluator {
+	return &PolicyEvaluator{}
 }
 
 // Evaluates the control against the policy and returns the resulting source level and policy path.
-func (policy Policy) EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
+func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
-	branchPolicy, policyPath, err := policy.getBranchPolicy(ctx, gh_connection)
+	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
+	}
+
+	branch := gh_control.GetBranchFromRef(gh_connection.GetFullRef())
+	branchPolicy := rp.getBranchPolicy(branch)
+	if branchPolicy == nil {
+		branchPolicy = createDefaultBranchPolicy(branch)
+		policyPath = "DEFAULT"
 	}
 
 	if controlStatus.CommitPushTime.Before(branchPolicy.Since) {
@@ -384,7 +420,7 @@ func (policy Policy) EvaluateControl(ctx context.Context, gh_connection *gh_cont
 		return slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, policyPath, nil
 	}
 
-	verifiedLevels, err := evaluateControls(branchPolicy, controlStatus.Controls)
+	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.ProtectedTag, controlStatus.Controls)
 	if err != nil {
 		return verifiedLevels, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
@@ -392,22 +428,51 @@ func (policy Policy) EvaluateControl(ctx context.Context, gh_connection *gh_cont
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func (policy Policy) EvaluateProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
-	branchPolicy, policyPath, err := policy.getBranchPolicy(ctx, gh_connection)
+func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
+	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
-	provPred, err := attest.GetProvPred(prov)
+	provPred, err := attest.GetSourceProvPred(prov)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
-	verifiedLevels, err := evaluateControls(branchPolicy, provPred.Controls)
+	branch := gh_control.GetBranchFromRef(gh_connection.GetFullRef())
+	branchPolicy := rp.getBranchPolicy(branch)
+	if branchPolicy == nil {
+		branchPolicy = createDefaultBranchPolicy(branch)
+		policyPath = "DEFAULT"
+	}
+
+	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.ProtectedTag, provPred.Controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
 
 	// Looks good!
 	return verifiedLevels, policyPath, nil
+}
+
+// Evaluates the provenance against the policy and returns the resulting source level and policy path
+func (pe PolicyEvaluator) EvaluateTagProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
+	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, "", err
+	}
+
+	provPred, err := attest.GetTagProvPred(prov)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, "", err
+	}
+
+	// TODO: get the levels we want to use from the prov predicate...
+	outputVerifiedLevels, err := evaluateTagProv(rp.ProtectedTag, provPred)
+	if err != nil {
+		return slsa_types.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
+	}
+
+	// Looks good!
+	return outputVerifiedLevels, policyPath, nil
 }

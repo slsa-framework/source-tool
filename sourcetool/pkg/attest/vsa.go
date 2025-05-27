@@ -18,8 +18,8 @@ import (
 
 const VsaPredicateType = "https://slsa.dev/verification_summary/v1"
 
-func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit string, verifiedLevels slsa_types.SourceVerifiedLevels, policy string) (string, error) {
-	resourceUri := fmt.Sprintf("git+%s", gh_connection.GetRepoUri())
+func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_types.SourceVerifiedLevels, policy string) (string, error) {
+	resourceUri := fmt.Sprintf("git+%s", repoUri)
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
 			Id: "https://github.com/slsa-framework/slsa-source-poc"},
@@ -35,7 +35,8 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 		return "", err
 	}
 
-	branchAnnotation := map[string]any{"source_branches": []any{gh_connection.GetFullBranch()}}
+	// TODO: update to source_refs to match updated spec.
+	branchAnnotation := map[string]any{"source_branches": []any{ref}}
 	annotationStruct, err := structpb.NewStruct(branchAnnotation)
 	if err != nil {
 		return "", fmt.Errorf("creating struct from map: %w", err)
@@ -66,8 +67,8 @@ func CreateUnsignedSourceVsa(gh_connection *gh_control.GitHubConnection, commit 
 }
 
 // Gets provenance for the commit from git notes.
-func (pa ProvenanceAttestor) GetVsa(ctx context.Context, commit string) (*spb.Statement, *vpb.VerificationSummary, error) {
-	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
+func GetVsa(ctx context.Context, ghc *gh_control.GitHubConnection, verifier Verifier, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
+	notes, err := ghc.GetNotesForCommit(ctx, commit)
 	if notes == "" {
 		log.Printf("didn't find notes for commit %s", commit)
 		return nil, nil, nil
@@ -76,7 +77,20 @@ func (pa ProvenanceAttestor) GetVsa(ctx context.Context, commit string) (*spb.St
 	if err != nil {
 		log.Fatal(err)
 	}
-	return pa.getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verification_options), commit)
+	return getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), verifier), commit, ref)
+}
+
+func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]string, error) {
+	subject := GetSubjectForCommit(vsaStatement, commit)
+	if subject == nil {
+		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", StatementToString(vsaStatement), commit)
+	}
+	protoRefs := subject.GetAnnotations().Fields["source_branches"].GetListValue()
+	stringRefs := []string{}
+	for _, ref := range protoRefs.Values {
+		stringRefs = append(stringRefs, ref.GetStringValue())
+	}
+	return stringRefs, nil
 }
 
 func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
@@ -94,32 +108,31 @@ func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 	return &predStruct, nil
 }
 
-func MatchesTypeCommitAndBranch(predicateType, commit, targetBranch string) StatementMatcher {
+func MatchesTypeCommitAndRef(predicateType, commit, targetRef string) StatementMatcher {
 	return func(statement *spb.Statement) bool {
 		if statement.PredicateType != predicateType {
 			log.Printf("statement predicate type (%s) doesn't match %s", statement.PredicateType, predicateType)
 			return false
 		}
-		subject := GetSubjectForCommit(statement, commit)
-		if subject == nil {
-			log.Printf("statement \n%v\n does not match commit %s", StatementToString(statement), commit)
+		refs, err := GetSourceRefsForCommit(statement, commit)
+		if err != nil {
+			log.Printf("statement \n%v\n does not match commit %s: %v", StatementToString(statement), commit, err)
 			return false
 		}
-		branches := subject.GetAnnotations().Fields["source_branches"].GetListValue()
-		for _, branch := range branches.Values {
-			if branch.GetStringValue() == targetBranch {
-				log.Printf("statement \n%v\n matches commit '%s' on branch '%s'", StatementToString(statement), commit, targetBranch)
+		for _, ref := range refs {
+			if targetRef == gh_control.AnyReference || ref == targetRef {
+				log.Printf("statement \n%v\n matches commit '%s' on ref '%s'", StatementToString(statement), commit, targetRef)
 				return true
 			}
 		}
-		log.Printf("source_branches (%v) in VSA does not contain %s", branches, targetBranch)
+		log.Printf("source_branches (%v) in VSA does not contain %s", refs, targetRef)
 		return false
 	}
 }
 
-func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit string) (*spb.Statement, *vpb.VerificationSummary, error) {
+func getVsaFromReader(reader *BundleReader, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	for {
-		stmt, err := reader.ReadStatement(MatchesTypeCommitAndBranch(VsaPredicateType, commit, pa.gh_connection.GetFullBranch()))
+		stmt, err := reader.ReadStatement(MatchesTypeCommitAndRef(VsaPredicateType, commit, ref))
 		if err != nil {
 			// Ignore errors, we want to check all the lines.
 			log.Printf("error while processing line: %v", err)
@@ -139,6 +152,6 @@ func (pa ProvenanceAttestor) getVsaFromReader(reader *BundleReader, commit strin
 		return stmt, vsaPred, nil
 	}
 
-	log.Printf("didn't find commit %s for branch %s", commit, pa.gh_connection.Branch)
+	log.Printf("didn't find commit %s for ref %s", commit, ref)
 	return nil, nil, nil
 }

@@ -2,6 +2,7 @@ name: SLSA Source
 on:
   push:
     branches: [ "main" ]
+    tags: ['**']
 
 jobs:
   # Whenever new source is pushed recompute the slsa source information.
