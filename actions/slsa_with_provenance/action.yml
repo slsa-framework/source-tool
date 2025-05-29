@@ -26,13 +26,14 @@ runs:
       if: ${{ startsWith(github.ref, 'refs/heads/') }}
       run: |
         echo "## SLSA Source Properties Branch Push" >> $GITHUB_STEP_SUMMARY
-        go run github.com/slsa-framework/slsa-source-poc/sourcetool@8de659f119d933d4cfaed300e7d8bd78528a48c7 --github_token ${{ github.token }} checklevelprov --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
+        go run github.com/slsa-framework/slsa-source-poc/sourcetool@f2031f563fc7323ce160313a13d456e4422244c9 --github_token ${{ github.token }} checklevelprov --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - id: handle_tag_push
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
         echo "## SLSA Source Properties Tag Push" >> $GITHUB_STEP_SUMMARY
-        echo "TODO"
+        echo "github object contents ${{ github }}"
+        go run github.com/slsa-framework/slsa-source-poc/sourcetool@f2031f563fc7323ce160313a13d456e4422244c9 --github_token ${{ github.token }} checktag --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --tag_name ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - id: summary
       run: |
