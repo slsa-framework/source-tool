@@ -17,15 +17,31 @@ var DefaultVerifierOptions = VerificationOptions{
 	ExpectedSan:    "https://github.com/slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@refs/heads/main",
 }
 
-func Verify(data string, options VerificationOptions) (*verify.VerificationResult, error) {
+type Verifier interface {
+	Verify(data string) (*verify.VerificationResult, error)
+}
+
+type BndVerifier struct {
+	Options VerificationOptions
+}
+
+func (bv *BndVerifier) Verify(data string) (*verify.VerificationResult, error) {
 	// TODO: There's more for us to do here... but what?
 	// Maybe check to make sure it's from the identity we expect (the workflow?)
 	verifier := bnd.NewVerifier()
-	verifier.Options.ExpectedIssuer = options.ExpectedIssuer
-	verifier.Options.ExpectedSan = options.ExpectedSan
+	verifier.Options.ExpectedIssuer = bv.Options.ExpectedIssuer
+	verifier.Options.ExpectedSan = bv.Options.ExpectedSan
 	vr, err := verifier.VerifyInlineBundle([]byte(data))
 	if err != nil {
 		return nil, err
 	}
 	return vr, nil
+}
+
+func NewBndVerifier(options VerificationOptions) *BndVerifier {
+	return &BndVerifier{Options: options}
+}
+
+func GetDefaultVerifier() Verifier {
+	return NewBndVerifier(DefaultVerifierOptions)
 }

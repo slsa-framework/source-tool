@@ -20,6 +20,7 @@ import (
 )
 
 const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft"
+const TagProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/tag-provenance/v1-draft"
 
 // The predicate that encodes source provenance data.
 // The git commit this corresponds to is encoded in the surrounding statement.
@@ -37,16 +38,33 @@ type SourceProvenancePred struct {
 	Controls slsa_types.Controls `json:"controls"`
 }
 
+// Summary of a summary
+type VsaSummary struct {
+	SourceRefs     []string `json:"source_refs"`
+	VerifiedLevels []string `json:"verifiedLevels"`
+}
+
+type TagProvenancePred struct {
+	RepoUri      string    `json:"repo_uri"`
+	ActivityType string    `json:"activity_type"`
+	Actor        string    `json:"actor"`
+	Tag          string    `json:"tag"`
+	CreatedOn    time.Time `json:"created_on"`
+	// The tag related controls enabled at the time this tag was created/updated.
+	Controls     slsa_types.Controls `json:"controls"`
+	VsaSummaries []VsaSummary        `json:"vsa_summaries"`
+}
+
 type ProvenanceAttestor struct {
-	verification_options VerificationOptions
-	gh_connection        *gh_control.GitHubConnection
+	verifier      Verifier
+	gh_connection *gh_control.GitHubConnection
 }
 
-func NewProvenanceAttestor(gh_connection *gh_control.GitHubConnection, verification_options VerificationOptions) *ProvenanceAttestor {
-	return &ProvenanceAttestor{verification_options: verification_options, gh_connection: gh_connection}
+func NewProvenanceAttestor(gh_connection *gh_control.GitHubConnection, verifier Verifier) *ProvenanceAttestor {
+	return &ProvenanceAttestor{verifier: verifier, gh_connection: gh_connection}
 }
 
-func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
+func GetSourceProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
 	if statement == nil {
 		return nil, errors.New("nil statement")
 	}
@@ -65,18 +83,42 @@ func GetProvPred(statement *spb.Statement) (*SourceProvenancePred, error) {
 	// Using regular json.Unmarshal because this is just a regular struct.
 	err = json.Unmarshal(predJson, &predStruct)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshalling predicate: %w", err)
+		return nil, fmt.Errorf("unmarshaling predicate: %w", err)
 	}
 	// It's valid for Controls to be empty if no controls are reported.
 	// The policy evaluation logic will determine if this is acceptable.
 	// For example, a policy might only require SLSA Level 1, which has no specific control requirements from this predicate.
-	// if len(predStruct.Controls) == 0 {
-	// 	return nil, fmt.Errorf("expected %v to have non-zero properties", predStruct)
-	// }
 	return &predStruct, nil
 }
 
-func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Statement, error) {
+func GetTagProvPred(statement *spb.Statement) (*TagProvenancePred, error) {
+	if statement == nil {
+		return nil, errors.New("nil statement")
+	}
+	if statement.PredicateType != TagProvPredicateType {
+		return nil, fmt.Errorf("unsupported predicate type: %s", statement.PredicateType)
+	}
+	if statement.Predicate == nil {
+		return nil, errors.New("nil predicate in statement")
+	}
+	predJson, err := protojson.Marshal(statement.Predicate)
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshal predicate to JSON: %w", err)
+	}
+
+	var predStruct TagProvenancePred
+	// Using regular json.Unmarshal because this is just a regular struct.
+	err = json.Unmarshal(predJson, &predStruct)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshaling predicate: %w", err)
+	}
+	// It's valid for Controls to be empty if no controls are reported.
+	// The policy evaluation logic will determine if this is acceptable.
+	// For example, a policy might only require SLSA Level 1, which has no specific control requirements from this predicate.
+	return &predStruct, nil
+}
+
+func addPredToStatement(provPred any, predicateType, commit string) (*spb.Statement, error) {
 	// Using regular json.Marshal because this is just a regular struct and not from a proto.
 	predJson, err := json.Marshal(provPred)
 	if err != nil {
@@ -96,7 +138,7 @@ func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Sta
 	statementPb := spb.Statement{
 		Type:          spb.StatementTypeUri,
 		Subject:       sub,
-		PredicateType: SourceProvPredicateType,
+		PredicateType: predicateType,
 		Predicate:     &predPb,
 	}
 
@@ -104,8 +146,8 @@ func addPredToStatement(provPred *SourceProvenancePred, commit string) (*spb.Sta
 }
 
 // Create provenance for the current commit without any context from the previous provenance (if any).
-func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit string) (*spb.Statement, error) {
-	controlStatus, err := pa.gh_connection.GetControls(ctx, commit)
+func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit, ref string) (*spb.Statement, error) {
+	controlStatus, err := pa.gh_connection.GetBranchControls(ctx, commit, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -117,18 +159,18 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.RepoUri = pa.gh_connection.GetRepoUri()
 	curProvPred.Actor = controlStatus.ActorLogin
 	curProvPred.ActivityType = controlStatus.ActivityType
-	curProvPred.Branch = pa.gh_connection.GetFullBranch()
+	curProvPred.Branch = ref
 	curProvPred.CreatedOn = curTime
 	curProvPred.Controls = controlStatus.Controls
 
 	// At the very least provenance is available starting now. :)
 	curProvPred.Controls.AddControl(&slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: curTime})
 
-	return addPredToStatement(&curProvPred, commit)
+	return addPredToStatement(&curProvPred, SourceProvPredicateType, commit)
 }
 
 // Gets provenance for the commit from git notes.
-func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit string) (*spb.Statement, *SourceProvenancePred, error) {
+func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit, ref string) (*spb.Statement, *SourceProvenancePred, error) {
 	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
 	if notes == "" {
 		log.Printf("didn't find notes for commit %s", commit)
@@ -139,12 +181,12 @@ func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit string) (
 		log.Fatal(err)
 	}
 
-	bundleReader := NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verification_options)
+	bundleReader := NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verifier)
 
-	return pa.getProvFromReader(bundleReader, commit)
+	return pa.getProvFromReader(bundleReader, commit, ref)
 }
 
-func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit string) (*spb.Statement, *SourceProvenancePred, error) {
+func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref string) (*spb.Statement, *SourceProvenancePred, error) {
 	for {
 		stmt, err := reader.ReadStatement(MatchesTypeAndCommit(SourceProvPredicateType, commit))
 		if err != nil {
@@ -161,46 +203,46 @@ func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit stri
 			break
 		}
 
-		prevProdPred, err := GetProvPred(stmt)
+		prevProdPred, err := GetSourceProvPred(stmt)
 		if err != nil {
 			return nil, nil, err
 		}
-		if prevProdPred.Branch == pa.gh_connection.GetFullBranch() {
+		if ref == gh_control.AnyReference || prevProdPred.Branch == ref {
 			// Should be good!
 			return stmt, prevProdPred, nil
 		} else {
-			log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, pa.gh_connection.GetFullBranch())
+			log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, ref)
 		}
 	}
 
-	log.Printf("didn't find commit %s for branch %s", commit, pa.gh_connection.Branch)
+	log.Printf("didn't find commit %s for ref %s", commit, ref)
 	return nil, nil, nil
 }
 
-func (pa ProvenanceAttestor) getPrevProvenance(ctx context.Context, prevAttPath, prevCommit string) (*spb.Statement, *SourceProvenancePred, error) {
+func (pa ProvenanceAttestor) getPrevProvenance(ctx context.Context, prevAttPath, prevCommit, ref string) (*spb.Statement, *SourceProvenancePred, error) {
 	if prevAttPath != "" {
 		f, err := os.Open(prevAttPath)
 		if err != nil {
 			return nil, nil, err
 		}
-		return pa.getProvFromReader(NewBundleReader(bufio.NewReader(f), pa.verification_options), prevCommit)
+		return pa.getProvFromReader(NewBundleReader(bufio.NewReader(f), pa.verifier), prevCommit, ref)
 	}
 
 	// Try to get the previous bundle ourselves...
-	return pa.GetProvenance(ctx, prevCommit)
+	return pa.GetProvenance(ctx, prevCommit, ref)
 }
 
-func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit string) (*spb.Statement, error) {
+func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit, ref string) (*spb.Statement, error) {
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
 
-	curProv, err := pa.createCurrentProvenance(ctx, commit, prevCommit)
+	curProv, err := pa.createCurrentProvenance(ctx, commit, prevCommit, ref)
 	if err != nil {
 		return nil, err
 	}
 
-	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(ctx, prevAttPath, prevCommit)
+	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(ctx, prevAttPath, prevCommit, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +253,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		return curProv, nil
 	}
 
-	curProvPred, err := GetProvPred(curProv)
+	curProvPred, err := GetSourceProvPred(curProv)
 	if err != nil {
 		return nil, err
 	}
@@ -229,5 +271,52 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		curProvPred.Controls[i] = curControl
 	}
 
-	return addPredToStatement(curProvPred, commit)
+	return addPredToStatement(curProvPred, SourceProvPredicateType, commit)
+}
+
+func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, ref string) (*spb.Statement, error) {
+	// 1. Check that the immutable tags control is still enabled and how long it's been enabled, store it in the prov.
+	// 2. Get a VSA associated with this commit, if any.
+	// 3. Record the levels and branches covered by that VSA in the provenance.
+
+	controlStatus, err := pa.gh_connection.GetTagControls(ctx, commit, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the most recent VSA for this commit. Any reference is OK.
+	// TODO: in the future get all of them.
+	// TODO: we should actually verify this vsa: https://github.com/slsa-framework/slsa-source-poc/issues/148
+	vsaStatement, vsaPred, err := GetVsa(ctx, pa.gh_connection, pa.verifier, commit, gh_control.AnyReference)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching VSA when creating tag provenance %w", err)
+	}
+	if vsaPred == nil {
+		// TODO: If there's not a VSA should we still issue provenance?
+		return nil, nil
+	}
+
+	curTime := time.Now()
+
+	vsaRefs, err := GetSourceRefsForCommit(vsaStatement, commit)
+	if err != nil {
+		return nil, fmt.Errorf("error getting source refs from vsa %w", err)
+	}
+
+	curProvPred := TagProvenancePred{
+		RepoUri:      pa.gh_connection.GetRepoUri(),
+		Actor:        controlStatus.ActorLogin,
+		ActivityType: controlStatus.ActivityType,
+		Tag:          ref,
+		CreatedOn:    curTime,
+		Controls:     controlStatus.Controls,
+		VsaSummaries: []VsaSummary{
+			{
+				SourceRefs:     vsaRefs,
+				VerifiedLevels: vsaPred.VerifiedLevels,
+			},
+		},
+	}
+
+	return addPredToStatement(&curProvPred, TagProvPredicateType, commit)
 }

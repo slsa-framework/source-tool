@@ -233,7 +233,8 @@ This tool can also check to see if the GitHub repo/ref is configured to require
 ### IMMUTABLE_TAGS
 
 This tool can also check to see if the GitHub repo is configured to require
-immutable tags.  To do so it checks that the repo:
+immutable tags.  To do so it checks that the repo enables the follow rules
+to ~ALL tags:
 
 1. Doesn't allow tag updates
 2. Doesn't allow tag deletions
@@ -242,6 +243,11 @@ immutable tags.  To do so it checks that the repo:
 Importing [rulesets/tag_immutability.json](rulesets/tag_immutability.json)
 to a repos rulesets will enable the repo controls. The `immutable_tags`
 field in the policy then needs to be enabled too.
+
+TODO: In the future this tool could be updated to allow some subset of tags
+to be updated (e.g. `latest`, `nightly`), but that feature is not yet
+supported. Tracked
+[here](https://github.com/slsa-framework/slsa-source-poc/issues/129).
 
 ## Open Issues
 

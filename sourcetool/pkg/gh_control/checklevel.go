@@ -25,21 +25,20 @@ type activity struct {
 	Actor        actor  `json:"actor"`
 }
 
-func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit string) (*activity, error) {
+func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit, targetRef string) (*activity, error) {
 	// Unfortunately the gh_client doesn't have native support for this...'
-	reqUrl := fmt.Sprintf("repos/%s/%s/activity", ghc.Owner, ghc.Repo)
-	req, err := ghc.Client.NewRequest("GET", reqUrl, nil)
+	reqUrl := fmt.Sprintf("repos/%s/%s/activity", ghc.Owner(), ghc.Repo())
+	req, err := ghc.Client().NewRequest("GET", reqUrl, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var result []*activity
-	_, err = ghc.Client.Do(ctx, req, &result)
+	_, err = ghc.Client().Do(ctx, req, &result)
 	if err != nil {
 		return nil, err
 	}
 
-	targetRef := ghc.GetFullBranch()
 	monitoredTypes := []string{"push", "force_push", "pr_merge"}
 	for _, activity := range result {
 		if !slices.Contains(monitoredTypes, activity.ActivityType) {
@@ -51,7 +50,7 @@ func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit string) 
 		}
 	}
 
-	return nil, fmt.Errorf("could not find repo activity for commit %s", commit)
+	return nil, fmt.Errorf("could not find repo activity for commit %s and ref %s", commit, targetRef)
 }
 
 type GhControlStatus struct {
@@ -109,6 +108,7 @@ func enforcesImmutableTags(ruleset *github.RepositoryRuleset) bool {
 		ruleset.Rules.Update != nil &&
 		ruleset.Rules.Deletion != nil &&
 		ruleset.Rules.NonFastForward != nil &&
+		ruleset.Conditions != nil &&
 		len(ruleset.Conditions.RefName.Exclude) == 0 &&
 		slices.Contains(ruleset.Conditions.RefName.Include, "~ALL") {
 		return true
@@ -116,7 +116,7 @@ func enforcesImmutableTags(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
-func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activity *activity) (*slsa_types.Control, error) {
+func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa_types.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
 		if *ruleset.Target != github.RulesetTargetTag {
@@ -129,9 +129,9 @@ func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, co
 
 		// The GitHub API only seems to return a partial ruleset when asking for 'all' the rules
 		// So we'll ask for this specific rule here so we can get all the data.
-		fullRuleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, ruleset.GetID(), false)
+		fullRuleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ruleset.GetID(), false)
 		if err != nil {
-			return nil, fmt.Errorf("could not get full ruleset for ruleset id %d", ruleset.GetID())
+			return nil, fmt.Errorf("could not get full ruleset for ruleset id %d: err: %w", ruleset.GetID(), err)
 		}
 
 		if !enforcesImmutableTags(fullRuleset) {
@@ -147,7 +147,7 @@ func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, co
 	}
 
 	// Check that the commit was created after this rule was enabled.
-	if activity.Timestamp.Before(validRuleset.UpdatedAt.Time) {
+	if activityTime.Before(validRuleset.UpdatedAt.Time) {
 		return nil, nil
 	}
 
@@ -159,7 +159,7 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
 		if ghc.ruleMeetsRequiresReview(rule) {
-			ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
+			ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), rule.RulesetID, false)
 			if err != nil {
 				return nil, err
 			}
@@ -181,7 +181,7 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
-		ruleset, _, err := ghc.Client.Repositories.GetRuleset(ctx, ghc.Owner, ghc.Repo, rule.RulesetID, false)
+		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), rule.RulesetID, false)
 		if err != nil {
 			return nil, err
 		}
@@ -194,11 +194,11 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 	return oldestActive, nil
 }
 
-// Determines the controls that are in place using GitHub's APIs.
+// Determines the controls that are in place for a branch using GitHub's APIs
 // This is necessarily only as good as GitHub's controls and existing APIs.
-func (ghc *GitHubConnection) GetControls(ctx context.Context, commit string) (*GhControlStatus, error) {
+func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
-	activity, err := ghc.commitActivity(ctx, commit)
+	activity, err := ghc.commitActivity(ctx, commit, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -209,16 +209,15 @@ func (ghc *GitHubConnection) GetControls(ctx context.Context, commit string) (*G
 		ActorLogin:     activity.Actor.Login,
 		Controls:       slsa_types.Controls{}}
 
-	branchRules, _, err := ghc.Client.Repositories.GetRulesForBranch(ctx, ghc.Owner, ghc.Repo, ghc.Branch)
+	branch := GetBranchFromRef(ref)
+	if branch == "" {
+		return nil, fmt.Errorf("ref %s is not a branch", ref)
+	}
+	// Do the branch specific stuff.
+	branchRules, _, err := ghc.Client().Repositories.GetRulesForBranch(ctx, ghc.Owner(), ghc.Repo(), branch)
 	if err != nil {
 		return nil, err
 	}
-
-	allRulesets, _, err := ghc.Client.Repositories.GetAllRulesets(ctx, ghc.Owner, ghc.Repo, true)
-	if err != nil {
-		return nil, err
-	}
-
 	// Compute the controls enforced.
 	continuityControl, err := ghc.computeContinuityControl(ctx, commit, branchRules, activity)
 	if err != nil {
@@ -226,17 +225,41 @@ func (ghc *GitHubConnection) GetControls(ctx context.Context, commit string) (*G
 	}
 	controlStatus.Controls.AddControl(continuityControl)
 
-	ImmutableTagsControl, err := ghc.computeImmutableTagsControl(ctx, commit, allRulesets, activity)
-	if err != nil {
-		return nil, fmt.Errorf("could not populate ImmutableTagsControl: %w", err)
-	}
-	controlStatus.Controls.AddControl(ImmutableTagsControl)
-
 	reviewControl, err := ghc.computeReviewControl(ctx, branchRules.PullRequest)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate ReviewControl: %w", err)
 	}
 	controlStatus.Controls.AddControl(reviewControl)
+
+	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
+	if err != nil {
+		return nil, err
+	}
+	ImmutableTagsControl, err := ghc.computeImmutableTagsControl(ctx, commit, allRulesets, &activity.Timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate ImmutableTagsControl: %w", err)
+	}
+	controlStatus.Controls.AddControl(ImmutableTagsControl)
+
+	return &controlStatus, nil
+}
+
+func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
+	controlStatus := GhControlStatus{
+		CommitPushTime: time.Now(),
+		ActivityType:   "unknown activity type",
+		ActorLogin:     "unknown actor",
+		Controls:       slsa_types.Controls{}}
+
+	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
+	if err != nil {
+		return nil, err
+	}
+	ImmutableTagsControl, err := ghc.computeImmutableTagsControl(ctx, commit, allRulesets, &controlStatus.CommitPushTime)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate ImmutableTagsControl: %w", err)
+	}
+	controlStatus.Controls.AddControl(ImmutableTagsControl)
 
 	return &controlStatus, nil
 }
