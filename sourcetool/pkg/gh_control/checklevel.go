@@ -247,8 +247,6 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	controlStatus := GhControlStatus{
 		CommitPushTime: time.Now(),
-		ActivityType:   "unknown activity type",
-		ActorLogin:     "unknown actor",
 		Controls:       slsa_types.Controls{}}
 
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)

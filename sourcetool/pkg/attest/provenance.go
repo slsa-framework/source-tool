@@ -45,11 +45,10 @@ type VsaSummary struct {
 }
 
 type TagProvenancePred struct {
-	RepoUri      string    `json:"repo_uri"`
-	ActivityType string    `json:"activity_type"`
-	Actor        string    `json:"actor"`
-	Tag          string    `json:"tag"`
-	CreatedOn    time.Time `json:"created_on"`
+	RepoUri   string    `json:"repo_uri"`
+	Actor     string    `json:"actor"`
+	Tag       string    `json:"tag"`
+	CreatedOn time.Time `json:"created_on"`
 	// The tag related controls enabled at the time this tag was created/updated.
 	Controls     slsa_types.Controls `json:"controls"`
 	VsaSummaries []VsaSummary        `json:"vsa_summaries"`
@@ -274,7 +273,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 	return addPredToStatement(curProvPred, SourceProvPredicateType, commit)
 }
 
-func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, ref string) (*spb.Statement, error) {
+func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, ref, actor string) (*spb.Statement, error) {
 	// 1. Check that the immutable tags control is still enabled and how long it's been enabled, store it in the prov.
 	// 2. Get a VSA associated with this commit, if any.
 	// 3. Record the levels and branches covered by that VSA in the provenance.
@@ -304,12 +303,11 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 	}
 
 	curProvPred := TagProvenancePred{
-		RepoUri:      pa.gh_connection.GetRepoUri(),
-		Actor:        controlStatus.ActorLogin,
-		ActivityType: controlStatus.ActivityType,
-		Tag:          ref,
-		CreatedOn:    curTime,
-		Controls:     controlStatus.Controls,
+		RepoUri:   pa.gh_connection.GetRepoUri(),
+		Actor:     actor,
+		Tag:       ref,
+		CreatedOn: curTime,
+		Controls:  controlStatus.Controls,
 		VsaSummaries: []VsaSummary{
 			{
 				SourceRefs:     vsaRefs,

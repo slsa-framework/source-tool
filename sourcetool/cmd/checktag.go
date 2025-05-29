@@ -20,6 +20,7 @@ type CheckTagArgs struct {
 	owner              string
 	repo               string
 	tagName            string
+	actor              string
 	outputSignedBundle string
 	useLocalPolicy     string
 }
@@ -44,7 +45,7 @@ func doCheckTag(args CheckTagArgs) {
 
 	// Create tag provenance.
 	pa := attest.NewProvenanceAttestor(gh_connection, verifier)
-	prov, err := pa.CreateTagProvenance(ctx, args.commit, gh_control.TagToFullRef(args.tagName))
+	prov, err := pa.CreateTagProvenance(ctx, args.commit, gh_control.TagToFullRef(args.tagName), args.actor)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -102,6 +103,7 @@ func init() {
 	checktagCmd.Flags().StringVar(&checkTagArgs.owner, "owner", "", "The GitHub repository owner - required.")
 	checktagCmd.Flags().StringVar(&checkTagArgs.repo, "repo", "", "The GitHub repository name - required.")
 	checktagCmd.Flags().StringVar(&checkTagArgs.tagName, "tag_name", "", "The name of the new tag - required.")
+	checktagCmd.Flags().StringVar(&checkTagArgs.actor, "actor", "", "The username of the actor that pushed the tag.")
 	checktagCmd.Flags().StringVar(&checkTagArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 	checktagCmd.Flags().StringVar(&checkTagArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
 

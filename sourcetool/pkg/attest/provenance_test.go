@@ -89,10 +89,6 @@ func timesEqualWithinMargin(t1, t2 time.Time, margin time.Duration) bool {
 }
 
 func assertTagProvPredsEqual(t *testing.T, actual, expected TagProvenancePred) {
-	if actual.ActivityType != expected.ActivityType {
-		t.Errorf("ActivityType %v does not match expected value %v", actual.ActivityType, expected.ActivityType)
-	}
-
 	if actual.Actor != expected.Actor {
 		t.Errorf("Actor %v does not match expected value %v", actual.Actor, expected.Actor)
 	}
@@ -135,7 +131,7 @@ func TestCreateTagProvenance(t *testing.T) {
 
 	pa := NewProvenanceAttestor(ghc, verifier)
 
-	stmt, err := pa.CreateTagProvenance(context.Background(), "abc123", "refs/tags/v1")
+	stmt, err := pa.CreateTagProvenance(context.Background(), "abc123", "refs/tags/v1", "the-tag-pusher")
 	if err != nil {
 		t.Fatalf("error creating tag prov %v", err)
 	}
@@ -158,11 +154,10 @@ func TestCreateTagProvenance(t *testing.T) {
 	}
 
 	expectedPred := TagProvenancePred{
-		RepoUri:      "https://github.com/owner/repo",
-		Actor:        "unknown actor",
-		ActivityType: "unknown activity type",
-		Tag:          "refs/tags/v1",
-		CreatedOn:    rulesetOldTime,
+		RepoUri:   "https://github.com/owner/repo",
+		Actor:     "the-tag-pusher",
+		Tag:       "refs/tags/v1",
+		CreatedOn: rulesetOldTime,
 		Controls: []slsa_types.Control{
 			{
 				Name:  "IMMUTABLE_TAGS",
