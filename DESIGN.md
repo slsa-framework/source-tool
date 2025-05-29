@@ -121,9 +121,11 @@ While the reusable workflow only ever checks the attestations for the prior comm
 'offline' auditors might wish to evaluate the entire chain of provenance from the most
 recent commit, all the way back to the first commit made under the existing policy.
 
-## Source Provenance
+## Provenance
 
-Source provenance indicates:
+### Source Provenance
+
+Source provenance covers changes to a branch.  It indicates:
 
 1. The commit the data applies to
 2. The commit prior to this one
@@ -162,6 +164,56 @@ Source provenance indicates:
     "created_on": "2025-03-01T21:28:30.941538615Z",
     "prev_commit": "a552404f404933e685daa6f1d189127cef49aa90",
     "repo_uri": "https://github.com/slsa-framework/slsa-source-poc"
+  }
+}
+```
+
+### Tag Provenance
+
+Tag provenance records a tag creation event.  It indicates:
+
+1. The name of the tag created.
+2. The commit the data applies to
+3. The set of tag related controls that are enabled and when they started being enforced.
+4. The actor that pushed the tag
+5. When the tag was created.
+6. A summary of the VSAs that also covered this commit.
+   Including: the references the VSA refers to and the `verifiedLevels` in the VSAs
+7. The uri of the repo the activity occurred in.
+
+```json
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "digest": {
+        "gitCommit": "c0511064260c55fd85ab158e1d97cea3eeaa38cc"
+      }
+    }
+  ],
+  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/tag-provenance/v1-draft",
+  "predicate": {
+    "actor": "TomHennen",
+    "controls": [
+      {
+        "name": "IMMUTABLE_TAGS",
+        "since": "2025-03-23T18:08:42.375Z"
+      }
+    ],
+    "created_on": "2025-05-29T20:36:17.486702367Z",
+    "repo_uri": "https://github.com/TomHennen/Concordance",
+    "tag": "refs/tags/v1.1.5",
+    "vsa_summaries": [
+      {
+        "source_refs": [
+          "refs/heads/master"
+        ],
+        "verifiedLevels": [
+          "SLSA_SOURCE_LEVEL_3",
+          "IMMUTABLE_TAGS"
+        ]
+      }
+    ]
   }
 }
 ```
