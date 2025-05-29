@@ -32,9 +32,6 @@ runs:
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
         echo "## SLSA Source Properties Tag Push" >> $GITHUB_STEP_SUMMARY
-        echo "github.actor ${{ github.actor }}"
-        echo "github.triggering_actor ${{ github.triggering_actor }}"
-        echo "github.event_name ${{ github.event_name }}"
         go run github.com/slsa-framework/slsa-source-poc/sourcetool@f2031f563fc7323ce160313a13d456e4422244c9 --github_token ${{ github.token }} checktag --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --tag_name ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - id: summary
