@@ -45,7 +45,7 @@ func newNotesContent(content string) *github.RepositoryContent {
 	}
 }
 
-func newImmutableTagsRulesetsResponse(id int64, target github.RulesetTarget, enforcement github.RulesetEnforcement,
+func newTagHygieneRulesetsResponse(id int64, target github.RulesetTarget, enforcement github.RulesetEnforcement,
 	updatedAt time.Time) *github.RepositoryRuleset {
 	return &github.RepositoryRuleset{
 		ID:          github.Ptr(id),
@@ -124,7 +124,7 @@ func TestCreateTagProvenance(t *testing.T) {
 	testVsa := createTestVsa(t, "http://repo", "refs/some/ref", "abc123", slsa_types.SourceVerifiedLevels{"TEST_LEVEL"})
 
 	ghc := newTestGhConnection("owner", "repo", "branch",
-		newImmutableTagsRulesetsResponse(123, github.RulesetTargetTag,
+		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
 			github.RulesetEnforcementActive, rulesetOldTime),
 		newNotesContent(testVsa))
 	verifier := testsupport.NewMockVerifier()
@@ -160,7 +160,7 @@ func TestCreateTagProvenance(t *testing.T) {
 		CreatedOn: rulesetOldTime,
 		Controls: []slsa_types.Control{
 			{
-				Name:  "IMMUTABLE_TAGS",
+				Name:  "TAG_HYGIENE",
 				Since: rulesetOldTime,
 			},
 		},

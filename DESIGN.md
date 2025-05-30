@@ -196,7 +196,7 @@ Tag provenance records a tag creation event.  It indicates:
     "actor": "TomHennen",
     "controls": [
       {
-        "name": "IMMUTABLE_TAGS",
+        "name": "TAG_HYGIENE",
         "since": "2025-03-23T18:08:42.375Z"
       }
     ],
@@ -210,7 +210,7 @@ Tag provenance records a tag creation event.  It indicates:
         ],
         "verifiedLevels": [
           "SLSA_SOURCE_LEVEL_3",
-          "IMMUTABLE_TAGS"
+          "TAG_HYGIENE"
         ]
       }
     ]
@@ -282,10 +282,10 @@ This tool can also check to see if the GitHub repo/ref is configured to require
     * "Require review from Code Owners"
     * "Require approval of the most recent reviewable push"
 
-### IMMUTABLE_TAGS
+### TAG_HYGIENE
 
 This tool can also check to see if the GitHub repo is configured to require
-immutable tags.  To do so it checks that the repo enables the follow rules
+tag hygiene.  To do so it checks that the repo enables the follow rules
 to ~ALL tags:
 
 1. Doesn't allow tag updates
@@ -293,7 +293,7 @@ to ~ALL tags:
 3. Doesn't allow tag fast-forwards
 
 Importing [rulesets/tag_immutability.json](rulesets/tag_immutability.json)
-to a repos rulesets will enable the repo controls. The `immutable_tags`
+to a repos rulesets will enable the repo controls. The `tag_hygiene`
 field in the policy then needs to be enabled too.
 
 TODO: In the future this tool could be updated to allow some subset of tags

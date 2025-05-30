@@ -10,6 +10,6 @@
   ],
   "protected_tag": {
     "Since": "2025-03-23T18:08:43.25099739Z",
-    "immutable_tags": true
+    "tag_hygiene": true
   }
 }

@@ -11,7 +11,7 @@ const (
 	ContinuityEnforced                  = "CONTINUITY_ENFORCED"
 	ProvenanceAvailable                 = "PROVENANCE_AVAILABLE"
 	ReviewEnforced                      = "REVIEW_ENFORCED"
-	ImmutableTags                       = "IMMUTABLE_TAGS"
+	TagHygiene                          = "TAG_HYGIENE"
 )
 
 func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {

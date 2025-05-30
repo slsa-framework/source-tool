@@ -44,8 +44,8 @@ func createTestPolicy(pb ProtectedBranch) RepoPolicy {
 			pb,
 		},
 		ProtectedTag: &ProtectedTag{
-			Since:         fixedTime,
-			ImmutableTags: true,
+			Since:      fixedTime,
+			TagHygiene: true,
 		},
 	}
 
@@ -133,11 +133,11 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlierFixedTime}
 	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlierFixedTime}
 	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlierFixedTime}
-	immutableTagsEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlierFixedTime}
+	tagHygieneEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlierFixedTime}
 
 	// Valid Provenance Predicate (attest.SourceProvenancePred)
 	validProvPredicateL3Controls := attest.SourceProvenancePred{
-		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
+		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 	}
 
 	provenanceStatement := createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType)
@@ -150,7 +150,7 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	}
 	rp := createTestPolicy(pb)
 	rp.ProtectedTag.Since = fixedTime
-	rp.ProtectedTag.ImmutableTags = true
+	rp.ProtectedTag.TagHygiene = true
 
 	expectedPolicyFilePath := createTempPolicyFile(t, rp)
 	defer os.Remove(expectedPolicyFilePath)
@@ -166,7 +166,7 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	if policyPath != expectedPolicyFilePath {
 		t.Errorf("EvaluateSourceProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
 	}
-	expectedLevels := slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags}
+	expectedLevels := slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene}
 	if !reflect.DeepEqual(verifiedLevels, expectedLevels) {
 		t.Errorf("EvaluateSourceProv() verifiedLevels = %v, want %v", verifiedLevels, expectedLevels)
 	}
@@ -177,14 +177,14 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlierFixedTime}
 	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlierFixedTime}
 	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlierFixedTime}
-	immutableTagsEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlierFixedTime}
+	tagHygieneEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlierFixedTime}
 
 	// Policies
 	policyL3ReviewTagsNow := RepoPolicy{
 		ProtectedBranches: []ProtectedBranch{
 			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, Since: fixedTime},
 		},
-		ProtectedTag: &ProtectedTag{Since: fixedTime, ImmutableTags: true},
+		ProtectedTag: &ProtectedTag{Since: fixedTime, TagHygiene: true},
 	}
 	policyL1NoExtrasNow := RepoPolicy{ // Policy for default/branch not found cases
 		ProtectedBranches: []ProtectedBranch{
@@ -195,7 +195,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 
 	// Valid Provenance Predicate (attest.SourceProvenancePred)
 	validProvPredicateL3Controls := attest.SourceProvenancePred{
-		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
+		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 	}
 	validProvPredicateL2Controls := attest.SourceProvenancePred{
 		Controls: slsa_types.Controls{continuityEnforcedEarlier, reviewEnforcedEarlier}, // Missing provenanceAvailable for L3
@@ -295,7 +295,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlierFixedTime}
 	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlierFixedTime}
 	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlierFixedTime}
-	immutableTagsEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlierFixedTime}
+	tagHygieneEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlierFixedTime}
 
 	// Policies
 	policyL3ReviewTagsNow := RepoPolicy{
@@ -303,8 +303,8 @@ func TestEvaluateControl_Success(t *testing.T) {
 			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, Since: fixedTime},
 		},
 		ProtectedTag: &ProtectedTag{
-			Since:         fixedTime,
-			ImmutableTags: true,
+			Since:      fixedTime,
+			TagHygiene: true,
 		},
 	}
 	policyL1NoExtrasNow := RepoPolicy{
@@ -326,7 +326,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 			policyContent: policyL3ReviewTagsNow,
 			controlStatus: &gh_control.GhControlStatus{
 				CommitPushTime: earlierFixedTime, // Commit time before policyL3ReviewTagsNow.Since (now)
-				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
+				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 			},
 			ghConnBranch:       "main",
 			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, // Expect L1 because commit time is before policy enforcement
@@ -337,10 +337,10 @@ func TestEvaluateControl_Success(t *testing.T) {
 			policyContent: policyL3ReviewTagsNow,
 			controlStatus: &gh_control.GhControlStatus{
 				CommitPushTime: laterFixedTime,
-				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
+				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 			},
 			ghConnBranch:       "main",
-			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags},
+			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene},
 			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",
 		},
 		{
@@ -348,7 +348,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 			policyContent: policyL1NoExtrasNow, // main is in policy, but we test "develop"
 			controlStatus: &gh_control.GhControlStatus{
 				CommitPushTime: laterFixedTime,
-				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
+				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 			},
 			ghConnBranch:       "develop",                                                            // Testing "develop" branch
 			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, // Default is L1
@@ -604,8 +604,8 @@ func TestEvaluateBranchControls(t *testing.T) {
 	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlierFixedTime}
 	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlierFixedTime}
 	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlierFixedTime}
-	immutableTagsEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlierFixedTime}
-	immutableTagsNow := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: fixedTime}
+	tagHygieneEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlierFixedTime}
+	tagHygieneNow := slsa_types.Control{Name: slsa_types.TagHygiene, Since: fixedTime}
 
 	// Branch Policies
 	policyL3Review := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, Since: fixedTime}
@@ -614,8 +614,8 @@ func TestEvaluateBranchControls(t *testing.T) {
 	policyL2NoReview := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, RequireReview: false, Since: fixedTime}
 
 	// Tag policies
-	immutableTagPolicy := ProtectedTag{Since: fixedTime, ImmutableTags: true}
-	noImmutableTagPolicy := ProtectedTag{Since: fixedTime, ImmutableTags: false}
+	tagHygienePolicy := ProtectedTag{Since: fixedTime, TagHygiene: true}
+	noTagHygienePolicy := ProtectedTag{Since: fixedTime, TagHygiene: false}
 
 	// Policy Since 'earlier' for testing control.Since > policy.Since
 	policyL2TagsEarlier := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, RequireReview: false, Since: earlierFixedTime}
@@ -632,15 +632,15 @@ func TestEvaluateBranchControls(t *testing.T) {
 		{
 			name:           "Success - All Met (L3, Review, Tags)",
 			branchPolicy:   &policyL3Review,
-			tagPolicy:      &immutableTagPolicy,
-			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, immutableTagsEarlier},
-			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.ImmutableTags},
+			tagPolicy:      &tagHygienePolicy,
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene},
 			expectError:    false,
 		},
 		{
 			name:           "Success - Only SLSA Level (L1)",
 			branchPolicy:   &policyL1NoExtras,
-			tagPolicy:      &noImmutableTagPolicy,
+			tagPolicy:      &noTagHygienePolicy,
 			controls:       slsa_types.Controls{}, // L1 is met by default if policy targets L1 and other conditions pass
 			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)},
 			expectError:    false,
@@ -648,7 +648,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 		{
 			name:           "Success - SLSA & Review (L2, Review)",
 			branchPolicy:   &policyL2Review,
-			tagPolicy:      &noImmutableTagPolicy,
+			tagPolicy:      &noTagHygienePolicy,
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, reviewEnforcedEarlier}, // Provenance not needed for L2
 			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel2), slsa_types.ReviewEnforced},
 			expectError:    false,
@@ -656,15 +656,15 @@ func TestEvaluateBranchControls(t *testing.T) {
 		{
 			name:           "Success - SLSA & Tags (L2, Tags)",
 			branchPolicy:   &policyL2NoReview,
-			tagPolicy:      &immutableTagPolicy,
-			controls:       slsa_types.Controls{continuityEnforcedEarlier, immutableTagsEarlier}, // Provenance not needed for L2
-			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel2), slsa_types.ImmutableTags},
+			tagPolicy:      &tagHygienePolicy,
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, tagHygieneEarlier}, // Provenance not needed for L2
+			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel2), slsa_types.TagHygiene},
 			expectError:    false,
 		},
 		{
 			name:                  "Error - computeSlsaLevel Fails (Policy L3, Controls L1)",
 			branchPolicy:          &policyL3Review, // Wants L3
-			tagPolicy:             &noImmutableTagPolicy,
+			tagPolicy:             &noTagHygienePolicy,
 			controls:              slsa_types.Controls{}, // Only eligible for L1
 			expectedLevels:        slsa_types.SourceVerifiedLevels{},
 			expectError:           true,
@@ -673,25 +673,25 @@ func TestEvaluateBranchControls(t *testing.T) {
 		{
 			name:                  "Error - computeReviewEnforced Fails (Policy L2+Review, Review control missing)",
 			branchPolicy:          &policyL2Review, // Wants L2 & Review
-			tagPolicy:             &noImmutableTagPolicy,
+			tagPolicy:             &noTagHygienePolicy,
 			controls:              slsa_types.Controls{continuityEnforcedEarlier}, // Eligible for L2, but Review control missing
 			expectedLevels:        slsa_types.SourceVerifiedLevels{},
 			expectError:           true,
 			expectedErrorContains: "error computing review enforced: policy requires review, but that control is not enabled",
 		},
 		{
-			name:                  "Error - computeImmutableTags Fails (Policy L2+Tags, Tag control Since later than Policy Since)",
+			name:                  "Error - computeTagHygiene Fails (Policy L2+Tags, Tag control Since later than Policy Since)",
 			branchPolicy:          &policyL2TagsEarlier, // Wants L2 & Tags, Policy.Since = earlier
-			tagPolicy:             &ProtectedTag{Since: earlierFixedTime, ImmutableTags: true},
-			controls:              slsa_types.Controls{continuityEnforcedEarlier, immutableTagsNow}, // Eligible L2, Tag.Since = now
+			tagPolicy:             &ProtectedTag{Since: earlierFixedTime, TagHygiene: true},
+			controls:              slsa_types.Controls{continuityEnforcedEarlier, tagHygieneNow}, // Eligible L2, Tag.Since = now
 			expectedLevels:        slsa_types.SourceVerifiedLevels{},
 			expectError:           true,
-			expectedErrorContains: "error computing tag immutability enforced: policy requires immutable tags since", // ... but that control has only been enabled since ...
+			expectedErrorContains: "error computing tag immutability enforced: policy requires tag hygiene since", // ... but that control has only been enabled since ...
 		},
 		{
 			name:         "Success - Mixed Requirements (L3, Review, No Tags)",
 			branchPolicy: &policyL3Review,
-			tagPolicy:    &noImmutableTagPolicy,
+			tagPolicy:    &noTagHygienePolicy,
 			// Wants L3, Review, No Tags
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier}, // Satisfies L3 & Review
 			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced},
@@ -740,77 +740,77 @@ func TestEvaluateBranchControls(t *testing.T) {
 	}
 }
 
-func TestComputeImmutableTags(t *testing.T) {
+func TestComputeTagHygiene(t *testing.T) {
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
 
 	// Branch Policies
-	policyRequiresImmutableTagsNow := ProtectedTag{ImmutableTags: true, Since: now}
-	policyRequiresImmutableTagsEarlier := ProtectedTag{ImmutableTags: true, Since: earlier}
-	policyNotRequiresImmutableTags := ProtectedTag{ImmutableTags: false, Since: now}
+	policyRequiresTagHygieneNow := ProtectedTag{TagHygiene: true, Since: now}
+	policyRequiresTagHygieneEarlier := ProtectedTag{TagHygiene: true, Since: earlier}
+	policyNotRequiresTagHygiene := ProtectedTag{TagHygiene: false, Since: now}
 
 	// Controls
-	immutableTagsControlEnabledNow := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: now}
-	// immutableTagsControlEnabledEarlier := slsa_types.Control{Name: slsa_types.ImmutableTags, Since: earlier} // No longer directly used in a test case
+	tagHygieneControlEnabledNow := slsa_types.Control{Name: slsa_types.TagHygiene, Since: now}
+	// tagHygieneControlEnabledEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlier} // No longer directly used in a test case
 
 	tests := []struct {
-		name                      string
-		tagPolicy                 *ProtectedTag
-		controls                  slsa_types.Controls
-		expectedImmutableEnforced bool
-		expectError               bool
-		expectedErrorContains     string
+		name                       string
+		tagPolicy                  *ProtectedTag
+		controls                   slsa_types.Controls
+		expectedTagHygieneEnforced bool
+		expectError                bool
+		expectedErrorContains      string
 	}{
 		{
-			name:                      "Policy requires immutable tags, control compliant (Policy.Since >= Control.Since)",
-			tagPolicy:                 &policyRequiresImmutableTagsNow,
-			controls:                  slsa_types.Controls{immutableTagsControlEnabledNow}, // Policy.Since == Control.Since
-			expectedImmutableEnforced: true,
-			expectError:               false,
+			name:                       "Policy requires tag hygiene, control compliant (Policy.Since >= Control.Since)",
+			tagPolicy:                  &policyRequiresTagHygieneNow,
+			controls:                   slsa_types.Controls{tagHygieneControlEnabledNow}, // Policy.Since == Control.Since
+			expectedTagHygieneEnforced: true,
+			expectError:                false,
 		},
 		{
-			name:                      "Policy does not require immutable tags - control state irrelevant",
-			tagPolicy:                 &policyNotRequiresImmutableTags,
-			controls:                  slsa_types.Controls{}, // Control state explicitly shown as irrelevant
-			expectedImmutableEnforced: false,
-			expectError:               false,
+			name:                       "Policy does not require tag hygiene - control state irrelevant",
+			tagPolicy:                  &policyNotRequiresTagHygiene,
+			controls:                   slsa_types.Controls{}, // Control state explicitly shown as irrelevant
+			expectedTagHygieneEnforced: false,
+			expectError:                false,
 		},
 		{
-			name:                      "Policy requires immutable tags, control not present: fail",
-			tagPolicy:                 &policyRequiresImmutableTagsNow,
-			controls:                  slsa_types.Controls{}, // Immutable tags control missing
-			expectedImmutableEnforced: false,
-			expectError:               true,
-			expectedErrorContains:     "policy requires immutable tags, but that control is not enabled",
+			name:                       "Policy requires tag hygiene, control not present: fail",
+			tagPolicy:                  &policyRequiresTagHygieneNow,
+			controls:                   slsa_types.Controls{}, // Tag Hygiene control missing
+			expectedTagHygieneEnforced: false,
+			expectError:                true,
+			expectedErrorContains:      "policy requires tag hygiene, but that control is not enabled",
 		},
 		{
-			name:                      "Policy requires immutable tags, control enabled, Policy.Since < Control.Since: fail",
-			tagPolicy:                 &policyRequiresImmutableTagsEarlier,                 // Policy.Since is 'earlier'
-			controls:                  slsa_types.Controls{immutableTagsControlEnabledNow}, // Control.Since is 'now'
-			expectedImmutableEnforced: false,
-			expectError:               true,
-			expectedErrorContains:     "policy requires immutable tags since", // ...but that control has only been enabled since...
+			name:                       "Policy requires tag hygiene, control enabled, Policy.Since < Control.Since: fail",
+			tagPolicy:                  &policyRequiresTagHygieneEarlier,                 // Policy.Since is 'earlier'
+			controls:                   slsa_types.Controls{tagHygieneControlEnabledNow}, // Control.Since is 'now'
+			expectedTagHygieneEnforced: false,
+			expectError:                true,
+			expectedErrorContains:      "policy requires tag hygiene since", // ...but that control has only been enabled since...
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotEnforced, err := computeImmutableTags(tt.tagPolicy, tt.controls)
+			gotEnforced, err := computeTagHygiene(tt.tagPolicy, tt.controls)
 
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("computeImmutableTags() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
+					t.Errorf("computeTagHygiene() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
 				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
-					t.Errorf("computeImmutableTags() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
+					t.Errorf("computeTagHygiene() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("computeImmutableTags() error = %v, want nil", err)
+					t.Errorf("computeTagHygiene() error = %v, want nil", err)
 				}
 			}
 
-			if gotEnforced != tt.expectedImmutableEnforced {
-				t.Errorf("computeImmutableTags() gotEnforced = %v, want %v", gotEnforced, tt.expectedImmutableEnforced)
+			if gotEnforced != tt.expectedTagHygieneEnforced {
+				t.Errorf("computeTagHygiene() gotEnforced = %v, want %v", gotEnforced, tt.expectedTagHygieneEnforced)
 			}
 		})
 	}
