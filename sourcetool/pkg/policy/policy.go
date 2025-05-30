@@ -36,8 +36,8 @@ type ProtectedBranch struct {
 
 // The controls required for protected tags.
 type ProtectedTag struct {
-	Since         time.Time
-	ImmutableTags bool `json:"immutable_tags"`
+	Since      time.Time
+	TagHygiene bool `json:"tag_hygiene"`
 }
 
 type RepoPolicy struct {
@@ -318,23 +318,23 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Co
 	return true, nil
 }
 
-func computeImmutableTags(tagPolicy *ProtectedTag, controls slsa_types.Controls) (bool, error) {
+func computeTagHygiene(tagPolicy *ProtectedTag, controls slsa_types.Controls) (bool, error) {
 	if tagPolicy == nil {
 		// There is no tag policy, so the control isn't met, but it's not an error.
 		return false, nil
 	}
 
-	if !tagPolicy.ImmutableTags {
+	if !tagPolicy.TagHygiene {
 		return false, nil
 	}
 
-	immutableTags := controls.GetControl(slsa_types.ImmutableTags)
-	if immutableTags == nil {
-		return false, fmt.Errorf("policy requires immutable tags, but that control is not enabled")
+	tagHygiene := controls.GetControl(slsa_types.TagHygiene)
+	if tagHygiene == nil {
+		return false, fmt.Errorf("policy requires tag hygiene, but that control is not enabled")
 	}
 
-	if tagPolicy.Since.Before(immutableTags.Since) {
-		return false, fmt.Errorf("policy requires immutable tags since %v, but that control has only been enabled since %v", tagPolicy.Since, immutableTags.Since)
+	if tagPolicy.Since.Before(tagHygiene.Since) {
+		return false, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.Since, tagHygiene.Since)
 	}
 
 	return true, nil
@@ -357,12 +357,12 @@ func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedT
 		verifiedLevels = append(verifiedLevels, slsa_types.ReviewEnforced)
 	}
 
-	immutableTags, err := computeImmutableTags(tagPolicy, controls)
+	tagHygiene, err := computeTagHygiene(tagPolicy, controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
-	if immutableTags {
-		verifiedLevels = append(verifiedLevels, slsa_types.ImmutableTags)
+	if tagHygiene {
+		verifiedLevels = append(verifiedLevels, slsa_types.TagHygiene)
 	}
 
 	return verifiedLevels, nil
@@ -376,12 +376,12 @@ func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *attest.TagProvenanceP
 	// include the verifiedLevels.
 
 	// TODO: handle tag policy?
-	immutableTags, err := computeImmutableTags(tagPolicy, tagProvPred.Controls)
+	tagHygiene, err := computeTagHygiene(tagPolicy, tagProvPred.Controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
-	if immutableTags {
-		// TODO: should we include the immutable tag field specifically?
+	if tagHygiene {
+		// TODO: should we include the tag hygiene field specifically?
 		return tagProvPred.VsaSummaries[0].VerifiedLevels, nil
 	}
 

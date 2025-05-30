@@ -274,7 +274,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 }
 
 func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, ref, actor string) (*spb.Statement, error) {
-	// 1. Check that the immutable tags control is still enabled and how long it's been enabled, store it in the prov.
+	// 1. Check that the tag hygiene control is still enabled and how long it's been enabled, store it in the prov.
 	// 2. Get a VSA associated with this commit, if any.
 	// 3. Record the levels and branches covered by that VSA in the provenance.
 

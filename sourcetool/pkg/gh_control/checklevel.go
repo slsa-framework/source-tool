@@ -103,7 +103,7 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	return &slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
 }
 
-func enforcesImmutableTags(ruleset *github.RepositoryRuleset) bool {
+func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
 	if ruleset.Rules != nil &&
 		ruleset.Rules.Update != nil &&
 		ruleset.Rules.Deletion != nil &&
@@ -116,7 +116,7 @@ func enforcesImmutableTags(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
-func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa_types.Control, error) {
+func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa_types.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
 		if *ruleset.Target != github.RulesetTargetTag {
@@ -134,7 +134,7 @@ func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, co
 			return nil, fmt.Errorf("could not get full ruleset for ruleset id %d: err: %w", ruleset.GetID(), err)
 		}
 
-		if !enforcesImmutableTags(fullRuleset) {
+		if !enforcesTagHygiene(fullRuleset) {
 			continue
 		}
 		if validRuleset == nil || validRuleset.UpdatedAt.After(ruleset.UpdatedAt.Time) {
@@ -151,7 +151,7 @@ func (ghc *GitHubConnection) computeImmutableTagsControl(ctx context.Context, co
 		return nil, nil
 	}
 
-	return &slsa_types.Control{Name: slsa_types.ImmutableTags, Since: validRuleset.UpdatedAt.Time}, nil
+	return &slsa_types.Control{Name: slsa_types.TagHygiene, Since: validRuleset.UpdatedAt.Time}, nil
 }
 
 // Computes the review control returning nil if it's not enabled.
@@ -235,11 +235,11 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 	if err != nil {
 		return nil, err
 	}
-	ImmutableTagsControl, err := ghc.computeImmutableTagsControl(ctx, commit, allRulesets, &activity.Timestamp)
+	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, commit, allRulesets, &activity.Timestamp)
 	if err != nil {
-		return nil, fmt.Errorf("could not populate ImmutableTagsControl: %w", err)
+		return nil, fmt.Errorf("could not populate TagHygieneControl: %w", err)
 	}
-	controlStatus.Controls.AddControl(ImmutableTagsControl)
+	controlStatus.Controls.AddControl(TagHygieneControl)
 
 	return &controlStatus, nil
 }
@@ -253,11 +253,11 @@ func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref str
 	if err != nil {
 		return nil, err
 	}
-	ImmutableTagsControl, err := ghc.computeImmutableTagsControl(ctx, commit, allRulesets, &controlStatus.CommitPushTime)
+	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, commit, allRulesets, &controlStatus.CommitPushTime)
 	if err != nil {
-		return nil, fmt.Errorf("could not populate ImmutableTagsControl: %w", err)
+		return nil, fmt.Errorf("could not populate TagHygieneControl: %w", err)
 	}
-	controlStatus.Controls.AddControl(ImmutableTagsControl)
+	controlStatus.Controls.AddControl(TagHygieneControl)
 
 	return &controlStatus, nil
 }
