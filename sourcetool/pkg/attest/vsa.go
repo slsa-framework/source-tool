@@ -35,7 +35,6 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_ty
 		return "", err
 	}
 
-	// TODO: update to source_refs to match updated spec.
 	branchAnnotation := map[string]any{slsa_types.SourceRefsAnnotation: []any{ref}}
 	annotationStruct, err := structpb.NewStruct(branchAnnotation)
 	if err != nil {
@@ -78,30 +77,6 @@ func GetVsa(ctx context.Context, ghc *gh_control.GitHubConnection, verifier Veri
 		log.Fatal(err)
 	}
 	return getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), verifier), commit, ref)
-}
-
-func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]string, error) {
-	subject := GetSubjectForCommit(vsaStatement, commit)
-	if subject == nil {
-		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", StatementToString(vsaStatement), commit)
-	}
-	annotations := subject.GetAnnotations()
-	sourceRefs, ok := annotations.Fields[slsa_types.SourceRefsAnnotation]
-	if !ok {
-		// This used to be called 'source_branches', maybe this is an old VSA.
-		// TODO: remove once we're not worried about backward compatibility.
-		sourceRefs, ok = annotations.Fields[slsa_types.SourceBranchesAnnotation]
-		if !ok {
-			return []string{}, fmt.Errorf("no source_refs or source_branches annotation in VSA subject")
-		}
-	}
-
-	protoRefs := sourceRefs.GetListValue()
-	stringRefs := []string{}
-	for _, ref := range protoRefs.Values {
-		stringRefs = append(stringRefs, ref.GetStringValue())
-	}
-	return stringRefs, nil
 }
 
 func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
