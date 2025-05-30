@@ -1,6 +1,6 @@
 {
   "id": 4317154,
-  "name": "SLSA Tag Controls",
+  "name": "SLSA Tag Hygiene",
   "target": "tag",
   "source_type": "Repository",
   "source": "TomHennen/Concordance",

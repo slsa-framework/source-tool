@@ -23,19 +23,21 @@ using GitHub's existing functionality.
 For detailed information on how this tool meets the SLSA requirements see
 [REQUIREMENTS_MAPPING.md](./REQUIREMENTS_MAPPING.md).
 
-## Approaches
-There are two main approaches taken in this proof-of-concept:
+## Approach
 
-1. A 'control only' approach that leverages GitHub's existing controls and APIs, and
-maintains **no** state between commits.  This approach creates VSAs for each commit,
-but does not reference them in the future.  The highest possible level that can be
-achieved with this approach is SLSA_SOURCE_LEVEL_2.
+This tool leverages GitHub's existing controls and APIs to determine what restrictions
+are placed on the creation or update of branches and tags. It combines those controls
+with provenance and VSAs which it generates when updates occur and with
+[policy](#policy) which allows repositories to express their requirements for changes
+to the repository.
 
-2. A 'provenance based' approach that, in addition to creating a VSA for each commit,
-creates a more detailed source provenance attestation that is referenced when computing
-the SLSA Source Level of subsequent commits.
+The tool can be run in a 'control only' mode where it does not use provenance and as
+a result can only reach Source Level 2.  This mode is only meant for demonstration
+purposes and may be deprecated.
 
 ### Control-Only
+
+TODO: Should we cut this section and feature?
 
 In the control-only approach the `sourcetool` with the `checklevel` command fetches the
 rulesets that are _currently_ enabled on the source repository.
@@ -77,10 +79,8 @@ by the adoption of the [provenance-based](#provenance-based) approach.
 
 ### Provenance-Based
 
-In the provenance based approach the reusable workflow fetches any attestations from the
-commit prior to the current commit.
-
-These attestations are provided to the `sourcetool` `checklevelprov` command which then:
+In the provenance based approach the tool fetches any attestations from the commit prior
+to the current commit and then:
 
 1. Computes the level the current commit is eligible for based on the same approach taken
    by [control-only](#control-only).  Sets the control start time to ~now (it does _not_
@@ -120,6 +120,96 @@ def getSourceLevel(commit, policy):
 While the reusable workflow only ever checks the attestations for the prior commit,
 'offline' auditors might wish to evaluate the entire chain of provenance from the most
 recent commit, all the way back to the first commit made under the existing policy.
+
+## Controls
+
+The tool can be configured to validate that a number of controls are (and have
+remained) in place.
+
+Each control name will be listed in the provenance `controls` field.
+
+### CONTINUITY_ENFORCED
+
+CONTINUITY_ENFORCED maps to the SLSA Source Track
+[Branch Continuity](https://slsa.dev/spec/draft/source-requirements#branch-continuity:~:text=%E2%9C%93-,Branch%20Continuity,-It%20MUST%20NOT)
+requirement.
+
+This control is met if the commit was created or pushed when rulesets that have both
+`deletion` and `non_fast_forward` rules actively enforced.
+
+### PROVENANCE_AVAILABLE
+
+PROVENANCE_AVAILABLE maps to the SLSA Source Track
+[Source Provenance](https://slsa.dev/spec/draft/source-requirements#branch-continuity:~:text=%E2%9C%93-,Source%20Provenance,-Source%20Provenance%20are)
+requirement.
+
+This control is met if the commit has provenance associated with it.
+ 
+### REVIEW_ENFORCED
+
+REVIEW_ENFORCED maps to the SLSA Source Track
+[Two party review](https://slsa.dev/spec/draft/source-requirements#branch-continuity:~:text=%E2%9C%93-,Two%20party%20review,-Changes%20in%20protected)
+requirement.
+
+This control is met if the repo:
+
+1. Is configured to require the use of Pull Requests.
+2. That the pull requests rule configures:
+    * Required approvals = 1
+    * "Dismiss stale pull request approvals when new commits are pushed"
+    * "Require review from Code Owners"
+    * "Require approval of the most recent reviewable push"
+
+TODO: Provide a preconfigured ruleset under rulesets/
+
+TODO: Update the policy to either require tag_immutability be set explicitly
+or make it implicit if the policy is Level 3+.
+
+### TAG_HYGIENE
+
+TAG_HYGIENE maps to the SLSA Source Track
+[Tag Hygiene](https://slsa.dev/spec/draft/source-requirements#branch-continuity:~:text=%E2%9C%93-,Tag%20Hygiene,-If%20the%20SCS)
+requirement.
+
+It checks that the repo enables the follow rules to ~ALL tags:
+
+1. Doesn't allow tag updates
+2. Doesn't allow tag deletions
+3. Doesn't allow tag fast-forwards
+
+Importing [rulesets/tag_hygiene.json](rulesets/tag_hygiene.json)
+to a repos rulesets will enable the repo controls. The `tag_hygiene`
+field in the policy then needs to be enabled too.
+
+TODO: In the future this tool could be updated to allow some subset of tags
+to be updated (e.g. `latest`, `nightly`), but that feature is not yet
+supported. Tracked
+[here](https://github.com/slsa-framework/slsa-source-poc/issues/129).
+
+The tag hygiene control is evaluated for _both_ branch updates and tag updates.
+
+#### Branch Updates
+
+This control gets evaluated when protected branches are being updated. That
+may seem strange (no tags were involved!), but the SLSA Source Track
+requirements include Tag Hygiene as a requirement for Level 3. As a result
+if we want to certify a given commit on a protected branch as Level 3,
+then we need to ensure the _repository_ adheres to tag hygiene requirements.
+
+#### Tag Updates
+
+TODO: Update the policy to either require tag_hygiene be set explicitly or
+make it implicit if the policy is Level 3+.
+
+TODO: We should probably figure out if we want to issue tag prov or VSAs
+if Tag Hygiene isn't enabled.
+
+This control also gets evaluated when tags are updated.  When a tag is
+updated, if policy sets 'tag_hygiene', the tool will require the control
+is enabled.  If so, it will create [Tag Provenance](#tag-provenance) for
+the tag and it will _copy_ the `verifiedLevels` from VSAs previously
+issued for the commit being tagged into a new VSA that includes this
+tag in `source_refs`.
 
 ## Provenance
 
@@ -261,45 +351,10 @@ Specifically, the reusable workflow provides the following guarantees:
 
 1. It serves as the identity used to sign attestations, allowing us to know the
    attestations were produced by _this_ workflow, and not by the user.
-2. It provides the previous commit to the `sourcetool` establishing the link
-   between it and the current commit.  E.g. it allows us to trust that the
-   current commit listed in the source provenance is a direct descendant of
-   the listed previous commit.  This allows us to establish continuity.
-3. It lets us ensure the provenance was created contemporaneously with the
+2. It lets us ensure the provenance was created contemporaneously with the
    introduction of the current commit to the current branch.
-
-## Additional Controls
-
-### REVIEW_ENFORCED
-
-This tool can also check to see if the GitHub repo/ref is configured to require
-2-party review.  To do so it checks that the repo:
-
-1. Is configured to require the use of Pull Requests.
-2. That the pull requests rule configures:
-    * Required approvals = 1
-    * "Dismiss stale pull request approvals when new commits are pushed"
-    * "Require review from Code Owners"
-    * "Require approval of the most recent reviewable push"
-
-### TAG_HYGIENE
-
-This tool can also check to see if the GitHub repo is configured to require
-tag hygiene.  To do so it checks that the repo enables the follow rules
-to ~ALL tags:
-
-1. Doesn't allow tag updates
-2. Doesn't allow tag deletions
-3. Doesn't allow tag fast-forwards
-
-Importing [rulesets/tag_immutability.json](rulesets/tag_immutability.json)
-to a repos rulesets will enable the repo controls. The `tag_hygiene`
-field in the policy then needs to be enabled too.
-
-TODO: In the future this tool could be updated to allow some subset of tags
-to be updated (e.g. `latest`, `nightly`), but that feature is not yet
-supported. Tracked
-[here](https://github.com/slsa-framework/slsa-source-poc/issues/129).
+3. It provides the `actor` used in the [Tag Provenance](#tag-provenance) since
+   that information is not otherwise available via GitHub APIs.
 
 ## Open Issues
 
