@@ -8,6 +8,7 @@ import (
 	"log"
 
 	spb "github.com/in-toto/attestation/go/v1"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -35,6 +36,30 @@ func (br BundleReader) convertLineToStatement(line string) (*spb.Statement, erro
 	// TODO: add support for 'regular' DSSEs.
 
 	return nil, errors.New("could not convert line to statement")
+}
+
+func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]string, error) {
+	subject := GetSubjectForCommit(vsaStatement, commit)
+	if subject == nil {
+		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", StatementToString(vsaStatement), commit)
+	}
+	annotations := subject.GetAnnotations()
+	sourceRefs, ok := annotations.Fields[slsa_types.SourceRefsAnnotation]
+	if !ok {
+		// This used to be called 'source_branches', maybe this is an old VSA.
+		// TODO: remove once we're not worried about backward compatibility.
+		sourceRefs, ok = annotations.Fields[slsa_types.SourceBranchesAnnotation]
+		if !ok {
+			return []string{}, fmt.Errorf("no source_refs or source_branches annotation in VSA subject")
+		}
+	}
+
+	protoRefs := sourceRefs.GetListValue()
+	stringRefs := []string{}
+	for _, ref := range protoRefs.Values {
+		stringRefs = append(stringRefs, ref.GetStringValue())
+	}
+	return stringRefs, nil
 }
 
 type StatementMatcher func(*spb.Statement) bool

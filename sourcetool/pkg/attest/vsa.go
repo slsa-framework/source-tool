@@ -35,8 +35,7 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_ty
 		return "", err
 	}
 
-	// TODO: update to source_refs to match updated spec.
-	branchAnnotation := map[string]any{"source_branches": []any{ref}}
+	branchAnnotation := map[string]any{slsa_types.SourceRefsAnnotation: []any{ref}}
 	annotationStruct, err := structpb.NewStruct(branchAnnotation)
 	if err != nil {
 		return "", fmt.Errorf("creating struct from map: %w", err)
@@ -80,19 +79,6 @@ func GetVsa(ctx context.Context, ghc *gh_control.GitHubConnection, verifier Veri
 	return getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), verifier), commit, ref)
 }
 
-func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]string, error) {
-	subject := GetSubjectForCommit(vsaStatement, commit)
-	if subject == nil {
-		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", StatementToString(vsaStatement), commit)
-	}
-	protoRefs := subject.GetAnnotations().Fields["source_branches"].GetListValue()
-	stringRefs := []string{}
-	for _, ref := range protoRefs.Values {
-		stringRefs = append(stringRefs, ref.GetStringValue())
-	}
-	return stringRefs, nil
-}
-
 func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 	predJson, err := protojson.Marshal(statement.Predicate)
 	if err != nil {
@@ -125,7 +111,7 @@ func MatchesTypeCommitAndRef(predicateType, commit, targetRef string) StatementM
 				return true
 			}
 		}
-		log.Printf("source_branches (%v) in VSA does not contain %s", refs, targetRef)
+		log.Printf("source_refs (%v) in VSA does not contain %s", refs, targetRef)
 		return false
 	}
 }

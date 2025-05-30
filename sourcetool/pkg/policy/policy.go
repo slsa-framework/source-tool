@@ -151,7 +151,6 @@ func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnecti
 	}
 
 	// Is there a remote policy?
-	// TODO: Look for errors that _aren't_ 404.
 	rp, _, _ := getRemotePolicy(ctx, gh_connection)
 	if rp != nil {
 		return fmt.Errorf("policy already exists remotely for %s", getPolicyPath(gh_connection))
@@ -375,13 +374,13 @@ func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *attest.TagProvenanceP
 	// As long as all the controls for tag protection are currently in force then we'll
 	// include the verifiedLevels.
 
-	// TODO: handle tag policy?
 	tagHygiene, err := computeTagHygiene(tagPolicy, tagProvPred.Controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
 	if tagHygiene {
 		// TODO: should we include the tag hygiene field specifically?
+		// TODO: Should we include the union of all the levels (probably).
 		return tagProvPred.VsaSummaries[0].VerifiedLevels, nil
 	}
 
@@ -467,7 +466,6 @@ func (pe PolicyEvaluator) EvaluateTagProv(ctx context.Context, gh_connection *gh
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
-	// TODO: get the levels we want to use from the prov predicate...
 	outputVerifiedLevels, err := evaluateTagProv(rp.ProtectedTag, provPred)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
