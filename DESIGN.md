@@ -188,6 +188,25 @@ supported. Tracked
 
 The tag hygiene control is evaluated for _both_ branch updates and tag updates.
 
+### GH_REQUIRED_CHECK_*
+
+Controls that start with `GH_REQUIRED_CHECK_` map to the
+[Enforced change management process](https://slsa.dev/spec/draft/source-requirements#source-control-system:~:text=%E2%9C%93-,Enforced%20change%20management%20process,-The%20SCS%20MUST)
+requirement.
+
+It indicates that the repository has enabled the "Require status checks to
+pass" rule for the indicated 'check'.
+
+E.g. if the control `GH_REQUIRED_CHECK_unit-tests` appears in the provenance
+then that means the repository has configured a ruleset to require the check
+`unit-tests` to have been run by GitHub Actions prior to merge.
+
+Currently this tool _only_ reports checks that come from GitHub Actions.
+Other checks will not be recorded in the provenance.
+
+TODO: Update the policy to support requiring these checks and to embed an
+org specified property in the VSA.
+
 #### Branch Updates
 
 This control gets evaluated when protected branches are being updated. That
@@ -232,7 +251,7 @@ Source provenance covers changes to a branch.  It indicates:
   "subject": [
     {
       "digest": {
-        "gitCommit": "6efc0a710cb413aa4aa2d53ad75411a599fb2db1"
+        "gitCommit": "473686ea1a02748311a0180af9b28a43e5513764"
       }
     }
   ],
@@ -247,12 +266,20 @@ Source provenance covers changes to a branch.  It indicates:
         "since": "2025-01-26T02:23:18.106Z"
       },
       {
+        "name": "GH_REQUIRED_CHECK_test",
+        "since": "2025-05-31T21:44:18.816Z"
+      },
+      {
+        "name": "TAG_HYGIENE",
+        "since": "2025-02-25T17:27:49.445Z"
+      },
+      {
         "name": "PROVENANCE_AVAILABLE",
-        "since": "2025-03-01T21:28:30.941538615Z"
+        "since": "2025-03-02T20:14:30.184665988Z"
       }
     ],
-    "created_on": "2025-03-01T21:28:30.941538615Z",
-    "prev_commit": "a552404f404933e685daa6f1d189127cef49aa90",
+    "created_on": "2025-05-31T21:52:36.665624162Z",
+    "prev_commit": "a224aa2d55884ef0cef78ccb498c3561ca240808",
     "repo_uri": "https://github.com/slsa-framework/slsa-source-poc"
   }
 }
