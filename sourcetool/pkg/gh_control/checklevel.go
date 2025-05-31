@@ -53,6 +53,13 @@ func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit, targetR
 	return nil, fmt.Errorf("could not find repo activity for commit %s and ref %s", commit, targetRef)
 }
 
+type RequiredCheck struct {
+	// The name of the required status check as reported in the GitHub UI/API.
+	Name string
+	// How long that check has been required.
+	Since time.Time
+}
+
 type GhControlStatus struct {
 	// The time the commit we're evaluating was pushed.
 	CommitPushTime time.Time
@@ -63,6 +70,8 @@ type GhControlStatus struct {
 	// The controls that are enabled according to the GitHub API.
 	// May not include other controls like if we have provenance.
 	Controls slsa_types.Controls
+	// The checks that are required.
+	RequiredChecks []RequiredCheck
 }
 
 func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBranchRule) bool {
@@ -178,6 +187,35 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 	return nil, nil
 }
 
+func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckRules []*github.RequiredStatusChecksBranchRule) ([]RequiredCheck, error) {
+	// Only return the checks we're happy about.
+	// For now that's only stuff from the GitHub Actions app.
+	requiredChecks := []RequiredCheck{}
+	for _, ghCheckRule := range ghCheckRules {
+		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ghCheckRule.RulesetID, false)
+		if err != nil {
+			return nil, err
+		}
+		if ruleset.Enforcement != "active" {
+			// Only look at rules being enforced.
+			continue
+		}
+
+		for _, check := range ghCheckRule.Parameters.RequiredStatusChecks {
+			if check.IntegrationID == nil || *check.IntegrationID != GitHubActionsIntegrationId {
+				// Ignore untrusted integration id.
+				continue
+			}
+			requiredChecks = append(requiredChecks, RequiredCheck{
+				Name: check.Context,
+				// TODO: get the time that indicates how long it's been enforced
+				Since: ruleset.UpdatedAt.Time,
+			})
+		}
+	}
+	return requiredChecks, nil
+}
+
 func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
@@ -231,6 +269,13 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 	}
 	controlStatus.Controls.AddControl(reviewControl)
 
+	requiredChecks, err := ghc.computeRequiredChecks(ctx, branchRules.RequiredStatusChecks)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate RequiredChecks: %w", err)
+	}
+	controlStatus.RequiredChecks = requiredChecks
+
+	// Check the tag rules.
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
 	if err != nil {
 		return nil, err

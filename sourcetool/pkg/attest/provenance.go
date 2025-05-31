@@ -40,8 +40,8 @@ type SourceProvenancePred struct {
 
 // Summary of a summary
 type VsaSummary struct {
-	SourceRefs     []string `json:"source_refs"`
-	VerifiedLevels []string `json:"verifiedLevels"`
+	SourceRefs     []string                 `json:"source_refs"`
+	VerifiedLevels []slsa_types.ControlName `json:"verifiedLevels"`
 }
 
 type TagProvenancePred struct {
@@ -311,7 +311,7 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 		VsaSummaries: []VsaSummary{
 			{
 				SourceRefs:     vsaRefs,
-				VerifiedLevels: vsaPred.VerifiedLevels,
+				VerifiedLevels: slsa_types.StringsToControlNames(vsaPred.VerifiedLevels),
 			},
 		},
 	}

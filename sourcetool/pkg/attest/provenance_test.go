@@ -167,7 +167,7 @@ func TestCreateTagProvenance(t *testing.T) {
 		VsaSummaries: []VsaSummary{
 			{
 				SourceRefs:     []string{"refs/some/ref"},
-				VerifiedLevels: []string{"TEST_LEVEL"},
+				VerifiedLevels: []slsa_types.ControlName{"TEST_LEVEL"},
 			},
 		},
 	}

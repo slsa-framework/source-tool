@@ -25,6 +25,20 @@ const (
 	SourcePolicyRepo      = "slsa-source-poc"
 )
 
+// Used by orgs to require that specific 'checks' are run on protected
+// branches and to associate those checks with a control name to include
+// in provenance and VSAs.
+// https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-status-checks-to-pass-before-merging
+type OrgStatusCheckControl struct {
+	// Control names MUST start with `ORG_SOURCE_`.
+	ControlName slsa_types.ControlName
+	// These controls have their own start time to enable orgs to enable
+	// new ones without violating continuity on other controls.
+	Since time.Time
+	// The name of the 'Status Check' as reported in the GitHub UI & API.
+	CheckName string
+}
+
 // When a branch requires multiple controls, they must all be enabled
 // at or before 'Since'.
 type ProtectedBranch struct {
@@ -32,6 +46,7 @@ type ProtectedBranch struct {
 	Since                 time.Time
 	TargetSlsaSourceLevel slsa_types.SlsaSourceLevel `json:"target_slsa_source_level"`
 	RequireReview         bool                       `json:"require_review"`
+	RequiredStatusChecks  []OrgStatusCheckControl    `json:"org_status_check_controls"`
 }
 
 // The controls required for protected tags.
@@ -346,7 +361,7 @@ func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedT
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing slsa level: %w", err)
 	}
 
-	verifiedLevels := slsa_types.SourceVerifiedLevels{string(slsaSourceLevel)}
+	verifiedLevels := slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsaSourceLevel)}
 
 	reviewEnforced, err := computeReviewEnforced(branchPolicy, controls)
 	if err != nil {
@@ -385,7 +400,7 @@ func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *attest.TagProvenanceP
 	}
 
 	// If tag immutability isn't enabled then we just return level 1.
-	return slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, nil
+	return slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, nil
 }
 
 type PolicyEvaluator struct {
@@ -416,7 +431,7 @@ func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, gh_connection *gh
 
 	if controlStatus.CommitPushTime.Before(branchPolicy.Since) {
 		// This commit was pushed before they had an explicit policy.
-		return slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, policyPath, nil
+		return slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, policyPath, nil
 	}
 
 	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.ProtectedTag, controlStatus.Controls)
