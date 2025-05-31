@@ -34,11 +34,13 @@ type Controls []Control
 
 // Adds the control to the list. Ignores nil controls.
 // Does not check for duplicate controls.
-func (controls *Controls) AddControl(control *Control) {
-	if control == nil {
-		return
+func (controls *Controls) AddControl(newControls ...*Control) {
+	for _, c := range newControls {
+		if c == nil {
+			continue
+		}
+		*controls = append(*controls, *c)
 	}
-	*controls = append(*controls, *control)
 }
 
 // Gets the control with the corresponding name, returns nil if not found.

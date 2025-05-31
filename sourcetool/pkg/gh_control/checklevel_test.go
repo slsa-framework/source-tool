@@ -273,23 +273,23 @@ func TestBuiltinBranchControls(t *testing.T) {
 
 func TestGetBranchControlsRequiredChecks(t *testing.T) {
 	tests := []struct {
-		name               string
-		checks             []branchRuleRawResponse
-		expectedCheckNames []string
+		name                 string
+		checks               []branchRuleRawResponse
+		expectedControlNames []slsa_types.ControlName
 	}{
 		{
 			name: "check with invalid id",
 			checks: createRequiredChecksRules([]*github.RuleStatusCheck{
 				{Context: "check-bad", IntegrationID: github.Ptr(int64(1))},
 			}),
-			expectedCheckNames: []string{},
+			expectedControlNames: []slsa_types.ControlName{},
 		},
 		{
 			name: "check using Github Actions",
 			checks: createRequiredChecksRules([]*github.RuleStatusCheck{
 				{Context: "check-good", IntegrationID: github.Ptr(int64(15368))},
 			}),
-			expectedCheckNames: []string{"check-good"},
+			expectedControlNames: []slsa_types.ControlName{"ORG_CONTROL_check-good"},
 		},
 	}
 	for _, tt := range tests {
@@ -306,16 +306,16 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
 
-			checkNames := []string{}
-			for _, check := range controlStatus.RequiredChecks {
-				checkNames = append(checkNames, check.Name)
-				if !check.Since.Equal(priorTime) {
-					t.Errorf("Expected check.Since %v, got %v", priorTime, check.Since)
+			controlNames := []slsa_types.ControlName{}
+			for _, control := range controlStatus.Controls {
+				controlNames = append(controlNames, control.Name)
+				if !control.Since.Equal(priorTime) {
+					t.Errorf("Expected control.Since %v, got %v", priorTime, control.Since)
 				}
 			}
 
-			if !slices.Equal(checkNames, tt.expectedCheckNames) {
-				t.Errorf("expected check names %v, got %v", tt.expectedCheckNames, checkNames)
+			if !slices.Equal(controlNames, tt.expectedControlNames) {
+				t.Errorf("expected control names %v, got %v", tt.expectedControlNames, controlNames)
 			}
 		})
 	}

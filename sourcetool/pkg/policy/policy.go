@@ -30,8 +30,9 @@ const (
 // in provenance and VSAs.
 // https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-status-checks-to-pass-before-merging
 type OrgStatusCheckControl struct {
-	// Control names MUST start with `ORG_SOURCE_`.
-	ControlName slsa_types.ControlName
+	// The property to record in the VSA if the conditions are met.
+	// MUST start with `ORG_SOURCE_`.
+	PropertyName slsa_types.ControlName
 	// These controls have their own start time to enable orgs to enable
 	// new ones without violating continuity on other controls.
 	Since time.Time

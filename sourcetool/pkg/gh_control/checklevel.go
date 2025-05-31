@@ -70,8 +70,6 @@ type GhControlStatus struct {
 	// The controls that are enabled according to the GitHub API.
 	// May not include other controls like if we have provenance.
 	Controls slsa_types.Controls
-	// The checks that are required.
-	RequiredChecks []RequiredCheck
 }
 
 func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBranchRule) bool {
@@ -187,10 +185,14 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 	return nil, nil
 }
 
-func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckRules []*github.RequiredStatusChecksBranchRule) ([]RequiredCheck, error) {
+func checkNameToControlName(checkName string) slsa_types.ControlName {
+	return slsa_types.ControlName(fmt.Sprintf("ORG_CONTROL_%s", checkName))
+}
+
+func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckRules []*github.RequiredStatusChecksBranchRule) ([]*slsa_types.Control, error) {
 	// Only return the checks we're happy about.
 	// For now that's only stuff from the GitHub Actions app.
-	requiredChecks := []RequiredCheck{}
+	requiredChecks := []*slsa_types.Control{}
 	for _, ghCheckRule := range ghCheckRules {
 		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ghCheckRule.RulesetID, false)
 		if err != nil {
@@ -206,8 +208,8 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 				// Ignore untrusted integration id.
 				continue
 			}
-			requiredChecks = append(requiredChecks, RequiredCheck{
-				Name: check.Context,
+			requiredChecks = append(requiredChecks, &slsa_types.Control{
+				Name: checkNameToControlName(check.Context),
 				// TODO: get the time that indicates how long it's been enforced
 				Since: ruleset.UpdatedAt.Time,
 			})
@@ -269,11 +271,11 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 	}
 	controlStatus.Controls.AddControl(reviewControl)
 
-	requiredChecks, err := ghc.computeRequiredChecks(ctx, branchRules.RequiredStatusChecks)
+	requiredCheckControls, err := ghc.computeRequiredChecks(ctx, branchRules.RequiredStatusChecks)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate RequiredChecks: %w", err)
 	}
-	controlStatus.RequiredChecks = requiredChecks
+	controlStatus.Controls.AddControl(requiredCheckControls...)
 
 	// Check the tag rules.
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
