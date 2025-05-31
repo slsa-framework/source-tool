@@ -27,7 +27,7 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_ty
 		ResourceUri:        resourceUri,
 		Policy:             &vpb.VerificationSummary_Policy{Uri: policy},
 		VerificationResult: "PASSED",
-		VerifiedLevels:     verifiedLevels,
+		VerifiedLevels:     slsa_types.ControlNamesToStrings(verifiedLevels),
 	}
 
 	predJson, err := protojson.Marshal(vsaPred)

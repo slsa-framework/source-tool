@@ -166,7 +166,7 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	if policyPath != expectedPolicyFilePath {
 		t.Errorf("EvaluateSourceProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
 	}
-	expectedLevels := slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene}
+	expectedLevels := slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene}
 	if !reflect.DeepEqual(verifiedLevels, expectedLevels) {
 		t.Errorf("EvaluateSourceProv() verifiedLevels = %v, want %v", verifiedLevels, expectedLevels)
 	}
@@ -329,8 +329,8 @@ func TestEvaluateControl_Success(t *testing.T) {
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 			},
 			ghConnBranch:       "main",
-			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, // Expect L1 because commit time is before policy enforcement
-			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",                                              // Placeholder, will be replaced by actual temp file path
+			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, // Expect L1 because commit time is before policy enforcement
+			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",                                                              // Placeholder, will be replaced by actual temp file path
 		},
 		{
 			name:          "Commit time after policy Since, controls meet policy -> Expected levels",
@@ -340,7 +340,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 			},
 			ghConnBranch:       "main",
-			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene},
+			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene},
 			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",
 		},
 		{
@@ -350,8 +350,8 @@ func TestEvaluateControl_Success(t *testing.T) {
 				CommitPushTime: laterFixedTime,
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 			},
-			ghConnBranch:       "develop",                                                            // Testing "develop" branch
-			expectedLevels:     slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)}, // Default is L1
+			ghConnBranch:       "develop",                                                                            // Testing "develop" branch
+			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, // Default is L1
 			expectedPolicyPath: "DEFAULT",
 		},
 	}
@@ -501,14 +501,6 @@ func assertProtectedBranchEquals(t *testing.T, got *ProtectedBranch, expected Pr
 	t.Helper()
 
 	if got == nil {
-		// If we expected a non-zero struct but got nil, it's a failure.
-		// A more sophisticated check could see if 'expected' is a zero-value struct,
-		// implying that a nil 'got' might be acceptable. However, for this helper,
-		// we assume if 'expected' is provided, 'got' should be non-nil.
-		if expected != (ProtectedBranch{}) {
-			t.Fatalf("Expected a non-nil ProtectedBranch, but got nil. Expected: %+v.", expected)
-		}
-		// If 'expected' is also a zero-value struct, then a nil 'got' is considered a match.
 		return
 	}
 
@@ -634,7 +626,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			branchPolicy:   &policyL3Review,
 			tagPolicy:      &tagHygienePolicy,
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
-			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene},
 			expectError:    false,
 		},
 		{
@@ -642,7 +634,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			branchPolicy:   &policyL1NoExtras,
 			tagPolicy:      &noTagHygienePolicy,
 			controls:       slsa_types.Controls{}, // L1 is met by default if policy targets L1 and other conditions pass
-			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel1)},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)},
 			expectError:    false,
 		},
 		{
@@ -650,7 +642,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			branchPolicy:   &policyL2Review,
 			tagPolicy:      &noTagHygienePolicy,
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, reviewEnforcedEarlier}, // Provenance not needed for L2
-			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel2), slsa_types.ReviewEnforced},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel2), slsa_types.ReviewEnforced},
 			expectError:    false,
 		},
 		{
@@ -658,7 +650,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			branchPolicy:   &policyL2NoReview,
 			tagPolicy:      &tagHygienePolicy,
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, tagHygieneEarlier}, // Provenance not needed for L2
-			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel2), slsa_types.TagHygiene},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel2), slsa_types.TagHygiene},
 			expectError:    false,
 		},
 		{
@@ -694,7 +686,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			tagPolicy:    &noTagHygienePolicy,
 			// Wants L3, Review, No Tags
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier}, // Satisfies L3 & Review
-			expectedLevels: slsa_types.SourceVerifiedLevels{string(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced},
 			expectError:    false,
 		},
 	}
