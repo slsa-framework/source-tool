@@ -289,7 +289,7 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 			checks: createRequiredChecksRules([]*github.RuleStatusCheck{
 				{Context: "check-good", IntegrationID: github.Ptr(int64(15368))},
 			}),
-			expectedControlNames: []slsa_types.ControlName{"ORG_CONTROL_check-good"},
+			expectedControlNames: []slsa_types.ControlName{"GH_REQUIRED_CHECK_check-good"},
 		},
 	}
 	for _, tt := range tests {

@@ -186,7 +186,7 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 }
 
 func checkNameToControlName(checkName string) slsa_types.ControlName {
-	return slsa_types.ControlName(fmt.Sprintf("ORG_CONTROL_%s", checkName))
+	return slsa_types.ControlName(fmt.Sprintf("GH_REQUIRED_CHECK_%s", checkName))
 }
 
 func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckRules []*github.RequiredStatusChecksBranchRule) ([]*slsa_types.Control, error) {
