@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -94,6 +95,7 @@ func doCheckTag(args CheckTagArgs) {
 		log.Printf("unsigned prov: %s\n", unsignedProv)
 		log.Printf("unsigned vsa: %s\n", unsignedVsa)
 	}
+	fmt.Print(verifiedLevels)
 }
 
 func init() {
