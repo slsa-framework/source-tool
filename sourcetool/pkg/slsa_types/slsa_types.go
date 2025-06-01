@@ -84,11 +84,11 @@ func GetRequiredControlsForLevel(level SlsaSourceLevel) []ControlName {
 	case SlsaSourceLevel1:
 		return []ControlName{}
 	case SlsaSourceLevel2:
-		return []ControlName{ContinuityEnforced}
+		return []ControlName{ContinuityEnforced, TagHygiene}
 	case SlsaSourceLevel3:
-		return []ControlName{ContinuityEnforced, ProvenanceAvailable}
+		return []ControlName{ContinuityEnforced, TagHygiene, ProvenanceAvailable}
 	case SlsaSourceLevel4:
-		return []ControlName{ContinuityEnforced, ProvenanceAvailable, ReviewEnforced}
+		return []ControlName{ContinuityEnforced, TagHygiene, ProvenanceAvailable, ReviewEnforced}
 	default:
 		return []ControlName{}
 	}

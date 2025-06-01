@@ -274,41 +274,21 @@ func computeEligibleSlsaLevel(controls slsa_types.Controls) slsa_types.SlsaSourc
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
 func computeEligibleSince(controls slsa_types.Controls, level slsa_types.SlsaSourceLevel) (*time.Time, error) {
-	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
-	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
-	reviewControl := controls.GetControl(slsa_types.ReviewEnforced)
 
-	if level == slsa_types.SlsaSourceLevel4 {
-		if continuityControl != nil && provControl != nil && reviewControl != nil {
-			t := slsa_types.LaterTime(continuityControl.Since, provControl.Since)
-			t = slsa_types.LaterTime(t, reviewControl.Since)
-			return &t, nil
+	requiredControls := slsa_types.GetRequiredControlsForLevel(level)
+	var newestTime time.Time
+	for _, rc := range requiredControls {
+		ac := controls.GetControl(rc)
+		if ac == nil {
+			return nil, nil
 		}
-		return nil, nil
-	}
-
-	if level == slsa_types.SlsaSourceLevel3 {
-		if continuityControl != nil && provControl != nil {
-			t := slsa_types.LaterTime(continuityControl.Since, provControl.Since)
-			return &t, nil
+		if newestTime.Equal(time.Time{}) {
+			newestTime = ac.Since
+		} else {
+			newestTime = slsa_types.LaterTime(newestTime, ac.Since)
 		}
-		return nil, nil
 	}
-
-	if level == slsa_types.SlsaSourceLevel2 {
-		if continuityControl != nil {
-			return &continuityControl.Since, nil
-		}
-		return nil, nil
-	}
-
-	if level == slsa_types.SlsaSourceLevel1 {
-		// Use an uninitialized time to indicate it's always been eligible.
-		return &time.Time{}, nil
-	}
-
-	// Unknown level
-	return nil, fmt.Errorf("unknown level %s", level)
+	return &newestTime, nil
 }
 
 // Every function that determines properties to include in the result & VSA implements this interface.
