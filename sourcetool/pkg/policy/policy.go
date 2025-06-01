@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	spb "github.com/in-toto/attestation/go/v1"
@@ -32,12 +33,12 @@ const (
 type OrgStatusCheckControl struct {
 	// The property to record in the VSA if the conditions are met.
 	// MUST start with `ORG_SOURCE_`.
-	PropertyName slsa_types.ControlName
+	PropertyName slsa_types.ControlName `json:"property_name"`
 	// These controls have their own start time to enable orgs to enable
 	// new ones without violating continuity on other controls.
 	Since time.Time
 	// The name of the 'Status Check' as reported in the GitHub UI & API.
-	CheckName string
+	CheckName string `json:"check_name"`
 }
 
 // When a branch requires multiple controls, they must all be enabled
@@ -358,10 +359,30 @@ func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls sls
 	return []slsa_types.ControlName{slsa_types.TagHygiene}, nil
 }
 
+func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa_types.Controls) ([]slsa_types.ControlName, error) {
+	controlNames := []slsa_types.ControlName{}
+	for _, rc := range branchPolicy.RequiredStatusChecks {
+		if !strings.HasPrefix(string(rc.PropertyName), slsa_types.AllowedOrgPropPrefix) {
+			return []slsa_types.ControlName{}, fmt.Errorf("policy specifies an invalid property name %v, custom property names MUST start with %v", rc.PropertyName, slsa_types.AllowedOrgPropPrefix)
+		}
+
+		control := controls.GetControl(gh_control.CheckNameToControlName(rc.CheckName))
+		if control != nil {
+			if rc.Since.Before(control.Since) {
+				return []slsa_types.ControlName{}, fmt.Errorf("policy requires check '%v' since %v, but that control has only been enabled since %v", rc.CheckName, rc.Since, control.Since)
+			}
+			controlNames = append(controlNames, rc.PropertyName)
+		} else {
+			return []slsa_types.ControlName{}, fmt.Errorf("policy requires check '%v', but that control is not enabled", rc.CheckName)
+		}
+	}
+	return controlNames, nil
+}
+
 // Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a branch.
 func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
 
-	policyComputers := []computePolicyResult{computeSlsaLevel, computeReviewEnforced, computeTagHygiene}
+	policyComputers := []computePolicyResult{computeSlsaLevel, computeReviewEnforced, computeTagHygiene, computeOrgControls}
 
 	verifiedLevels := slsa_types.SourceVerifiedLevels{}
 

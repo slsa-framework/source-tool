@@ -185,10 +185,6 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 	return nil, nil
 }
 
-func checkNameToControlName(checkName string) slsa_types.ControlName {
-	return slsa_types.ControlName(fmt.Sprintf("GH_REQUIRED_CHECK_%s", checkName))
-}
-
 func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckRules []*github.RequiredStatusChecksBranchRule) ([]*slsa_types.Control, error) {
 	// Only return the checks we're happy about.
 	// For now that's only stuff from the GitHub Actions app.
@@ -209,7 +205,7 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 				continue
 			}
 			requiredChecks = append(requiredChecks, &slsa_types.Control{
-				Name: checkNameToControlName(check.Context),
+				Name: CheckNameToControlName(check.Context),
 				// TODO: get the time that indicates how long it's been enforced
 				Since: ruleset.UpdatedAt.Time,
 			})

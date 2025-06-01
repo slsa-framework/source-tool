@@ -3,6 +3,8 @@ package gh_control
 import (
 	"fmt"
 	"strings"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 )
 
 // Matches any reference type.
@@ -24,4 +26,8 @@ func GetBranchFromRef(ref string) string {
 
 func GetTagFromRef(ref string) string {
 	return strings.TrimPrefix(ref, "refs/tags/")
+}
+
+func CheckNameToControlName(checkName string) slsa_types.ControlName {
+	return slsa_types.ControlName(fmt.Sprintf("GH_REQUIRED_CHECK_%s", checkName))
 }
