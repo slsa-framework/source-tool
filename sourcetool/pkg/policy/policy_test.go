@@ -567,6 +567,7 @@ const (
 func TestComputeEligibleSlsaLevel(t *testing.T) {
 	continuityEnforcedControl := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: fixedTime}
 	provenanceAvailableControl := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: fixedTime}
+	reviewEnforcedControl := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: fixedTime}
 
 	tests := []struct {
 		name           string
@@ -574,6 +575,12 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 		expectedLevel  slsa_types.SlsaSourceLevel
 		expectedReason string
 	}{
+		{
+			name:           "SLSA Level 4",
+			controls:       slsa_types.Controls{continuityEnforcedControl, provenanceAvailableControl, reviewEnforcedControl},
+			expectedLevel:  slsa_types.SlsaSourceLevel4,
+			expectedReason: "continuity and review are enabled and provenance is available",
+		},
 		{
 			name:           "SLSA Level 3",
 			controls:       slsa_types.Controls{continuityEnforcedControl, provenanceAvailableControl},
@@ -1116,8 +1123,10 @@ func TestComputeEligibleSince(t *testing.T) {
 
 	continuityEnforcedT1 := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: time1}
 	provenanceAvailableT1 := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: time1}
+	reviewEnforcedT1 := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: time1}
 	continuityEnforcedT2 := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: time2}
 	provenanceAvailableT2 := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: time2}
+	reviewEnforcedT2 := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: time2}
 	continuityEnforcedZero := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: zeroTime}
 	provenanceAvailableZero := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: zeroTime}
 
@@ -1129,6 +1138,20 @@ func TestComputeEligibleSince(t *testing.T) {
 		expectError   bool
 		expectedError string
 	}{
+		{
+			name:         "L4 eligible (prov, review later)",
+			controls:     slsa_types.Controls{continuityEnforcedT1, provenanceAvailableT2, reviewEnforcedT2},
+			level:        slsa_types.SlsaSourceLevel4,
+			expectedTime: &time2,
+			expectError:  false,
+		},
+		{
+			name:         "L4 eligible (continuity later)",
+			controls:     slsa_types.Controls{continuityEnforcedT2, provenanceAvailableT1, reviewEnforcedT1},
+			level:        slsa_types.SlsaSourceLevel4,
+			expectedTime: &time2,
+			expectError:  false,
+		},
 		{
 			name:         "L3 eligible (ProvLater), L3 requested: expect Prov.Since",       // Was: "Eligible for SLSA Level 3 - time1 later"
 			controls:     slsa_types.Controls{continuityEnforcedT1, provenanceAvailableT2}, // Prov.Since (time2) > Cont.Since (time1)
