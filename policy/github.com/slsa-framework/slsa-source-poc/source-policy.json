@@ -4,7 +4,14 @@
     {
       "Name": "main",
       "Since": "2025-03-28T15:09:27.845Z",
-      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3"
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3",
+      "org_status_check_controls": [
+        {
+          "check_name": "test",
+          "property_name": "ORG_SOURCE_TESTED",
+          "Since": "2025-05-31T22:44:18.816Z"
+        }
+      ]
     }
   ]
 }

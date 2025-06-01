@@ -15,6 +15,7 @@ const (
 	TagHygiene               ControlName     = "TAG_HYGIENE"
 	SourceBranchesAnnotation                 = "source_branches"
 	SourceRefsAnnotation                     = "source_refs"
+	AllowedOrgPropPrefix                     = "ORG_SOURCE_"
 )
 
 func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {

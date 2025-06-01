@@ -135,10 +135,11 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlierFixedTime}
 	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlierFixedTime}
 	tagHygieneEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlierFixedTime}
+	orgTestControl := slsa_types.Control{Name: "GH_REQUIRED_CHECK_test", Since: earlierFixedTime}
 
 	// Valid Provenance Predicate (attest.SourceProvenancePred)
 	validProvPredicateL3Controls := attest.SourceProvenancePred{
-		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+		Controls: slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 	}
 
 	provenanceStatement := createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType)
@@ -148,6 +149,13 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 		TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3,
 		RequireReview:         true,
 		Since:                 fixedTime,
+		RequiredStatusChecks: []OrgStatusCheckControl{
+			{
+				CheckName:    "test",
+				PropertyName: "ORG_SOURCE_TESTED",
+				Since:        fixedTime,
+			},
+		},
 	}
 	rp := createTestPolicy(pb)
 	rp.ProtectedTag.Since = fixedTime
@@ -167,8 +175,8 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	if policyPath != expectedPolicyFilePath {
 		t.Errorf("EvaluateSourceProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
 	}
-	expectedLevels := slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene}
-	if !reflect.DeepEqual(verifiedLevels, expectedLevels) {
+	expectedLevels := slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene, "ORG_SOURCE_TESTED"}
+	if !slices.Equal(verifiedLevels, expectedLevels) {
 		t.Errorf("EvaluateSourceProv() verifiedLevels = %v, want %v", verifiedLevels, expectedLevels)
 	}
 }
@@ -297,18 +305,31 @@ func TestEvaluateControl_Success(t *testing.T) {
 	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlierFixedTime}
 	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlierFixedTime}
 	tagHygieneEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlierFixedTime}
+	orgTestControl := slsa_types.Control{Name: "GH_REQUIRED_CHECK_test", Since: earlierFixedTime}
 
 	// Policies
-	policyL3ReviewTagsNow := RepoPolicy{
+	fullPolicy := RepoPolicy{
 		ProtectedBranches: []ProtectedBranch{
-			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, Since: fixedTime},
+			{
+				Name:                  "main",
+				TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3,
+				RequireReview:         true,
+				Since:                 fixedTime,
+				RequiredStatusChecks: []OrgStatusCheckControl{
+					{
+						CheckName:    "test",
+						Since:        fixedTime,
+						PropertyName: "ORG_SOURCE_TESTED",
+					},
+				},
+			},
 		},
 		ProtectedTag: &ProtectedTag{
 			Since:      fixedTime,
 			TagHygiene: true,
 		},
 	}
-	policyL1NoExtrasNow := RepoPolicy{
+	basicPolicy := RepoPolicy{
 		ProtectedBranches: []ProtectedBranch{
 			{Name: "main", TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1, Since: fixedTime},
 		},
@@ -324,10 +345,10 @@ func TestEvaluateControl_Success(t *testing.T) {
 	}{
 		{
 			name:          "Commit time before policy Since -> SLSA Level 1",
-			policyContent: policyL3ReviewTagsNow,
+			policyContent: fullPolicy,
 			controlStatus: &gh_control.GhControlStatus{
 				CommitPushTime: earlierFixedTime, // Commit time before policyL3ReviewTagsNow.Since (now)
-				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 			},
 			ghConnBranch:       "main",
 			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, // Expect L1 because commit time is before policy enforcement
@@ -335,21 +356,21 @@ func TestEvaluateControl_Success(t *testing.T) {
 		},
 		{
 			name:          "Commit time after policy Since, controls meet policy -> Expected levels",
-			policyContent: policyL3ReviewTagsNow,
+			policyContent: fullPolicy,
 			controlStatus: &gh_control.GhControlStatus{
 				CommitPushTime: laterFixedTime,
-				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 			},
 			ghConnBranch:       "main",
-			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene},
+			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel3), slsa_types.ReviewEnforced, slsa_types.TagHygiene, "ORG_SOURCE_TESTED"},
 			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",
 		},
 		{
 			name:          "Branch not in policy, commit after default policy since -> Default policy (SLSA L1)",
-			policyContent: policyL1NoExtrasNow, // main is in policy, but we test "develop"
+			policyContent: basicPolicy, // main is in policy, but we test "develop"
 			controlStatus: &gh_control.GhControlStatus{
 				CommitPushTime: laterFixedTime,
-				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 			},
 			ghConnBranch:       "develop",                                                                            // Testing "develop" branch
 			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, // Default is L1
@@ -812,7 +833,6 @@ func TestComputeTagHygiene(t *testing.T) {
 func TestComputeReviewEnforced(t *testing.T) {
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
-	// later := now.Add(time.Hour) // Unused
 
 	// Branch Policies
 	policyRequiresReviewNow := ProtectedBranch{RequireReview: true, Since: now}
@@ -821,7 +841,6 @@ func TestComputeReviewEnforced(t *testing.T) {
 
 	// Controls
 	reviewControlEnabledNow := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: now}
-	// reviewControlEnabledEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlier} // Not used directly in new structure
 
 	tests := []struct {
 		name                  string
@@ -881,6 +900,100 @@ func TestComputeReviewEnforced(t *testing.T) {
 
 			if !slices.Equal(gotControls, tt.expectedControls) {
 				t.Errorf("computeReviewEnforced() gotEnforced = %v, want %v", gotControls, tt.expectedControls)
+			}
+		})
+	}
+}
+
+func TestComputeOrgControls(t *testing.T) {
+	now := time.Now()
+	earlier := now.Add(-time.Hour)
+
+	// StatusCheckControls
+	testedControlPolicy := OrgStatusCheckControl{PropertyName: "ORG_SOURCE_TESTED", Since: now, CheckName: "test"}
+	lintedControlPolicy := OrgStatusCheckControl{PropertyName: "ORG_SOURCE_LINTED", Since: now, CheckName: "run-the-linter"}
+	earlierTestedControlPolicy := OrgStatusCheckControl{PropertyName: "ORG_SOURCE_TESTED", Since: earlier, CheckName: "test"}
+	invalidPropertyNameControlPolicy := OrgStatusCheckControl{PropertyName: "SLSA_TESTED", Since: now, CheckName: "test"}
+
+	// Controls
+	testedControl := slsa_types.Control{Name: "GH_REQUIRED_CHECK_test", Since: now}
+	lintedControl := slsa_types.Control{Name: "GH_REQUIRED_CHECK_run-the-linter", Since: now}
+	notListedControl := slsa_types.Control{Name: "GH_REQUIRED_CHECK_not-configured-in-policy", Since: now}
+
+	tests := []struct {
+		name                  string
+		orgCheckPolicies      []OrgStatusCheckControl
+		controls              slsa_types.Controls
+		expectedControls      []slsa_types.ControlName
+		expectError           bool
+		expectedErrorContains string
+	}{
+		{
+			name:             "Single check handled",
+			orgCheckPolicies: []OrgStatusCheckControl{testedControlPolicy},
+			controls:         slsa_types.Controls{testedControl},
+			expectedControls: []slsa_types.ControlName{"ORG_SOURCE_TESTED"},
+			expectError:      false,
+		},
+		{
+			name:             "Multiple checks handled",
+			orgCheckPolicies: []OrgStatusCheckControl{testedControlPolicy, lintedControlPolicy},
+			controls:         slsa_types.Controls{testedControl, lintedControl},
+			expectedControls: []slsa_types.ControlName{"ORG_SOURCE_TESTED", "ORG_SOURCE_LINTED"},
+			expectError:      false,
+		},
+		{
+			name:             "Not configured control should not be returned",
+			orgCheckPolicies: []OrgStatusCheckControl{testedControlPolicy},
+			controls:         slsa_types.Controls{testedControl, notListedControl},
+			expectedControls: []slsa_types.ControlName{"ORG_SOURCE_TESTED"},
+			expectError:      false,
+		},
+		{
+			name:                  "Policy requires control but it is not present",
+			orgCheckPolicies:      []OrgStatusCheckControl{testedControlPolicy, lintedControlPolicy},
+			controls:              slsa_types.Controls{lintedControl},
+			expectedControls:      []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy requires check 'test', but",
+		},
+		{
+			name:                  "Control not enabled long enough fails",
+			orgCheckPolicies:      []OrgStatusCheckControl{earlierTestedControlPolicy},
+			controls:              slsa_types.Controls{testedControl},
+			expectedControls:      []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy requires check 'test' since",
+		},
+		{
+			name:                  "Invalid property name fails",
+			orgCheckPolicies:      []OrgStatusCheckControl{testedControlPolicy, invalidPropertyNameControlPolicy},
+			controls:              slsa_types.Controls{testedControl},
+			expectedControls:      []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy specifies an invalid property name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			branchPolicy := ProtectedBranch{RequiredStatusChecks: tt.orgCheckPolicies}
+			gotControls, err := computeOrgControls(&branchPolicy, nil, tt.controls)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("computeOrgControls() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
+				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
+					t.Errorf("computeOrgControls() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("computeOrgControls() error = %v, want nil", err)
+				}
+			}
+
+			if !slices.Equal(gotControls, tt.expectedControls) {
+				t.Errorf("computeOrgControls() gotControls = %v, want %v", gotControls, tt.expectedControls)
 			}
 		})
 	}
