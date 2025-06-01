@@ -1,6 +1,8 @@
 package slsa_types
 
-import "time"
+import (
+	"time"
+)
 
 type ControlName string
 type SlsaSourceLevel ControlName
@@ -55,8 +57,42 @@ func (controls Controls) GetControl(name ControlName) *Control {
 	return nil
 }
 
+func (controls Controls) AreControlsAvailable(names []ControlName) bool {
+	for _, name := range names {
+		if controls.GetControl(name) == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// Returns the names of the controls.
+func (controls Controls) Names() []ControlName {
+	names := make([]ControlName, len(controls))
+	for i := range controls {
+		names[i] = controls[i].Name
+	}
+	return names
+}
+
 // These can be any string, not just SlsaLevels
 type SourceVerifiedLevels []ControlName
+
+// Returns the list of control names that must be set for the given slsa level.
+func GetRequiredControlsForLevel(level SlsaSourceLevel) []ControlName {
+	switch level {
+	case SlsaSourceLevel1:
+		return []ControlName{}
+	case SlsaSourceLevel2:
+		return []ControlName{ContinuityEnforced, TagHygiene}
+	case SlsaSourceLevel3:
+		return []ControlName{ContinuityEnforced, TagHygiene, ProvenanceAvailable}
+	case SlsaSourceLevel4:
+		return []ControlName{ContinuityEnforced, TagHygiene, ProvenanceAvailable, ReviewEnforced}
+	default:
+		return []ControlName{}
+	}
+}
 
 func EarlierTime(time1, time2 time.Time) time.Time {
 	if time1.Before(time2) {
