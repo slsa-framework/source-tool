@@ -204,9 +204,6 @@ then that means the repository has configured a ruleset to require the check
 Currently this tool _only_ reports checks that come from GitHub Actions.
 Other checks will not be recorded in the provenance.
 
-TODO: Update the policy to support requiring these checks and to embed an
-org specified property in the VSA.
-
 #### Branch Updates
 
 This control gets evaluated when protected branches are being updated. That
