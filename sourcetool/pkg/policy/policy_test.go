@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"reflect" // Ensure reflect is imported
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -660,7 +661,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			controls:              slsa_types.Controls{}, // Only eligible for L1
 			expectedLevels:        slsa_types.SourceVerifiedLevels{},
 			expectError:           true,
-			expectedErrorContains: "error computing slsa level: policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 		{
 			name:                  "Error - computeReviewEnforced Fails (Policy L2+Review, Review control missing)",
@@ -669,7 +670,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			controls:              slsa_types.Controls{continuityEnforcedEarlier}, // Eligible for L2, but Review control missing
 			expectedLevels:        slsa_types.SourceVerifiedLevels{},
 			expectError:           true,
-			expectedErrorContains: "error computing review enforced: policy requires review, but that control is not enabled",
+			expectedErrorContains: "policy requires review, but that control is not enabled",
 		},
 		{
 			name:                  "Error - computeTagHygiene Fails (Policy L2+Tags, Tag control Since later than Policy Since)",
@@ -678,7 +679,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			controls:              slsa_types.Controls{continuityEnforcedEarlier, tagHygieneNow}, // Eligible L2, Tag.Since = now
 			expectedLevels:        slsa_types.SourceVerifiedLevels{},
 			expectError:           true,
-			expectedErrorContains: "error computing tag immutability enforced: policy requires tag hygiene since", // ... but that control has only been enabled since ...
+			expectedErrorContains: "policy requires tag hygiene since", // ... but that control has only been enabled since ...
 		},
 		{
 			name:         "Success - Mixed Requirements (L3, Review, No Tags)",
@@ -746,48 +747,48 @@ func TestComputeTagHygiene(t *testing.T) {
 	// tagHygieneControlEnabledEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlier} // No longer directly used in a test case
 
 	tests := []struct {
-		name                       string
-		tagPolicy                  *ProtectedTag
-		controls                   slsa_types.Controls
-		expectedTagHygieneEnforced bool
-		expectError                bool
-		expectedErrorContains      string
+		name                  string
+		tagPolicy             *ProtectedTag
+		controls              slsa_types.Controls
+		expectedControls      []slsa_types.ControlName
+		expectError           bool
+		expectedErrorContains string
 	}{
 		{
-			name:                       "Policy requires tag hygiene, control compliant (Policy.Since >= Control.Since)",
-			tagPolicy:                  &policyRequiresTagHygieneNow,
-			controls:                   slsa_types.Controls{tagHygieneControlEnabledNow}, // Policy.Since == Control.Since
-			expectedTagHygieneEnforced: true,
-			expectError:                false,
+			name:             "Policy requires tag hygiene, control compliant (Policy.Since >= Control.Since)",
+			tagPolicy:        &policyRequiresTagHygieneNow,
+			controls:         slsa_types.Controls{tagHygieneControlEnabledNow}, // Policy.Since == Control.Since
+			expectedControls: []slsa_types.ControlName{slsa_types.TagHygiene},
+			expectError:      false,
 		},
 		{
-			name:                       "Policy does not require tag hygiene - control state irrelevant",
-			tagPolicy:                  &policyNotRequiresTagHygiene,
-			controls:                   slsa_types.Controls{}, // Control state explicitly shown as irrelevant
-			expectedTagHygieneEnforced: false,
-			expectError:                false,
+			name:             "Policy does not require tag hygiene - control state irrelevant",
+			tagPolicy:        &policyNotRequiresTagHygiene,
+			controls:         slsa_types.Controls{}, // Control state explicitly shown as irrelevant
+			expectedControls: []slsa_types.ControlName{},
+			expectError:      false,
 		},
 		{
-			name:                       "Policy requires tag hygiene, control not present: fail",
-			tagPolicy:                  &policyRequiresTagHygieneNow,
-			controls:                   slsa_types.Controls{}, // Tag Hygiene control missing
-			expectedTagHygieneEnforced: false,
-			expectError:                true,
-			expectedErrorContains:      "policy requires tag hygiene, but that control is not enabled",
+			name:                  "Policy requires tag hygiene, control not present: fail",
+			tagPolicy:             &policyRequiresTagHygieneNow,
+			controls:              slsa_types.Controls{}, // Tag Hygiene control missing
+			expectedControls:      []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy requires tag hygiene, but that control is not enabled",
 		},
 		{
-			name:                       "Policy requires tag hygiene, control enabled, Policy.Since < Control.Since: fail",
-			tagPolicy:                  &policyRequiresTagHygieneEarlier,                 // Policy.Since is 'earlier'
-			controls:                   slsa_types.Controls{tagHygieneControlEnabledNow}, // Control.Since is 'now'
-			expectedTagHygieneEnforced: false,
-			expectError:                true,
-			expectedErrorContains:      "policy requires tag hygiene since", // ...but that control has only been enabled since...
+			name:                  "Policy requires tag hygiene, control enabled, Policy.Since < Control.Since: fail",
+			tagPolicy:             &policyRequiresTagHygieneEarlier,                 // Policy.Since is 'earlier'
+			controls:              slsa_types.Controls{tagHygieneControlEnabledNow}, // Control.Since is 'now'
+			expectedControls:      []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy requires tag hygiene since", // ...but that control has only been enabled since...
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotEnforced, err := computeTagHygiene(tt.tagPolicy, tt.controls)
+			gotControls, err := computeTagHygiene(nil, tt.tagPolicy, tt.controls)
 
 			if tt.expectError {
 				if err == nil {
@@ -801,8 +802,8 @@ func TestComputeTagHygiene(t *testing.T) {
 				}
 			}
 
-			if gotEnforced != tt.expectedTagHygieneEnforced {
-				t.Errorf("computeTagHygiene() gotEnforced = %v, want %v", gotEnforced, tt.expectedTagHygieneEnforced)
+			if !slices.Equal(gotControls, tt.expectedControls) {
+				t.Errorf("computeTagHygiene() gotControls = %v, want %v", gotControls, tt.expectedControls)
 			}
 		})
 	}
@@ -823,48 +824,48 @@ func TestComputeReviewEnforced(t *testing.T) {
 	// reviewControlEnabledEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlier} // Not used directly in new structure
 
 	tests := []struct {
-		name                   string
-		branchPolicy           *ProtectedBranch
-		controls               slsa_types.Controls
-		expectedReviewEnforced bool
-		expectError            bool
-		expectedErrorContains  string
+		name                  string
+		branchPolicy          *ProtectedBranch
+		controls              slsa_types.Controls
+		expectedControls      []slsa_types.ControlName
+		expectError           bool
+		expectedErrorContains string
 	}{
 		{
-			name:                   "Policy requires review, control compliant (Policy.Since >= Control.Since)",
-			branchPolicy:           &policyRequiresReviewNow,
-			controls:               slsa_types.Controls{reviewControlEnabledNow}, // Policy.Since == Control.Since
-			expectedReviewEnforced: true,
-			expectError:            false,
+			name:             "Policy requires review, control compliant (Policy.Since >= Control.Since)",
+			branchPolicy:     &policyRequiresReviewNow,
+			controls:         slsa_types.Controls{reviewControlEnabledNow}, // Policy.Since == Control.Since
+			expectedControls: []slsa_types.ControlName{slsa_types.ReviewEnforced},
+			expectError:      false,
 		},
 		{
-			name:                   "Policy does not require review - control state irrelevant",
-			branchPolicy:           &policyNotRequiresReview,
-			controls:               slsa_types.Controls{}, // Control state explicitly shown as irrelevant
-			expectedReviewEnforced: false,
-			expectError:            false,
+			name:             "Policy does not require review - control state irrelevant",
+			branchPolicy:     &policyNotRequiresReview,
+			controls:         slsa_types.Controls{}, // Control state explicitly shown as irrelevant
+			expectedControls: []slsa_types.ControlName{},
+			expectError:      false,
 		},
 		{
-			name:                   "Policy requires review, control not present: fail",
-			branchPolicy:           &policyRequiresReviewNow,
-			controls:               slsa_types.Controls{}, // Review control missing
-			expectedReviewEnforced: false,
-			expectError:            true,
-			expectedErrorContains:  "policy requires review, but that control is not enabled",
+			name:                  "Policy requires review, control not present: fail",
+			branchPolicy:          &policyRequiresReviewNow,
+			controls:              slsa_types.Controls{}, // Review control missing
+			expectedControls:      []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy requires review, but that control is not enabled",
 		},
 		{
-			name:                   "Policy requires review, control enabled, Policy.Since < Control.Since: fail",
-			branchPolicy:           &policyRequiresReviewEarlier,                 // Policy.Since is 'earlier'
-			controls:               slsa_types.Controls{reviewControlEnabledNow}, // Control.Since is 'now'
-			expectedReviewEnforced: false,
-			expectError:            true,
-			expectedErrorContains:  "policy requires review since", // ...but that control has only been enabled since...
+			name:                  "Policy requires review, control enabled, Policy.Since < Control.Since: fail",
+			branchPolicy:          &policyRequiresReviewEarlier,                 // Policy.Since is 'earlier'
+			controls:              slsa_types.Controls{reviewControlEnabledNow}, // Control.Since is 'now'
+			expectedControls:      []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy requires review since", // ...but that control has only been enabled since...
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotEnforced, err := computeReviewEnforced(tt.branchPolicy, tt.controls)
+			gotControls, err := computeReviewEnforced(tt.branchPolicy, nil, tt.controls)
 
 			if tt.expectError {
 				if err == nil {
@@ -878,8 +879,8 @@ func TestComputeReviewEnforced(t *testing.T) {
 				}
 			}
 
-			if gotEnforced != tt.expectedReviewEnforced {
-				t.Errorf("computeReviewEnforced() gotEnforced = %v, want %v", gotEnforced, tt.expectedReviewEnforced)
+			if !slices.Equal(gotControls, tt.expectedControls) {
+				t.Errorf("computeReviewEnforced() gotEnforced = %v, want %v", gotControls, tt.expectedControls)
 			}
 		})
 	}
@@ -907,37 +908,37 @@ func TestComputeSlsaLevel(t *testing.T) {
 		name                  string
 		branchPolicy          *ProtectedBranch
 		controls              slsa_types.Controls
-		expectedLevel         slsa_types.SlsaSourceLevel
+		expectedControls      []slsa_types.ControlName
 		expectError           bool
 		expectedErrorContains string
 	}{
 		{
-			name:          "Controls L3-eligible (since 'earlier'), Policy L2 (since 'now'): success",
-			branchPolicy:  &policyL2Now,                                                               // Policy L2, Since 'now'
-			controls:      slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier}, // Eligible L3 since 'earlier'
-			expectedLevel: slsa_types.SlsaSourceLevel2,
-			expectError:   false,
+			name:             "Controls L3-eligible (since 'earlier'), Policy L2 (since 'now'): success",
+			branchPolicy:     &policyL2Now,                                                               // Policy L2, Since 'now'
+			controls:         slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier}, // Eligible L3 since 'earlier'
+			expectedControls: []slsa_types.ControlName{slsa_types.ControlName(slsa_types.SlsaSourceLevel2)},
+			expectError:      false,
 		},
 		{
 			name:                  "Controls L1-eligible, Policy L2: fail (eligibility)",
 			branchPolicy:          &policyL2Now,          // Policy L2
 			controls:              slsa_types.Controls{}, // Eligible L1
-			expectedLevel:         "",
+			expectedControls:      []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_2, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 		{
-			name:          "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): compliant Policy.Since",
-			branchPolicy:  &policyL3Now,                                                               // Policy L3, Since 'now'
-			controls:      slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier}, // Eligible L3 since 'earlier'
-			expectedLevel: slsa_types.SlsaSourceLevel3,                                                // Policy.Since ('now') is not before EligibleSince ('earlier')
-			expectError:   false,
+			name:             "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): compliant Policy.Since",
+			branchPolicy:     &policyL3Now,                                                                  // Policy L3, Since 'now'
+			controls:         slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier},    // Eligible L3 since 'earlier'
+			expectedControls: []slsa_types.ControlName{slsa_types.ControlName(slsa_types.SlsaSourceLevel3)}, // Policy.Since ('now') is not before EligibleSince ('earlier')
+			expectError:      false,
 		},
 		{
 			name:                  "Controls L3-eligible (since 'now'), Policy L3 (since 'earlier'): fail (Policy.Since too early)",
 			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, Since: earlier}, // Policy L3, Since 'earlier'
 			controls:              slsa_types.Controls{continuityEnforcedNow, provenanceAvailableNow},                   // Eligible L3 since 'now'
-			expectedLevel:         "",
+			expectedControls:      []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3 since", // ...but it has only been eligible for that level since...
 		},
@@ -945,7 +946,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 			name:                  "Policy L?'UNKNOWN' (controls L3-eligible): fail (policy target unknown)",
 			branchPolicy:          &policyUnknownLevel,                                                // Policy "UNKNOWN_LEVEL"
 			controls:              slsa_types.Controls{continuityEnforcedNow, provenanceAvailableNow}, // Eligible L3
-			expectedLevel:         "",
+			expectedControls:      []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level UNKNOWN_LEVEL, but branch is only eligible for",
 		},
@@ -957,7 +958,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 			name:                  "Controls L1-eligible, Policy L3: fail (eligibility)",
 			branchPolicy:          &policyL3Now,          // Policy L3
 			controls:              slsa_types.Controls{}, // Eligible L1
-			expectedLevel:         "",
+			expectedControls:      []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
@@ -965,7 +966,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLevel, err := computeSlsaLevel(tt.branchPolicy, tt.controls)
+			gotControls, err := computeSlsaLevel(tt.branchPolicy, nil, tt.controls)
 
 			if tt.expectError {
 				if err == nil {
@@ -979,8 +980,8 @@ func TestComputeSlsaLevel(t *testing.T) {
 				}
 			}
 
-			if gotLevel != tt.expectedLevel {
-				t.Errorf("computeSlsaLevel() gotLevel = %v, want %v", gotLevel, tt.expectedLevel)
+			if !slices.Equal(gotControls, tt.expectedControls) {
+				t.Errorf("computeSlsaLevel() gotLevel = %v, want %v", gotControls, tt.expectedControls)
 			}
 		})
 	}
