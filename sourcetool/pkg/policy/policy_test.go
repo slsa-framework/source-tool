@@ -1023,51 +1023,67 @@ func TestComputeSlsaLevel(t *testing.T) {
 	// Controls
 	continuityEnforcedNow := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: now}
 	provenanceAvailableNow := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: now}
+	reviewEnforcedNow := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: now}
 	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlier}
 	provenanceAvailableEarlier := slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: earlier}
+	reviewEnforcedEarlier := slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: earlier}
 
 	// Branch Policies
+	policyL4Now := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel4, Since: now}
 	policyL3Now := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, Since: now}
-	// policyL3Later := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, Since: later} // Unused
 	policyL2Now := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, Since: now}
-	// policyL1Now := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1, Since: now} // Unused
 	policyUnknownLevel := ProtectedBranch{TargetSlsaSourceLevel: "UNKNOWN_LEVEL", Since: now}
 
 	tests := []struct {
 		name                  string
 		branchPolicy          *ProtectedBranch
 		controls              slsa_types.Controls
-		expectedControls      []slsa_types.ControlName
+		expectedLevels        []slsa_types.ControlName
 		expectError           bool
 		expectedErrorContains string
 	}{
 		{
-			name:             "Controls L3-eligible (since 'earlier'), Policy L2 (since 'now'): success",
-			branchPolicy:     &policyL2Now,                                                               // Policy L2, Since 'now'
-			controls:         slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier}, // Eligible L3 since 'earlier'
-			expectedControls: []slsa_types.ControlName{slsa_types.ControlName(slsa_types.SlsaSourceLevel2)},
-			expectError:      false,
+			name:           "Controls L4-eligible (since 'earlier'), Policy L4 (since 'now'): success",
+			branchPolicy:   &policyL4Now,
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier},
+			expectedLevels: []slsa_types.ControlName{slsa_types.ControlName(slsa_types.SlsaSourceLevel4)},
+			expectError:    false,
+		},
+		{
+			name:           "Controls L3-eligible (since 'earlier'), Policy L2 (since 'now'): success",
+			branchPolicy:   &policyL2Now,                                                               // Policy L2, Since 'now'
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier}, // Eligible L3 since 'earlier'
+			expectedLevels: []slsa_types.ControlName{slsa_types.ControlName(slsa_types.SlsaSourceLevel2)},
+			expectError:    false,
 		},
 		{
 			name:                  "Controls L1-eligible, Policy L2: fail (eligibility)",
 			branchPolicy:          &policyL2Now,          // Policy L2
 			controls:              slsa_types.Controls{}, // Eligible L1
-			expectedControls:      []slsa_types.ControlName{},
+			expectedLevels:        []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_2, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 		{
-			name:             "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): compliant Policy.Since",
-			branchPolicy:     &policyL3Now,                                                                  // Policy L3, Since 'now'
-			controls:         slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier},    // Eligible L3 since 'earlier'
-			expectedControls: []slsa_types.ControlName{slsa_types.ControlName(slsa_types.SlsaSourceLevel3)}, // Policy.Since ('now') is not before EligibleSince ('earlier')
-			expectError:      false,
+			name:           "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): compliant Policy.Since",
+			branchPolicy:   &policyL3Now,                                                                  // Policy L3, Since 'now'
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier},    // Eligible L3 since 'earlier'
+			expectedLevels: []slsa_types.ControlName{slsa_types.ControlName(slsa_types.SlsaSourceLevel3)}, // Policy.Since ('now') is not before EligibleSince ('earlier')
+			expectError:    false,
+		},
+		{
+			name:                  "Controls L4-eligible (since 'now'), Policy L4 (since 'earlier'): fail (Policy.Since too early)",
+			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel4, Since: earlier},
+			controls:              slsa_types.Controls{continuityEnforcedNow, provenanceAvailableNow, reviewEnforcedNow},
+			expectedLevels:        []slsa_types.ControlName{},
+			expectError:           true,
+			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_4 since", // ...but it has only been eligible for that level since...
 		},
 		{
 			name:                  "Controls L3-eligible (since 'now'), Policy L3 (since 'earlier'): fail (Policy.Since too early)",
 			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, Since: earlier}, // Policy L3, Since 'earlier'
 			controls:              slsa_types.Controls{continuityEnforcedNow, provenanceAvailableNow},                   // Eligible L3 since 'now'
-			expectedControls:      []slsa_types.ControlName{},
+			expectedLevels:        []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3 since", // ...but it has only been eligible for that level since...
 		},
@@ -1075,7 +1091,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 			name:                  "Policy L?'UNKNOWN' (controls L3-eligible): fail (policy target unknown)",
 			branchPolicy:          &policyUnknownLevel,                                                // Policy "UNKNOWN_LEVEL"
 			controls:              slsa_types.Controls{continuityEnforcedNow, provenanceAvailableNow}, // Eligible L3
-			expectedControls:      []slsa_types.ControlName{},
+			expectedLevels:        []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level UNKNOWN_LEVEL, but branch is only eligible for",
 		},
@@ -1087,7 +1103,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 			name:                  "Controls L1-eligible, Policy L3: fail (eligibility)",
 			branchPolicy:          &policyL3Now,          // Policy L3
 			controls:              slsa_types.Controls{}, // Eligible L1
-			expectedControls:      []slsa_types.ControlName{},
+			expectedLevels:        []slsa_types.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
@@ -1095,7 +1111,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotControls, err := computeSlsaLevel(tt.branchPolicy, nil, tt.controls)
+			gotLevels, err := computeSlsaLevel(tt.branchPolicy, nil, tt.controls)
 
 			if tt.expectError {
 				if err == nil {
@@ -1109,8 +1125,8 @@ func TestComputeSlsaLevel(t *testing.T) {
 				}
 			}
 
-			if !slices.Equal(gotControls, tt.expectedControls) {
-				t.Errorf("computeSlsaLevel() gotLevel = %v, want %v", gotControls, tt.expectedControls)
+			if !slices.Equal(gotLevels, tt.expectedLevels) {
+				t.Errorf("computeSlsaLevel() gotLevel = %v, want %v", gotLevels, tt.expectedLevels)
 			}
 		})
 	}
