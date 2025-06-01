@@ -9,6 +9,7 @@ const (
 	SlsaSourceLevel1         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
 	SlsaSourceLevel2         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_2"
 	SlsaSourceLevel3         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_3"
+	SlsaSourceLevel4         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_4"
 	ContinuityEnforced       ControlName     = "CONTINUITY_ENFORCED"
 	ProvenanceAvailable      ControlName     = "PROVENANCE_AVAILABLE"
 	ReviewEnforced           ControlName     = "REVIEW_ENFORCED"
