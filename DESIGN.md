@@ -343,7 +343,7 @@ outside of user control) to indicate what controls _ought_ to be enforced and wh
 enforcement should start.
 
 This is used to prevent users from disabling controls, making changes, and reenabling the
-controls.  Now, if a user wanted to do so they'd also have to update their 'Since' date
+controls.  Now, if a user wanted to do so they'd also have to update the 'Since' dates
 in their policy, and have that change submitted to the policy repo.  The updated date
 would then not cover the uncontrolled changes they made.
 
@@ -355,10 +355,64 @@ This amounts to public declaration of SLSA adoption and allows backsliding to be
   "protected_branches": [
     {
       "Name": "main",
-      "Since": "2025-02-28T15:09:27.845Z",
-      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_2"
+      "Since": "2025-03-28T15:09:27.845Z",
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3",
+      "org_status_check_controls": [
+        {
+          "check_name": "test",
+          "property_name": "ORG_SOURCE_TESTED",
+          "Since": "2025-05-31T22:44:18.816Z"
+        }
+      ]
     }
   ]
+}
+```
+
+### Org Specified Properties
+
+Policies also allow users to specify that the GitHub repo must have a rule requiring
+certain 'checks' to be run by GitHub Actions.  In the above policy example
+the organization must have their repo configured to require the 'test' status check
+have been run by GitHub Actions.  As seen in this example:
+
+![required status check example](media/require_status_checks.png)
+
+## Verification Summary Attestations (VSA)
+
+Example VSA
+
+```json
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "digest": {
+        "gitCommit": "932eb09d23b8574a5c1c3780afec1a93ebaa3e92"
+      },
+      "annotations": {
+        "source_refs": [
+          "refs/heads/main"
+        ]
+      }
+    }
+  ],
+  "predicateType": "https://slsa.dev/verification_summary/v1",
+  "predicate": {
+    "policy": {
+      "uri": "https://github.com/slsa-framework/slsa-source-poc/blob/main/policy/github.com/slsa-framework/slsa-source-poc/source-policy.json"
+    },
+    "resourceUri": "git+https://github.com/slsa-framework/slsa-source-poc",
+    "timeVerified": "2025-06-01T15:19:28.226795439Z",
+    "verificationResult": "PASSED",
+    "verifiedLevels": [
+      "SLSA_SOURCE_LEVEL_3",
+      "ORG_SOURCE_TESTED"
+    ],
+    "verifier": {
+      "id": "https://github.com/slsa-framework/slsa-source-poc"
+    }
+  }
 }
 ```
 
