@@ -293,91 +293,84 @@ func computeEligibleSince(controls slsa_types.Controls, level slsa_types.SlsaSou
 	return nil, fmt.Errorf("unknown level %s", level)
 }
 
-func computeSlsaLevel(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (slsa_types.SlsaSourceLevel, error) {
+// Every function that determines properties to include in the result & VSA implements this interface.
+type computePolicyResult func(*ProtectedBranch, *ProtectedTag, slsa_types.Controls) ([]slsa_types.ControlName, error)
+
+func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa_types.Controls) ([]slsa_types.ControlName, error) {
 	eligibleLevel, eligibleWhy := computeEligibleSlsaLevel(controls)
 
 	if !slsa_types.IsLevelHigherOrEqualTo(eligibleLevel, branchPolicy.TargetSlsaSourceLevel) {
-		return "", fmt.Errorf("policy sets target level %s, but branch is only eligible for %s because %s", branchPolicy.TargetSlsaSourceLevel, eligibleLevel, eligibleWhy)
+		return []slsa_types.ControlName{}, fmt.Errorf("policy sets target level %s, but branch is only eligible for %s because %s", branchPolicy.TargetSlsaSourceLevel, eligibleLevel, eligibleWhy)
 	}
 
 	// Check to see when this branch became eligible for the current target level.
 	eligibleSince, err := computeEligibleSince(controls, branchPolicy.TargetSlsaSourceLevel)
 	if err != nil {
-		return "", fmt.Errorf("could not compute eligible since: %w", err)
+		return []slsa_types.ControlName{}, fmt.Errorf("could not compute eligible since: %w", err)
 	}
 	if eligibleSince == nil {
-		return "", fmt.Errorf("policy sets target level %s, but cannot compute when controls made it eligible for that level", branchPolicy.TargetSlsaSourceLevel)
+		return []slsa_types.ControlName{}, fmt.Errorf("policy sets target level %s, but cannot compute when controls made it eligible for that level", branchPolicy.TargetSlsaSourceLevel)
 	}
 
 	if branchPolicy.Since.Before(*eligibleSince) {
-		return "", fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, eligibleSince)
+		return []slsa_types.ControlName{}, fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, eligibleSince)
 	}
 
-	return branchPolicy.TargetSlsaSourceLevel, nil
+	return []slsa_types.ControlName{slsa_types.ControlName(branchPolicy.TargetSlsaSourceLevel)}, nil
 }
 
-func computeReviewEnforced(branchPolicy *ProtectedBranch, controls slsa_types.Controls) (bool, error) {
+func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa_types.Controls) ([]slsa_types.ControlName, error) {
 	if !branchPolicy.RequireReview {
-		return false, nil
+		return []slsa_types.ControlName{}, nil
 	}
 
 	reviewControl := controls.GetControl(slsa_types.ReviewEnforced)
 	if reviewControl == nil {
-		return false, fmt.Errorf("policy requires review, but that control is not enabled")
+		return []slsa_types.ControlName{}, fmt.Errorf("policy requires review, but that control is not enabled")
 	}
 
 	if branchPolicy.Since.Before(reviewControl.Since) {
-		return false, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.Since, reviewControl.Since)
+		return []slsa_types.ControlName{}, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.Since, reviewControl.Since)
 	}
 
-	return true, nil
+	return []slsa_types.ControlName{slsa_types.ReviewEnforced}, nil
 }
 
-func computeTagHygiene(tagPolicy *ProtectedTag, controls slsa_types.Controls) (bool, error) {
+func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls slsa_types.Controls) ([]slsa_types.ControlName, error) {
 	if tagPolicy == nil {
 		// There is no tag policy, so the control isn't met, but it's not an error.
-		return false, nil
+		return []slsa_types.ControlName{}, nil
 	}
 
 	if !tagPolicy.TagHygiene {
-		return false, nil
+		return []slsa_types.ControlName{}, nil
 	}
 
 	tagHygiene := controls.GetControl(slsa_types.TagHygiene)
 	if tagHygiene == nil {
-		return false, fmt.Errorf("policy requires tag hygiene, but that control is not enabled")
+		return []slsa_types.ControlName{}, fmt.Errorf("policy requires tag hygiene, but that control is not enabled")
 	}
 
 	if tagPolicy.Since.Before(tagHygiene.Since) {
-		return false, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.Since, tagHygiene.Since)
+		return []slsa_types.ControlName{}, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.Since, tagHygiene.Since)
 	}
 
-	return true, nil
+	return []slsa_types.ControlName{slsa_types.TagHygiene}, nil
 }
 
 // Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a branch.
 func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls slsa_types.Controls) (slsa_types.SourceVerifiedLevels, error) {
-	slsaSourceLevel, err := computeSlsaLevel(branchPolicy, controls)
-	if err != nil {
-		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing slsa level: %w", err)
-	}
 
-	verifiedLevels := slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsaSourceLevel)}
+	policyComputers := []computePolicyResult{computeSlsaLevel, computeReviewEnforced, computeTagHygiene}
 
-	reviewEnforced, err := computeReviewEnforced(branchPolicy, controls)
-	if err != nil {
-		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing review enforced: %w", err)
-	}
-	if reviewEnforced {
-		verifiedLevels = append(verifiedLevels, slsa_types.ReviewEnforced)
-	}
+	verifiedLevels := slsa_types.SourceVerifiedLevels{}
 
-	tagHygiene, err := computeTagHygiene(tagPolicy, controls)
-	if err != nil {
-		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
-	}
-	if tagHygiene {
-		verifiedLevels = append(verifiedLevels, slsa_types.TagHygiene)
+	for _, pc := range policyComputers {
+		computedControls, err := pc(branchPolicy, tagPolicy, controls)
+		if err != nil {
+			return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing branch controls: %w", err)
+		}
+		verifiedLevels = append(verifiedLevels, computedControls...)
 	}
 
 	return verifiedLevels, nil
@@ -390,18 +383,15 @@ func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *attest.TagProvenanceP
 	// As long as all the controls for tag protection are currently in force then we'll
 	// include the verifiedLevels.
 
-	tagHygiene, err := computeTagHygiene(tagPolicy, tagProvPred.Controls)
+	computedControls, err := computeTagHygiene(nil, tagPolicy, tagProvPred.Controls)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
-	if tagHygiene {
-		// TODO: should we include the tag hygiene field specifically?
-		// TODO: Should we include the union of all the levels (probably).
-		return tagProvPred.VsaSummaries[0].VerifiedLevels, nil
+	if len(computedControls) == 0 {
+		// If tag hygiene isn't enabled then we just return level 1.
+		return slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, nil
 	}
-
-	// If tag immutability isn't enabled then we just return level 1.
-	return slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, nil
+	return computedControls, nil
 }
 
 type PolicyEvaluator struct {
