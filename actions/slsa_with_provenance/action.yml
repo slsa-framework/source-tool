@@ -26,13 +26,13 @@ runs:
       if: ${{ startsWith(github.ref, 'refs/heads/') }}
       run: |
         echo "## SLSA Source Properties Branch Push" >> $GITHUB_STEP_SUMMARY
-        go run github.com/slsa-framework/slsa-source-poc/sourcetool@9392d4bd69cf4175f321cc47e80b2553e0a1cf32 --github_token ${{ github.token }} checklevelprov --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
+        go run github.com/slsa-framework/slsa-source-poc/sourcetool@5419e38f7b2c1940dd5f88f50612d5ce772f2c2d --github_token ${{ github.token }} checklevelprov --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --branch ${{ github.ref_name }} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - id: handle_tag_push
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
         echo "## SLSA Source Properties Tag Push" >> $GITHUB_STEP_SUMMARY
-        go run github.com/slsa-framework/slsa-source-poc/sourcetool@9392d4bd69cf4175f321cc47e80b2553e0a1cf32 --github_token ${{ github.token }} checktag --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --tag_name ${{ github.ref_name }} --actor ${{github.triggering_actor}} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
+        go run github.com/slsa-framework/slsa-source-poc/sourcetool@5419e38f7b2c1940dd5f88f50612d5ce772f2c2d --github_token ${{ github.token }} checktag --commit ${{ github.sha }} --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }} --tag_name ${{ github.ref_name }} --actor ${{github.triggering_actor}} --output_signed_bundle ${{ github.workspace }}/metadata/signed_bundle.intoto.jsonl >> $GITHUB_STEP_SUMMARY
       shell: bash
     - id: summary
       run: |
