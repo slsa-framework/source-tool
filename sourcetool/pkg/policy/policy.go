@@ -129,11 +129,14 @@ func getLocalPolicy(path string) (*RepoPolicy, string, error) {
 	return &p, path, nil
 }
 
-func (pe PolicyEvaluator) getPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
+func (pe PolicyEvaluator) getPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (policy *RepoPolicy, path string, err error) {
 	if pe.UseLocalPolicy == "" {
-		return getRemotePolicy(ctx, gh_connection)
+		policy, path, err = getRemotePolicy(ctx, gh_connection)
+	} else {
+		policy, path, err = getLocalPolicy(pe.UseLocalPolicy)
 	}
-	return getLocalPolicy(pe.UseLocalPolicy)
+
+	return policy, path, err
 }
 
 // Check to see if the local directory is a clean clone or not
@@ -247,10 +250,15 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 func computeEligibleSlsaLevel(controls slsa_types.Controls) (slsa_types.SlsaSourceLevel, string) {
 	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
 	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
+	reviewControl := controls.GetControl(slsa_types.ReviewEnforced)
+
+	if continuityControl != nil && provControl != nil && reviewControl != nil {
+		return slsa_types.SlsaSourceLevel4, "continuity and review are enabled and provenance is available"
+	}
 
 	if continuityControl != nil && provControl != nil {
 		// Both continuity and prov means it can get level 3
-		return slsa_types.SlsaSourceLevel3, "continuity is enable and provenance is available"
+		return slsa_types.SlsaSourceLevel3, "continuity is enabled and provenance is available"
 	}
 
 	if continuityControl != nil {
@@ -269,6 +277,16 @@ func computeEligibleSlsaLevel(controls slsa_types.Controls) (slsa_types.SlsaSour
 func computeEligibleSince(controls slsa_types.Controls, level slsa_types.SlsaSourceLevel) (*time.Time, error) {
 	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
 	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
+	reviewControl := controls.GetControl(slsa_types.ReviewEnforced)
+
+	if level == slsa_types.SlsaSourceLevel4 {
+		if continuityControl != nil && provControl != nil && reviewControl != nil {
+			t := slsa_types.LaterTime(continuityControl.Since, provControl.Since)
+			t = slsa_types.LaterTime(t, reviewControl.Since)
+			return &t, nil
+		}
+		return nil, nil
+	}
 
 	if level == slsa_types.SlsaSourceLevel3 {
 		if continuityControl != nil && provControl != nil {

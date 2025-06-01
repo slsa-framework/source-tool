@@ -578,7 +578,7 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 			name:           "SLSA Level 3",
 			controls:       slsa_types.Controls{continuityEnforcedControl, provenanceAvailableControl},
 			expectedLevel:  slsa_types.SlsaSourceLevel3,
-			expectedReason: "continuity is enable and provenance is available",
+			expectedReason: "continuity is enabled and provenance is available",
 		},
 		{
 			name:           "SLSA Level 2",
@@ -623,6 +623,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 
 	// Branch Policies
 	policyL3Review := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel3, RequireReview: true, Since: fixedTime}
+	policyL4 := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel4, Since: fixedTime}
 	policyL1NoExtras := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel1, RequireReview: false, Since: fixedTime}
 	policyL2Review := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, RequireReview: true, Since: fixedTime}
 	policyL2NoReview := ProtectedBranch{TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2, RequireReview: false, Since: fixedTime}
@@ -644,7 +645,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 		expectedErrorContains string
 	}{
 		{
-			name:           "Success - All Met (L3, Review, Tags)",
+			name:           "Success - L3, Review, Tags",
 			branchPolicy:   &policyL3Review,
 			tagPolicy:      &tagHygienePolicy,
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
@@ -652,7 +653,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:           "Success - Only SLSA Level (L1)",
+			name:           "Success - L1",
 			branchPolicy:   &policyL1NoExtras,
 			tagPolicy:      &noTagHygienePolicy,
 			controls:       slsa_types.Controls{}, // L1 is met by default if policy targets L1 and other conditions pass
@@ -660,7 +661,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:           "Success - SLSA & Review (L2, Review)",
+			name:           "Success - L2 & Review",
 			branchPolicy:   &policyL2Review,
 			tagPolicy:      &noTagHygienePolicy,
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, reviewEnforcedEarlier}, // Provenance not needed for L2
@@ -668,11 +669,19 @@ func TestEvaluateBranchControls(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:           "Success - SLSA & Tags (L2, Tags)",
+			name:           "Success - L2 & Tags",
 			branchPolicy:   &policyL2NoReview,
 			tagPolicy:      &tagHygienePolicy,
 			controls:       slsa_types.Controls{continuityEnforcedEarlier, tagHygieneEarlier}, // Provenance not needed for L2
 			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel2), slsa_types.TagHygiene},
+			expectError:    false,
+		},
+		{
+			name:           "Success - L4",
+			branchPolicy:   &policyL4,
+			tagPolicy:      &tagHygienePolicy,
+			controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel4), slsa_types.TagHygiene},
 			expectError:    false,
 		},
 		{
