@@ -210,7 +210,7 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
 	if provPred != nil {
-		eligibleLevel, _ = computeEligibleSlsaLevel(provPred.Controls)
+		eligibleLevel = computeEligibleSlsaLevel(provPred.Controls)
 		eligibleSince, err = computeEligibleSince(provPred.Controls, eligibleLevel)
 		if err != nil {
 			return "", fmt.Errorf("could not compute eligible since: %w", err)
@@ -245,32 +245,31 @@ func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConn
 	return path, nil
 }
 
+func computeEligibleForLevel(controls slsa_types.Controls, level slsa_types.SlsaSourceLevel) bool {
+	requiredControls := slsa_types.GetRequiredControlsForLevel(level)
+	if controls.AreControlsAvailable(requiredControls) {
+		return true
+	}
+	return false
+}
+
 // Computes the eligible SLSA level, and when they started being eligible for it,
 // if only they had a policy.  Also returns a rationale for why it's eligible for this level.
-func computeEligibleSlsaLevel(controls slsa_types.Controls) (slsa_types.SlsaSourceLevel, string) {
-	continuityControl := controls.GetControl(slsa_types.ContinuityEnforced)
-	provControl := controls.GetControl(slsa_types.ProvenanceAvailable)
-	reviewControl := controls.GetControl(slsa_types.ReviewEnforced)
-
-	if continuityControl != nil && provControl != nil && reviewControl != nil {
-		return slsa_types.SlsaSourceLevel4, "continuity and review are enabled and provenance is available"
-	}
-
-	if continuityControl != nil && provControl != nil {
-		// Both continuity and prov means it can get level 3
-		return slsa_types.SlsaSourceLevel3, "continuity is enabled and provenance is available"
-	}
-
-	if continuityControl != nil {
-		// Just continuity control means it can get level 2
-		return slsa_types.SlsaSourceLevel2, "continuity is enabled but provenance is not available"
+func computeEligibleSlsaLevel(controls slsa_types.Controls) slsa_types.SlsaSourceLevel {
+	// Go from highest to lowest.
+	for _, level := range []slsa_types.SlsaSourceLevel{
+		slsa_types.SlsaSourceLevel4, slsa_types.SlsaSourceLevel3, slsa_types.SlsaSourceLevel2} {
+		eligible := computeEligibleForLevel(controls, level)
+		if eligible {
+			return level
+		}
 	}
 
 	// If nothing else, level 1.
 	// The time here is tricky, it's really probably since whenever they created the repo
 	// But also, they don't qualify for much so maybe it doesn't matter.
 	// Just return now for now.
-	return slsa_types.SlsaSourceLevel1, "continuity is not enabled"
+	return slsa_types.SlsaSourceLevel1
 }
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
@@ -316,10 +315,14 @@ func computeEligibleSince(controls slsa_types.Controls, level slsa_types.SlsaSou
 type computePolicyResult func(*ProtectedBranch, *ProtectedTag, slsa_types.Controls) ([]slsa_types.ControlName, error)
 
 func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa_types.Controls) ([]slsa_types.ControlName, error) {
-	eligibleLevel, eligibleWhy := computeEligibleSlsaLevel(controls)
+	eligibleLevel := computeEligibleSlsaLevel(controls)
 
 	if !slsa_types.IsLevelHigherOrEqualTo(eligibleLevel, branchPolicy.TargetSlsaSourceLevel) {
-		return []slsa_types.ControlName{}, fmt.Errorf("policy sets target level %s, but branch is only eligible for %s because %s", branchPolicy.TargetSlsaSourceLevel, eligibleLevel, eligibleWhy)
+		return []slsa_types.ControlName{}, fmt.Errorf(
+			"policy sets target level %s which requires %v, but branch is only eligible for %s because it only has %v",
+			branchPolicy.TargetSlsaSourceLevel,
+			slsa_types.GetRequiredControlsForLevel(branchPolicy.TargetSlsaSourceLevel),
+			eligibleLevel, controls.Names())
 	}
 
 	// Check to see when this branch became eligible for the current target level.

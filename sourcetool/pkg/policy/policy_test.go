@@ -222,7 +222,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 			policyContent:         policyL3ReviewTagsNow,                                                                   // Expects L3
 			provenanceStatement:   createStatementForTest(t, validProvPredicateL2Controls, attest.SourceProvPredicateType), // Prov only has L2 controls
 			ghConnBranch:          "main",
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_2",
+			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3 which requires [CONTINUITY_ENFORCED PROVENANCE_AVAILABLE], but branch is only eligible for SLSA_SOURCE_LEVEL_2 because it only has [CONTINUITY_ENFORCED REVIEW_ENFORCED]",
 		},
 		{
 			name:                  "Malformed Policy JSON -> Error",
@@ -444,7 +444,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier}, // Only meets L2
 			},
 			ghConnBranch:          "main",
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_2",
+			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_2",
 		},
 		{
 			name:          "Malformed JSON -> Error",
@@ -576,45 +576,37 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 		expectedReason string
 	}{
 		{
-			name:           "SLSA Level 4",
-			controls:       slsa_types.Controls{continuityEnforcedControl, provenanceAvailableControl, reviewEnforcedControl},
-			expectedLevel:  slsa_types.SlsaSourceLevel4,
-			expectedReason: "continuity and review are enabled and provenance is available",
+			name:          "SLSA Level 4",
+			controls:      slsa_types.Controls{continuityEnforcedControl, provenanceAvailableControl, reviewEnforcedControl},
+			expectedLevel: slsa_types.SlsaSourceLevel4,
 		},
 		{
-			name:           "SLSA Level 3",
-			controls:       slsa_types.Controls{continuityEnforcedControl, provenanceAvailableControl},
-			expectedLevel:  slsa_types.SlsaSourceLevel3,
-			expectedReason: "continuity is enabled and provenance is available",
+			name:          "SLSA Level 3",
+			controls:      slsa_types.Controls{continuityEnforcedControl, provenanceAvailableControl},
+			expectedLevel: slsa_types.SlsaSourceLevel3,
 		},
 		{
-			name:           "SLSA Level 2",
-			controls:       slsa_types.Controls{continuityEnforcedControl},
-			expectedLevel:  slsa_types.SlsaSourceLevel2,
-			expectedReason: "continuity is enabled but provenance is not available",
+			name:          "SLSA Level 2",
+			controls:      slsa_types.Controls{continuityEnforcedControl},
+			expectedLevel: slsa_types.SlsaSourceLevel2,
 		},
 		{
-			name:           "SLSA Level 1 - ProvenanceAvailable only",
-			controls:       slsa_types.Controls{provenanceAvailableControl},
-			expectedLevel:  slsa_types.SlsaSourceLevel1,
-			expectedReason: "continuity is not enabled",
+			name:          "SLSA Level 1 - ProvenanceAvailable only",
+			controls:      slsa_types.Controls{provenanceAvailableControl},
+			expectedLevel: slsa_types.SlsaSourceLevel1,
 		},
 		{
-			name:           "SLSA Level 1 - ContinuityEnforced control absent",
-			controls:       nil, // Represents absence of ContinuityEnforced; could also use slsa_types.Controls{}
-			expectedLevel:  slsa_types.SlsaSourceLevel1,
-			expectedReason: "continuity is not enabled",
+			name:          "SLSA Level 1 - ContinuityEnforced control absent",
+			controls:      nil, // Represents absence of ContinuityEnforced; could also use slsa_types.Controls{}
+			expectedLevel: slsa_types.SlsaSourceLevel1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			level, reason := computeEligibleSlsaLevel(tt.controls)
+			level := computeEligibleSlsaLevel(tt.controls)
 			if level != tt.expectedLevel {
 				t.Errorf("computeEligibleSlsaLevel() level = %v, want %v", level, tt.expectedLevel)
-			}
-			if reason != tt.expectedReason {
-				t.Errorf("computeEligibleSlsaLevel() reason = %q, want %q", reason, tt.expectedReason)
 			}
 		})
 	}
@@ -698,7 +690,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			controls:              slsa_types.Controls{}, // Only eligible for L1
 			expectedLevels:        slsa_types.SourceVerifiedLevels{},
 			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 		{
 			name:                  "Error - computeReviewEnforced Fails (Policy L2+Review, Review control missing)",
@@ -1062,7 +1054,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 			controls:              slsa_types.Controls{}, // Eligible L1
 			expectedLevels:        []slsa_types.ControlName{},
 			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_2, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 		{
 			name:           "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): compliant Policy.Since",
@@ -1093,7 +1085,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 			controls:              slsa_types.Controls{continuityEnforcedNow, provenanceAvailableNow}, // Eligible L3
 			expectedLevels:        []slsa_types.ControlName{},
 			expectError:           true,
-			expectedErrorContains: "policy sets target level UNKNOWN_LEVEL, but branch is only eligible for",
+			expectedErrorContains: "policy sets target level UNKNOWN_LEVEL",
 		},
 		// This single case covers eligibility failure where target > eligible.
 		// It replaces the two previous similar cases:
@@ -1105,7 +1097,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 			controls:              slsa_types.Controls{}, // Eligible L1
 			expectedLevels:        []slsa_types.ControlName{},
 			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3, but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 	}
 
