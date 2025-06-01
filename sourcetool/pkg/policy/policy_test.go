@@ -299,6 +299,113 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 	}
 }
 
+func createVsaSummary(ref string, verifiedLevels []slsa_types.ControlName) attest.VsaSummary {
+	return attest.VsaSummary{
+		SourceRefs:     []string{ref},
+		VerifiedLevels: verifiedLevels,
+	}
+}
+
+func TestEvaluateTagProv_Success(t *testing.T) {
+	// Controls for mock provenance
+	tagHygieneEarlier := slsa_types.Control{Name: slsa_types.TagHygiene, Since: earlierFixedTime}
+	origL2ReviewedSummary := createVsaSummary("refs/heads/orig", []slsa_types.ControlName{
+		slsa_types.ControlName(slsa_types.SlsaSourceLevel2), slsa_types.ReviewEnforced})
+	mainL3Summary := createVsaSummary("refs/heads/main", []slsa_types.ControlName{
+		slsa_types.ControlName(slsa_types.SlsaSourceLevel3)})
+
+	tests := []struct {
+		name               string
+		protectedTagPolicy *ProtectedTag
+		vsaSummaries       []attest.VsaSummary
+		expectedLevels     slsa_types.SourceVerifiedLevels
+	}{
+		{
+			name: "Policy has protected_tag setting, and enabled",
+			protectedTagPolicy: &ProtectedTag{
+				Since:      fixedTime,
+				TagHygiene: true,
+			},
+			vsaSummaries:   []attest.VsaSummary{origL2ReviewedSummary},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ReviewEnforced, slsa_types.ControlName(slsa_types.SlsaSourceLevel2)},
+		},
+		{
+			name: "Policy has protected_tag setting, and multiple summaries",
+			protectedTagPolicy: &ProtectedTag{
+				Since:      fixedTime,
+				TagHygiene: true,
+			},
+			vsaSummaries: []attest.VsaSummary{origL2ReviewedSummary, mainL3Summary},
+			// The spec says we MUST NOT return multiple levels per track in a VSA...
+			expectedLevels: slsa_types.SourceVerifiedLevels{
+				slsa_types.ReviewEnforced, slsa_types.ControlName(slsa_types.SlsaSourceLevel3)},
+		},
+		{
+			name: "Policy has protected_tag setting, and it's not enabled",
+			protectedTagPolicy: &ProtectedTag{
+				Since:      fixedTime,
+				TagHygiene: false,
+			},
+			vsaSummaries:   []attest.VsaSummary{origL2ReviewedSummary},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)},
+		},
+		{
+			name: "Policy has protected_tag setting, and it's earlier than the control",
+			protectedTagPolicy: &ProtectedTag{
+				Since:      earlierFixedTime,
+				TagHygiene: false,
+			},
+			vsaSummaries:   []attest.VsaSummary{origL2ReviewedSummary},
+			expectedLevels: slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)},
+		},
+		{
+			name:               "Policy has no protected_tag setting",
+			protectedTagPolicy: nil,
+			vsaSummaries:       []attest.VsaSummary{origL2ReviewedSummary},
+			expectedLevels:     slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Valid Provenance Predicate (attest.SourceProvenancePred)
+			tagProvPred := attest.TagProvenancePred{
+				Controls:     slsa_types.Controls{tagHygieneEarlier},
+				VsaSummaries: tt.vsaSummaries,
+			}
+
+			provenanceStatement := createStatementForTest(t, tagProvPred, attest.TagProvPredicateType)
+
+			pb := ProtectedBranch{
+				Name:                  "main",
+				TargetSlsaSourceLevel: slsa_types.SlsaSourceLevel2,
+				RequireReview:         true,
+				Since:                 fixedTime,
+			}
+			rp := createTestPolicy(pb)
+			rp.ProtectedTag = tt.protectedTagPolicy
+
+			expectedPolicyFilePath := createTempPolicyFile(t, rp)
+			defer os.Remove(expectedPolicyFilePath)
+			pe := &PolicyEvaluator{UseLocalPolicy: expectedPolicyFilePath}
+
+			ghConn := newTestGhBranchConnection("local", "local", "main")
+
+			verifiedLevels, policyPath, err := pe.EvaluateTagProv(context.Background(), ghConn, provenanceStatement)
+
+			if err != nil {
+				t.Errorf("EvaluateTagProv() error = %v, want nil", err)
+			}
+			if policyPath != expectedPolicyFilePath {
+				t.Errorf("EvaluateTagProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
+			}
+			if !slices.Equal(verifiedLevels, tt.expectedLevels) {
+				t.Errorf("EvaluateTagProv() verifiedLevels = %v, want %v", verifiedLevels, tt.expectedLevels)
+			}
+		})
+	}
+}
+
 func TestEvaluateControl_Success(t *testing.T) {
 	// Controls
 	continuityEnforcedEarlier := slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: earlierFixedTime}
@@ -555,7 +662,7 @@ func assertProtectedBranchEquals(t *testing.T, got *ProtectedBranch, expected Pr
 		if ignoreSince && actual.Since != (time.Time{}) { // Add note only if Since was ignored AND original got.Since was not zero
 			errorMessage.WriteString(fmt.Sprintf("\n(Note: 'Since' field was ignored in comparison as requested. Original Expected.Since: %v, Original Got.Since: %v)", expected.Since, actual.Since))
 		}
-		t.Errorf(errorMessage.String())
+		t.Error(errorMessage.String())
 	}
 }
 
