@@ -411,10 +411,11 @@ Example VSA
       "uri": "https://github.com/slsa-framework/slsa-source-poc/blob/main/policy/github.com/slsa-framework/slsa-source-poc/source-policy.json"
     },
     "resourceUri": "git+https://github.com/slsa-framework/slsa-source-poc",
-    "timeVerified": "2025-06-01T15:19:28.226795439Z",
+    "timeVerified": "2025-06-01T21:51:51.451207508Z",
     "verificationResult": "PASSED",
     "verifiedLevels": [
       "SLSA_SOURCE_LEVEL_3",
+      "TAG_HYGIENE",
       "ORG_SOURCE_TESTED"
     ],
     "verifier": {
