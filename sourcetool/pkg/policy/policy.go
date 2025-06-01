@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -409,11 +410,38 @@ func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *attest.TagProvenanceP
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
-	if len(computedControls) == 0 {
+	if len(computedControls) == 0 || tagPolicy == nil {
 		// If tag hygiene isn't enabled then we just return level 1.
 		return slsa_types.SourceVerifiedLevels{slsa_types.ControlName(slsa_types.SlsaSourceLevel1)}, nil
 	}
-	return computedControls, nil
+
+	// We have multiple summaries with their own verifiedLevels.
+	// There are probably duplicates. We need to return a single list.
+	// We also need to remove duplicate SLSA Source Levels since we can
+	// only include one. We'll include the highest.
+	// There's probably a faster way to do this, or a library that could
+	// be used, I don't think it would be very readable.
+	verifiedLevels := slsa_types.SourceVerifiedLevels{}
+	highestSlsaLevel := slsa_types.SlsaSourceLevel1
+	for _, summary := range tagProvPred.VsaSummaries {
+		for _, level := range summary.VerifiedLevels {
+			verifiedLevels = append(verifiedLevels, level)
+			if slsa_types.IsSlsaSourceLevel(level) &&
+				slsa_types.IsLevelHigherOrEqualTo(slsa_types.SlsaSourceLevel(level), highestSlsaLevel) {
+				highestSlsaLevel = slsa_types.SlsaSourceLevel(level)
+			}
+		}
+	}
+	// Sort (to keep order deterministic) and compact to remove dup
+	slices.Sort(verifiedLevels)
+	verifiedLevels = slices.Compact(verifiedLevels)
+
+	// Now delete anything that is a SLSA source level but isn't the highest one.
+	verifiedLevels = slices.DeleteFunc(verifiedLevels, func(level slsa_types.ControlName) bool {
+		return slsa_types.IsSlsaSourceLevel(level) && level != slsa_types.ControlName(highestSlsaLevel)
+	})
+
+	return verifiedLevels, nil
 }
 
 type PolicyEvaluator struct {

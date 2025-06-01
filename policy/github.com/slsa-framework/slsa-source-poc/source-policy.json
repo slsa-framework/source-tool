@@ -13,5 +13,9 @@
         }
       ]
     }
-  ]
+  ],
+  "protected_tag": {
+    "tag_hygiene": true,
+    "Since": "2025-02-25T17:27:49.445Z"
+  }
 }

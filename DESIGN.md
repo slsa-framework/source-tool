@@ -217,14 +217,8 @@ then we need to ensure the _repository_ adheres to tag hygiene requirements.
 
 #### Tag Updates
 
-TODO: Update the policy to either require tag_hygiene be set explicitly or
-make it implicit if the policy is Level 3+.
-
-TODO: We should probably figure out if we want to issue tag prov or VSAs
-if Tag Hygiene isn't enabled.
-
 This control also gets evaluated when tags are updated.  When a tag is
-updated, if policy sets 'tag_hygiene', the tool will require the control
+updated, if the policy sets 'tag_hygiene', the tool will require the control
 is enabled.  If so, it will create [Tag Provenance](#tag-provenance) for
 the tag and it will _copy_ the `verifiedLevels` from VSAs previously
 issued for the commit being tagged into a new VSA that includes this
@@ -365,9 +359,23 @@ This amounts to public declaration of SLSA adoption and allows backsliding to be
         }
       ]
     }
-  ]
+  ],
+  "protected_tag": {
+    "tag_hygiene": true,
+    "Since": "2025-02-25T17:27:49.445Z"
+  }
 }
 ```
+
+### Protecting Tags
+
+By default this tool will only issue VSAs for tags at SLSA_SOURCE_LEVEL_1 _unless_
+there is an explicit `protected_tag` setting in the policy.  This serves as a
+declaration by the org that all tags are protected.
+
+The tool does not yet support protecting only some tags. Adding support is
+tracked in
+[this issue](https://github.com/slsa-framework/slsa-source-poc/issues/129).
 
 ### Org Specified Properties
 

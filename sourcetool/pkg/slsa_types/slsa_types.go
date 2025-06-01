@@ -1,6 +1,7 @@
 package slsa_types
 
 import (
+	"slices"
 	"time"
 )
 
@@ -20,6 +21,16 @@ const (
 	SourceRefsAnnotation                     = "source_refs"
 	AllowedOrgPropPrefix                     = "ORG_SOURCE_"
 )
+
+func IsSlsaSourceLevel(control ControlName) bool {
+	return slices.Contains(
+		[]ControlName{
+			ControlName(SlsaSourceLevel1),
+			ControlName(SlsaSourceLevel2),
+			ControlName(SlsaSourceLevel3),
+			ControlName(SlsaSourceLevel4)},
+		control)
+}
 
 func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {
 	// There's probably some fancy stuff we can get in to, but...
