@@ -206,7 +206,6 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 			}
 			requiredChecks = append(requiredChecks, &slsa_types.Control{
 				Name: CheckNameToControlName(check.Context),
-				// TODO: get the time that indicates how long it's been enforced
 				Since: ruleset.UpdatedAt.Time,
 			})
 		}
