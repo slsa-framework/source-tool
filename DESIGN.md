@@ -295,7 +295,7 @@ Tag provenance records a tag creation event.  It indicates:
   "subject": [
     {
       "digest": {
-        "gitCommit": "c0511064260c55fd85ab158e1d97cea3eeaa38cc"
+        "gitCommit": "c5cddb2683b27b84d16dbced9fa2fa8dd52fd7da"
       }
     }
   ],
@@ -305,20 +305,21 @@ Tag provenance records a tag creation event.  It indicates:
     "controls": [
       {
         "name": "TAG_HYGIENE",
-        "since": "2025-03-23T18:08:42.375Z"
+        "since": "2025-02-25T17:27:49.445Z"
       }
     ],
-    "created_on": "2025-05-29T20:36:17.486702367Z",
-    "repo_uri": "https://github.com/TomHennen/Concordance",
-    "tag": "refs/tags/v1.1.5",
+    "created_on": "2025-06-01T21:46:21.698144672Z",
+    "repo_uri": "https://github.com/slsa-framework/slsa-source-poc",
+    "tag": "refs/tags/sourcetool/v0.5.1",
     "vsa_summaries": [
       {
         "source_refs": [
-          "refs/heads/master"
+          "refs/heads/main"
         ],
         "verifiedLevels": [
           "SLSA_SOURCE_LEVEL_3",
-          "TAG_HYGIENE"
+          "TAG_HYGIENE",
+          "ORG_SOURCE_TESTED"
         ]
       }
     ]
