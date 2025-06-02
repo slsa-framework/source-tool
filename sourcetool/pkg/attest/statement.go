@@ -2,7 +2,6 @@ package attest
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,19 +22,19 @@ func NewBundleReader(reader *bufio.Reader, verifier Verifier) *BundleReader {
 
 func (br BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
 	// Is this a sigstore bundle with a statement?
-	vr, err := br.verifier.Verify(line)
+		vr, err := br.verifier.Verify(line)
 	if err == nil {
 		// This is it.
 		return vr.Statement, nil
 	} else {
 		// We ignore errors because there could be other stuff in the
 		// bundle this line came from.
-		log.Printf("Line %s failed verification: %v", line, err)
+		log.Printf("Line '%s' failed verification: %v", line, err)
 	}
 
 	// TODO: add support for 'regular' DSSEs.
 
-	return nil, errors.New("could not convert line to statement")
+	return nil, fmt.Errorf("could not convert line to statement: '%s'", line)
 }
 
 func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]string, error) {
@@ -94,6 +93,10 @@ func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*spb.Statement,
 				// Nothing to see here.
 				break
 			}
+		}
+		if line == "\n" {
+			// skip empties
+			continue
 		}
 		statement, err := br.convertLineToStatement(line)
 		if err != nil {

@@ -14,7 +14,7 @@ import (
 )
 
 type VerifyCommitArgs struct {
-	owner, repo, branch, commit string
+	owner, repo, branch, commit, tag string
 }
 
 // checklevelCmd represents the checklevel command
@@ -24,17 +24,26 @@ var (
 		Use:   "verifycommit",
 		Short: "Verifies the specified commit is valid",
 		Run: func(cmd *cobra.Command, args []string) {
-			doVerifyCommit(verifyCommitArgs.commit, verifyCommitArgs.owner, verifyCommitArgs.repo, verifyCommitArgs.branch)
+			doVerifyCommit(verifyCommitArgs.commit, verifyCommitArgs.owner, verifyCommitArgs.repo, verifyCommitArgs.branch, verifyCommitArgs.tag)
 		},
 	}
 )
 
-func doVerifyCommit(commit, owner, repo, branch string) {
-	if commit == "" || owner == "" || repo == "" || branch == "" {
-		log.Fatal("Must set commit, owner, repo, and branch flags.")
+func doVerifyCommit(commit, owner, repo, branch, tag string) {
+	if commit == "" || owner == "" || repo == "" {
+		log.Fatal("Must set commit, owner and repo.")
 	}
 
-	gh_connection := gh_control.NewGhConnection(owner, repo, gh_control.BranchToFullRef(branch)).WithAuthToken(githubToken)
+	ref := ""
+	if branch != "" {
+		ref = gh_control.BranchToFullRef(branch)
+	} else if tag != "" {
+		ref = gh_control.TagToFullRef(tag)
+	} else {
+		log.Fatal("Must specify either branch or tag.")
+	}
+
+	gh_connection := gh_control.NewGhConnection(owner, repo, ref).WithAuthToken(githubToken)
 	ctx := context.Background()
 
 	_, vsaPred, err := attest.GetVsa(ctx, gh_connection, getVerifier(), commit, gh_connection.GetFullRef())
@@ -54,7 +63,8 @@ func init() {
 
 	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.owner, "owner", "", "The GitHub repository owner - required.")
 	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.repo, "repo", "", "The GitHub repository name - required.")
-	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.branch, "branch", "", "The branch within the repository - required.")
+	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.branch, "branch", "", "The branch within the repository.")
+	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.tag, "tag", "", "The tag within the repository.")
 	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.commit, "commit", "", "The commit to check - required.")
 
 }
