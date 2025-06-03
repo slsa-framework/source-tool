@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -18,6 +19,14 @@ import (
 
 type CheckLevelArgs struct {
 	commit, owner, repo, branch, outputVsa, outputUnsignedVsa, useLocalPolicy string
+	allowMergeCommits                                                         bool
+}
+
+func (cla *CheckLevelArgs) Validate() error {
+	if cla.commit == "" || cla.owner == "" || cla.repo == "" || cla.branch == "" {
+		return errors.New("must set commit, owner, repo, and branch flags")
+	}
+	return nil
 }
 
 // checklevelCmd represents the checklevel command
@@ -31,20 +40,23 @@ var (
 
 This is meant to be run within the corresponding GitHub Actions workflow.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			doCheckLevel(checkLevelArgs.commit, checkLevelArgs.owner, checkLevelArgs.repo, checkLevelArgs.branch, checkLevelArgs.outputVsa, checkLevelArgs.outputUnsignedVsa)
+			doCheckLevel(&checkLevelArgs)
 		},
 	}
 )
 
-func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa string) {
-	if commit == "" || owner == "" || repo == "" || branch == "" {
-		log.Fatal("Must set commit, owner, repo, and branch flags.")
+func doCheckLevel(cla *CheckLevelArgs) {
+	if err := cla.Validate(); err != nil {
+		log.Fatalf("Error: %v", err)
 	}
 
-	gh_connection := gh_control.NewGhConnection(owner, repo, gh_control.BranchToFullRef(branch)).WithAuthToken(githubToken)
-	ctx := context.Background()
+	gh_connection := gh_control.NewGhConnection(
+		cla.owner, cla.repo, gh_control.BranchToFullRef(cla.branch),
+	).WithAuthToken(githubToken)
+	gh_connection.Options.AllowMergeCommits = cla.allowMergeCommits
 
-	controlStatus, err := gh_connection.GetBranchControls(ctx, commit, gh_connection.GetFullRef())
+	ctx := context.Background()
+	controlStatus, err := gh_connection.GetBranchControls(ctx, cla.commit, gh_connection.GetFullRef())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,24 +68,23 @@ func doCheckLevel(commit, owner, repo, branch, outputVsa, outputUnsignedVsa stri
 	}
 	fmt.Print(verifiedLevels)
 
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection.GetRepoUri(), gh_connection.GetFullRef(), commit, verifiedLevels, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection.GetRepoUri(), gh_connection.GetFullRef(), cla.commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if outputUnsignedVsa != "" {
-		err = os.WriteFile(outputUnsignedVsa, []byte(unsignedVsa), 0644)
-		if err != nil {
+	if cla.outputUnsignedVsa != "" {
+		if err = os.WriteFile(cla.outputUnsignedVsa, []byte(unsignedVsa), 0644); err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	if outputVsa != "" {
+	if cla.outputVsa != "" {
 		// This will output in the sigstore bundle format.
 		signedVsa, err := attest.Sign(unsignedVsa)
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = os.WriteFile(outputVsa, []byte(signedVsa), 0644)
+		err = os.WriteFile(cla.outputVsa, []byte(signedVsa), 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -84,7 +95,6 @@ func init() {
 	rootCmd.AddCommand(checklevelCmd)
 
 	// Here you will define your flags and configuration settings.
-
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.commit, "commit", "", "The commit to check.")
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.owner, "owner", "", "The GitHub repository owner - required.")
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.repo, "repo", "", "The GitHub repository name - required.")
@@ -92,5 +102,5 @@ func init() {
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.outputVsa, "output_vsa", "", "The path to write a signed VSA with the determined level.")
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.outputUnsignedVsa, "output_unsigned_vsa", "", "The path to write an unsigned vsa with the determined level.")
 	checklevelCmd.Flags().StringVar(&checkLevelArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
-
+	checklevelCmd.Flags().BoolVar(&checkLevelArgs.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch.")
 }
