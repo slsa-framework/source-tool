@@ -459,7 +459,7 @@ func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, gh_connection *gh
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
 	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
-	if err != nil {
+	if err != nil || rp == nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
@@ -485,7 +485,7 @@ func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, gh_connection *gh
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
 func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
 	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
-	if err != nil {
+	if err != nil || rp == nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 

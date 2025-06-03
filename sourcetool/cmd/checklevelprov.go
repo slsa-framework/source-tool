@@ -29,6 +29,7 @@ type CheckLevelProvArgs struct {
 	expectedIssuer       string
 	expectedSan          string
 	useLocalPolicy       string
+	allowMergeCommits    bool
 }
 
 // checklevelprovCmd represents the checklevelprov command
@@ -47,6 +48,7 @@ var (
 func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	gh_connection :=
 		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, gh_control.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
+	gh_connection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
 	ctx := context.Background()
 
 	prevCommit := checkLevelProvArgs.prevCommit
@@ -135,5 +137,5 @@ func init() {
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
-
+	checklevelprovCmd.Flags().BoolVar(&checkLevelProvArgs.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch")
 }
