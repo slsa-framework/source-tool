@@ -10,6 +10,7 @@ import (
 // Manages a connection to a GitHub repository.
 type GitHubConnection struct {
 	client           *github.Client
+	Options          Options
 	owner, repo, ref string
 }
 
@@ -19,10 +20,12 @@ func NewGhConnection(owner, repo, ref string) *GitHubConnection {
 
 func NewGhConnectionWithClient(owner, repo, ref string, client *github.Client) *GitHubConnection {
 	return &GitHubConnection{
-		client: client,
-		owner:  owner,
-		repo:   repo,
-		ref:    ref}
+		client:  client,
+		owner:   owner,
+		repo:    repo,
+		ref:     ref,
+		Options: defaultOptions,
+	}
 }
 
 func (ghc *GitHubConnection) Client() *github.Client {
@@ -68,7 +71,7 @@ func (ghc *GitHubConnection) GetPriorCommit(ctx context.Context, sha string) (st
 		return "", fmt.Errorf("there is no commit earlier than %s, that isn't yet supported", sha)
 	}
 
-	if len(commit.Parents) > 1 {
+	if len(commit.Parents) > 1 && !ghc.Options.AllowMergeCommits {
 		return "", fmt.Errorf("commit %s has more than one parent (%v), which is not supported", sha, commit.Parents)
 	}
 
