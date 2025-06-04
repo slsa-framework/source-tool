@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+# SPDX-License-Identifier: Apache-2.0
+---
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "sourcetool"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    groups:
+      gomod:
+        update-types:
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    groups:
+      actions:
+        update-types:
+          - "minor"
+          - "patch"
