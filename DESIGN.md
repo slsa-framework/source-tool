@@ -162,9 +162,6 @@ This control is met if the repo:
 
 TODO: Provide a preconfigured ruleset under rulesets/
 
-TODO: Update the policy to either require tag_immutability be set explicitly
-or make it implicit if the policy is Level 3+.
-
 ### TAG_HYGIENE
 
 TAG_HYGIENE maps to the SLSA Source Track
