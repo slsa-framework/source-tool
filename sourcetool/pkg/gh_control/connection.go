@@ -3,9 +3,12 @@ package gh_control
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/google/go-github/v69/github"
 )
+
+const tokenEnvVar = "GITHUB_TOKEN"
 
 // Manages a connection to a GitHub repository.
 type GitHubConnection struct {
@@ -19,6 +22,16 @@ func NewGhConnection(owner, repo, ref string) *GitHubConnection {
 }
 
 func NewGhConnectionWithClient(owner, repo, ref string, client *github.Client) *GitHubConnection {
+	opts := defaultOptions
+
+	// If the token is in the environment capture it now.
+	if t := os.Getenv(tokenEnvVar); t != "" {
+		opts.accessToken = t
+		if client != nil {
+			client.WithAuthToken(t)
+		}
+	}
+
 	return &GitHubConnection{
 		client:  client,
 		owner:   owner,
@@ -48,7 +61,8 @@ func (ghc *GitHubConnection) GetFullRef() string {
 // If the token is the empty string this is a no-op.
 func (ghc *GitHubConnection) WithAuthToken(token string) *GitHubConnection {
 	if token != "" {
-		ghc.client = ghc.client.WithAuthToken(token)
+		ghc.Options.accessToken = token
+		ghc.client = ghc.client.WithAuthToken(ghc.Options.accessToken)
 	}
 	return ghc
 }
