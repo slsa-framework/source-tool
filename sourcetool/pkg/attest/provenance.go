@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
 const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft"
@@ -35,13 +35,13 @@ type SourceProvenancePred struct {
 	// TODO: get the author of the PR (if this was from a PR).
 
 	// The controls enabled at the time this commit was pushed.
-	Controls slsa_types.Controls `json:"controls"`
+	Controls slsa.Controls `json:"controls"`
 }
 
 // Summary of a summary
 type VsaSummary struct {
-	SourceRefs     []string                 `json:"source_refs"`
-	VerifiedLevels []slsa_types.ControlName `json:"verifiedLevels"`
+	SourceRefs     []string           `json:"source_refs"`
+	VerifiedLevels []slsa.ControlName `json:"verifiedLevels"`
 }
 
 type TagProvenancePred struct {
@@ -50,8 +50,8 @@ type TagProvenancePred struct {
 	Tag       string    `json:"tag"`
 	CreatedOn time.Time `json:"created_on"`
 	// The tag related controls enabled at the time this tag was created/updated.
-	Controls     slsa_types.Controls `json:"controls"`
-	VsaSummaries []VsaSummary        `json:"vsa_summaries"`
+	Controls     slsa.Controls `json:"controls"`
+	VsaSummaries []VsaSummary  `json:"vsa_summaries"`
 }
 
 type ProvenanceAttestor struct {
@@ -163,7 +163,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.Controls = controlStatus.Controls
 
 	// At the very least provenance is available starting now. :)
-	curProvPred.Controls.AddControl(&slsa_types.Control{Name: slsa_types.ProvenanceAvailable, Since: curTime})
+	curProvPred.Controls.AddControl(&slsa.Control{Name: slsa.ProvenanceAvailable, Since: curTime})
 
 	return addPredToStatement(&curProvPred, SourceProvPredicateType, commit)
 }
@@ -265,7 +265,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		if prevControl == nil {
 			continue
 		}
-		curControl.Since = slsa_types.EarlierTime(curControl.Since, prevControl.Since)
+		curControl.Since = slsa.EarlierTime(curControl.Since, prevControl.Since)
 		// Update the value.
 		curProvPred.Controls[i] = curControl
 	}
@@ -311,7 +311,7 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 		VsaSummaries: []VsaSummary{
 			{
 				SourceRefs:     vsaRefs,
-				VerifiedLevels: slsa_types.StringsToControlNames(vsaPred.VerifiedLevels),
+				VerifiedLevels: slsa.StringsToControlNames(vsaPred.VerifiedLevels),
 			},
 		},
 	}

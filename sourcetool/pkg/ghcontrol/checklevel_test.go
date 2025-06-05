@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/go-github/v69/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
 var curTime = time.Unix(1678886400, 0) // March 15, 2023 00:00:00 UTC
@@ -229,22 +229,22 @@ func TestBuiltinBranchControls(t *testing.T) {
 	tests := []struct {
 		branchRules     []branchRuleRawResponse
 		rulesetRules    *github.RepositoryRulesetRules
-		expectedControl slsa_types.ControlName
+		expectedControl slsa.ControlName
 	}{
 		{
 			branchRules:     createContinuityBranchRules(),
 			rulesetRules:    rulesForBranchContinuity(),
-			expectedControl: slsa_types.ContinuityEnforced,
+			expectedControl: slsa.ContinuityEnforced,
 		},
 		{
 			branchRules:     createReviewBranchRules(),
 			rulesetRules:    rulesForReviewEnforced(),
-			expectedControl: slsa_types.ReviewEnforced,
+			expectedControl: slsa.ReviewEnforced,
 		},
 		{
 			branchRules:     createTagHygieneRules(),
 			rulesetRules:    rulesForTagHygiene(),
-			expectedControl: slsa_types.TagHygiene,
+			expectedControl: slsa.TagHygiene,
 		},
 	}
 	for _, tt := range tests {
@@ -275,21 +275,21 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 	tests := []struct {
 		name                 string
 		checks               []branchRuleRawResponse
-		expectedControlNames []slsa_types.ControlName
+		expectedControlNames []slsa.ControlName
 	}{
 		{
 			name: "check with invalid id",
 			checks: createRequiredChecksRules([]*github.RuleStatusCheck{
 				{Context: "check-bad", IntegrationID: github.Ptr(int64(1))},
 			}),
-			expectedControlNames: []slsa_types.ControlName{},
+			expectedControlNames: []slsa.ControlName{},
 		},
 		{
 			name: "check using Github Actions",
 			checks: createRequiredChecksRules([]*github.RuleStatusCheck{
 				{Context: "check-good", IntegrationID: github.Ptr(int64(15368))},
 			}),
-			expectedControlNames: []slsa_types.ControlName{"GH_REQUIRED_CHECK_check-good"},
+			expectedControlNames: []slsa.ControlName{"GH_REQUIRED_CHECK_check-good"},
 		},
 	}
 	for _, tt := range tests {
@@ -306,7 +306,7 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
 
-			controlNames := []slsa_types.ControlName{}
+			controlNames := []slsa.ControlName{}
 			for _, control := range controlStatus.Controls {
 				controlNames = append(controlNames, control.Name)
 				if !control.Since.Equal(priorTime) {

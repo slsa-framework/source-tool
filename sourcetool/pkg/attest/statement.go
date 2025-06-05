@@ -7,7 +7,7 @@ import (
 	"log"
 
 	spb "github.com/in-toto/attestation/go/v1"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -22,7 +22,7 @@ func NewBundleReader(reader *bufio.Reader, verifier Verifier) *BundleReader {
 
 func (br BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
 	// Is this a sigstore bundle with a statement?
-		vr, err := br.verifier.Verify(line)
+	vr, err := br.verifier.Verify(line)
 	if err == nil {
 		// This is it.
 		return vr.Statement, nil
@@ -43,11 +43,11 @@ func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]strin
 		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", StatementToString(vsaStatement), commit)
 	}
 	annotations := subject.GetAnnotations()
-	sourceRefs, ok := annotations.Fields[slsa_types.SourceRefsAnnotation]
+	sourceRefs, ok := annotations.Fields[slsa.SourceRefsAnnotation]
 	if !ok {
 		// This used to be called 'source_branches', maybe this is an old VSA.
 		// TODO: remove once we're not worried about backward compatibility.
-		sourceRefs, ok = annotations.Fields[slsa_types.SourceBranchesAnnotation]
+		sourceRefs, ok = annotations.Fields[slsa.SourceBranchesAnnotation]
 		if !ok {
 			return []string{}, fmt.Errorf("no source_refs or source_branches annotation in VSA subject")
 		}

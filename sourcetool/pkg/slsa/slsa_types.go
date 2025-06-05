@@ -1,4 +1,4 @@
-package slsa_types
+package slsa
 
 import (
 	"slices"
