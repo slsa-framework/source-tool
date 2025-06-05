@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v69/github"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
 type actor struct {
@@ -69,7 +69,7 @@ type GhControlStatus struct {
 	ActivityType string
 	// The controls that are enabled according to the GitHub API.
 	// May not include other controls like if we have provenance.
-	Controls slsa_types.Controls
+	Controls slsa.Controls
 }
 
 func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBranchRule) bool {
@@ -80,7 +80,7 @@ func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBra
 }
 
 // Computes the continuity control returning nil if it's not enabled.
-func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commit string, rules *github.BranchRules, activity *activity) (*slsa_types.Control, error) {
+func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commit string, rules *github.BranchRules, activity *activity) (*slsa.Control, error) {
 	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRule.UpdatedAt.Time)
 	}
 
-	return &slsa_types.Control{Name: slsa_types.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
+	return &slsa.Control{Name: slsa.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
 }
 
 func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
@@ -123,7 +123,7 @@ func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
-func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa_types.Control, error) {
+func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
 		if *ruleset.Target != github.RulesetTargetTag {
@@ -158,11 +158,11 @@ func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, commi
 		return nil, nil
 	}
 
-	return &slsa_types.Control{Name: slsa_types.TagHygiene, Since: validRuleset.UpdatedAt.Time}, nil
+	return &slsa.Control{Name: slsa.TagHygiene, Since: validRuleset.UpdatedAt.Time}, nil
 }
 
 // Computes the review control returning nil if it's not enabled.
-func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*github.PullRequestBranchRule) (*slsa_types.Control, error) {
+func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*github.PullRequestBranchRule) (*slsa.Control, error) {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
 		if ghc.ruleMeetsRequiresReview(rule) {
@@ -179,16 +179,16 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 	}
 
 	if oldestActive != nil {
-		return &slsa_types.Control{Name: slsa_types.ReviewEnforced, Since: oldestActive.UpdatedAt.Time}, nil
+		return &slsa.Control{Name: slsa.ReviewEnforced, Since: oldestActive.UpdatedAt.Time}, nil
 	}
 
 	return nil, nil
 }
 
-func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckRules []*github.RequiredStatusChecksBranchRule) ([]*slsa_types.Control, error) {
+func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckRules []*github.RequiredStatusChecksBranchRule) ([]*slsa.Control, error) {
 	// Only return the checks we're happy about.
 	// For now that's only stuff from the GitHub Actions app.
-	requiredChecks := []*slsa_types.Control{}
+	requiredChecks := []*slsa.Control{}
 	for _, ghCheckRule := range ghCheckRules {
 		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ghCheckRule.RulesetID, false)
 		if err != nil {
@@ -204,7 +204,7 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 				// Ignore untrusted integration id.
 				continue
 			}
-			requiredChecks = append(requiredChecks, &slsa_types.Control{
+			requiredChecks = append(requiredChecks, &slsa.Control{
 				Name:  CheckNameToControlName(check.Context),
 				Since: ruleset.UpdatedAt.Time,
 			})
@@ -242,7 +242,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 		CommitPushTime: activity.Timestamp,
 		ActivityType:   activity.ActivityType,
 		ActorLogin:     activity.Actor.Login,
-		Controls:       slsa_types.Controls{}}
+		Controls:       slsa.Controls{}}
 
 	branch := GetBranchFromRef(ref)
 	if branch == "" {
@@ -289,7 +289,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	controlStatus := GhControlStatus{
 		CommitPushTime: time.Now(),
-		Controls:       slsa_types.Controls{}}
+		Controls:       slsa.Controls{}}
 
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
 	if err != nil {

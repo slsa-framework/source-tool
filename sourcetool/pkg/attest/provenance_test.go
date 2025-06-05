@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-github/v69/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/testsupport"
 )
 
@@ -31,7 +31,7 @@ func conditionsForTagImmutability() *github.RepositoryRulesetConditions {
 	}
 }
 
-func createTestVsa(t *testing.T, repoUri, ref, commit string, verifiedLevels slsa_types.SourceVerifiedLevels) string {
+func createTestVsa(t *testing.T, repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels) string {
 	vsa, err := CreateUnsignedSourceVsa(repoUri, ref, commit, verifiedLevels, "test-policy")
 	if err != nil {
 		t.Fatalf("failure creating test vsa: %v", err)
@@ -121,7 +121,7 @@ func assertTagProvPredsEqual(t *testing.T, actual, expected TagProvenancePred) {
 }
 
 func TestCreateTagProvenance(t *testing.T) {
-	testVsa := createTestVsa(t, "http://repo", "refs/some/ref", "abc123", slsa_types.SourceVerifiedLevels{"TEST_LEVEL"})
+	testVsa := createTestVsa(t, "http://repo", "refs/some/ref", "abc123", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
 
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
@@ -158,7 +158,7 @@ func TestCreateTagProvenance(t *testing.T) {
 		Actor:     "the-tag-pusher",
 		Tag:       "refs/tags/v1",
 		CreatedOn: rulesetOldTime,
-		Controls: []slsa_types.Control{
+		Controls: []slsa.Control{
 			{
 				Name:  "TAG_HYGIENE",
 				Since: rulesetOldTime,
@@ -167,7 +167,7 @@ func TestCreateTagProvenance(t *testing.T) {
 		VsaSummaries: []VsaSummary{
 			{
 				SourceRefs:     []string{"refs/some/ref"},
-				VerifiedLevels: []slsa_types.ControlName{"TEST_LEVEL"},
+				VerifiedLevels: []slsa.ControlName{"TEST_LEVEL"},
 			},
 		},
 	}

@@ -10,7 +10,7 @@ import (
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -18,7 +18,7 @@ import (
 
 const VsaPredicateType = "https://slsa.dev/verification_summary/v1"
 
-func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_types.SourceVerifiedLevels, policy string) (string, error) {
+func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels, policy string) (string, error) {
 	resourceUri := fmt.Sprintf("git+%s", repoUri)
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
@@ -27,7 +27,7 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_ty
 		ResourceUri:        resourceUri,
 		Policy:             &vpb.VerificationSummary_Policy{Uri: policy},
 		VerificationResult: "PASSED",
-		VerifiedLevels:     slsa_types.ControlNamesToStrings(verifiedLevels),
+		VerifiedLevels:     slsa.ControlNamesToStrings(verifiedLevels),
 	}
 
 	predJson, err := protojson.Marshal(vsaPred)
@@ -35,7 +35,7 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_ty
 		return "", err
 	}
 
-	branchAnnotation := map[string]any{slsa_types.SourceRefsAnnotation: []any{ref}}
+	branchAnnotation := map[string]any{slsa.SourceRefsAnnotation: []any{ref}}
 	annotationStruct, err := structpb.NewStruct(branchAnnotation)
 	if err != nil {
 		return "", fmt.Errorf("creating struct from map: %w", err)

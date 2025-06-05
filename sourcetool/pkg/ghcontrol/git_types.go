@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
 // Matches any reference type.
@@ -28,6 +28,6 @@ func GetTagFromRef(ref string) string {
 	return strings.TrimPrefix(ref, "refs/tags/")
 }
 
-func CheckNameToControlName(checkName string) slsa_types.ControlName {
-	return slsa_types.ControlName(fmt.Sprintf("GH_REQUIRED_CHECK_%s", checkName))
+func CheckNameToControlName(checkName string) slsa.ControlName {
+	return slsa.ControlName(fmt.Sprintf("GH_REQUIRED_CHECK_%s", checkName))
 }
