@@ -3,7 +3,7 @@
   "protected_branches": [
     {
       "Name": "main",
-      "Since": "2025-03-28T15:09:27.845Z",
+      "Since": "2025-06-05T20:08:00.000Z",
       "target_slsa_source_level": "SLSA_SOURCE_LEVEL_3",
       "org_status_check_controls": [
         {
