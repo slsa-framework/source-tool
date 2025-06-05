@@ -1,4 +1,4 @@
-package gh_control
+package ghcontrol
 
 import (
 	"context"
@@ -205,7 +205,7 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 				continue
 			}
 			requiredChecks = append(requiredChecks, &slsa_types.Control{
-				Name: CheckNameToControlName(check.Context),
+				Name:  CheckNameToControlName(check.Context),
 				Since: ruleset.UpdatedAt.Time,
 			})
 		}

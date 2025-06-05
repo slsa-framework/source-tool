@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -46,22 +46,22 @@ var (
 )
 
 func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
-	gh_connection :=
-		gh_control.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, gh_control.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
-	gh_connection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
+	ghconnection :=
+		ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
+	ghconnection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
 	ctx := context.Background()
 
 	prevCommit := checkLevelProvArgs.prevCommit
 	var err error
 	if prevCommit == "" {
-		prevCommit, err = gh_connection.GetPriorCommit(ctx, checkLevelProvArgs.commit)
+		prevCommit, err = ghconnection.GetPriorCommit(ctx, checkLevelProvArgs.commit)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	pa := attest.NewProvenanceAttestor(gh_connection, getVerifier())
-	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit, gh_connection.GetFullRef())
+	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier())
+	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit, ghconnection.GetFullRef())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,13 +69,13 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	// check p against policy
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, gh_connection, prov)
+	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, ghconnection, prov)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// create vsa
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection.GetRepoUri(), gh_connection.GetFullRef(), checkLevelProvArgs.commit, verifiedLevels, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), checkLevelProvArgs.commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}

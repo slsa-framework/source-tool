@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 
 	"github.com/spf13/cobra"
@@ -50,25 +50,25 @@ func doCheckLevel(cla *CheckLevelArgs) {
 		log.Fatalf("Error: %v", err)
 	}
 
-	gh_connection := gh_control.NewGhConnection(
-		cla.owner, cla.repo, gh_control.BranchToFullRef(cla.branch),
+	ghconnection := ghcontrol.NewGhConnection(
+		cla.owner, cla.repo, ghcontrol.BranchToFullRef(cla.branch),
 	).WithAuthToken(githubToken)
-	gh_connection.Options.AllowMergeCommits = cla.allowMergeCommits
+	ghconnection.Options.AllowMergeCommits = cla.allowMergeCommits
 
 	ctx := context.Background()
-	controlStatus, err := gh_connection.GetBranchControls(ctx, cla.commit, gh_connection.GetFullRef())
+	controlStatus, err := ghconnection.GetBranchControls(ctx, cla.commit, ghconnection.GetFullRef())
 	if err != nil {
 		log.Fatal(err)
 	}
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, gh_connection, controlStatus)
+	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, ghconnection, controlStatus)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Print(verifiedLevels)
 
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection.GetRepoUri(), gh_connection.GetFullRef(), cla.commit, verifiedLevels, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), cla.commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}

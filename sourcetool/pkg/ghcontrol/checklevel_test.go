@@ -1,4 +1,4 @@
-package gh_control
+package ghcontrol
 
 import (
 	"context"

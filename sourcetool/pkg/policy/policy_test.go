@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 )
 
@@ -76,8 +76,8 @@ func createStatementForTest(t *testing.T, predicateContent interface{}, predType
 }
 
 // Helper to create a test GH Branch connection with no client.
-func newTestGhBranchConnection(owner, repo, branch string) *gh_control.GitHubConnection {
-	return gh_control.NewGhConnectionWithClient(owner, repo, gh_control.BranchToFullRef(branch), nil)
+func newTestGhBranchConnection(owner, repo, branch string) *ghcontrol.GitHubConnection {
+	return ghcontrol.NewGhConnectionWithClient(owner, repo, ghcontrol.BranchToFullRef(branch), nil)
 }
 
 // createTempPolicyFile creates a temporary file with the given policy data.
@@ -277,7 +277,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			pe := &PolicyEvaluator{}
-			var ghConn *gh_control.GitHubConnection
+			var ghConn *ghcontrol.GitHubConnection
 
 			if tt.name == "Non-existent Policy File -> Error" {
 				pe.UseLocalPolicy = "/path/to/nonexistent/test/policy.json" // Specific path for this test
@@ -445,7 +445,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 	tests := []struct {
 		name               string
 		policyContent      interface{} // RepoPolicy or string for malformed
-		controlStatus      *gh_control.GhControlStatus
+		controlStatus      *ghcontrol.GhControlStatus
 		ghConnBranch       string // Branch for GitHub connection
 		expectedLevels     slsa_types.SourceVerifiedLevels
 		expectedPolicyPath string
@@ -453,7 +453,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 		{
 			name:          "Commit time before policy Since -> SLSA Level 1",
 			policyContent: fullPolicy,
-			controlStatus: &gh_control.GhControlStatus{
+			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: earlierFixedTime, // Commit time before policyL3ReviewTagsNow.Since (now)
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 			},
@@ -464,7 +464,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 		{
 			name:          "Commit time after policy Since, controls meet policy -> Expected levels",
 			policyContent: fullPolicy,
-			controlStatus: &gh_control.GhControlStatus{
+			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: laterFixedTime,
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 			},
@@ -475,7 +475,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 		{
 			name:          "Branch not in policy, commit after default policy since -> Default policy (SLSA L1)",
 			policyContent: basicPolicy, // main is in policy, but we test "develop"
-			controlStatus: &gh_control.GhControlStatus{
+			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: laterFixedTime,
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 			},
@@ -489,7 +489,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			pe := &PolicyEvaluator{}
-			var ghConn *gh_control.GitHubConnection
+			var ghConn *ghcontrol.GitHubConnection
 			actualPolicyPath := tt.expectedPolicyPath // May be overridden for local temp file
 
 			if tt.policyContent != nil {
@@ -540,14 +540,14 @@ func TestEvaluateControl_Failure(t *testing.T) {
 	tests := []struct {
 		name                  string
 		policyContent         interface{} // RepoPolicy or string for malformed
-		controlStatus         *gh_control.GhControlStatus
+		controlStatus         *ghcontrol.GhControlStatus
 		ghConnBranch          string // Branch for GitHub connection
 		expectedErrorContains string
 	}{
 		{
 			name:          "Commit time after policy Since, controls DO NOT meet policy -> Error",
 			policyContent: policyL3Review, // Requires L3, Review, Tags
-			controlStatus: &gh_control.GhControlStatus{
+			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: later,                                                             // Commit time after policy.Since
 				Controls:       slsa_types.Controls{continuityEnforcedEarlier, tagHygieneEarlier}, // Only meets L2
 			},
@@ -557,7 +557,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 		{
 			name:          "Malformed JSON -> Error",
 			policyContent: "not json",
-			controlStatus: &gh_control.GhControlStatus{
+			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: later,
 				Controls:       slsa_types.Controls{},
 			},
@@ -570,7 +570,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			pe := &PolicyEvaluator{}
-			var ghConn *gh_control.GitHubConnection
+			var ghConn *ghcontrol.GitHubConnection
 			policyFilePath := "" // Default to empty, will be set if policyContent is not nil
 
 			if tt.policyContent != nil {
@@ -605,7 +605,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 // setupMockGitHubTestEnv creates a mock GitHub environment for testing.
 // It takes a handler function to simulate GitHub API responses.
 // It returns a GitHubConnection configured to use the mock server and the server itself.
-func setupMockGitHubTestEnv(t *testing.T, targetOwner string, targetRepo string, targetBranch string, handler http.HandlerFunc) (*gh_control.GitHubConnection, *httptest.Server) {
+func setupMockGitHubTestEnv(t *testing.T, targetOwner string, targetRepo string, targetBranch string, handler http.HandlerFunc) (*ghcontrol.GitHubConnection, *httptest.Server) {
 	t.Helper()
 
 	server := httptest.NewServer(handler)
@@ -620,7 +620,7 @@ func setupMockGitHubTestEnv(t *testing.T, targetOwner string, targetRepo string,
 	}
 	ghClient.BaseURL = baseURL
 
-	ghConn := gh_control.NewGhConnectionWithClient(targetOwner, targetRepo, targetBranch, ghClient)
+	ghConn := ghcontrol.NewGhConnectionWithClient(targetOwner, targetRepo, targetBranch, ghClient)
 	return ghConn, server
 }
 
@@ -1383,7 +1383,7 @@ func TestComputeEligibleSince(t *testing.T) {
 	}
 }
 
-func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *gh_control.GitHubConnection, pe *PolicyEvaluator, expectedPolicy *RepoPolicy, expectedBranchPolicy *ProtectedBranch, expectedPath string) {
+func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *ghcontrol.GitHubConnection, pe *PolicyEvaluator, expectedPolicy *RepoPolicy, expectedBranchPolicy *ProtectedBranch, expectedPath string) {
 	rp, gotPath, err := pe.getPolicy(ctx, ghConn)
 
 	if err != nil {
@@ -1405,7 +1405,7 @@ func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *gh_cont
 
 	// TODO: check the rest of the contents of expectedPolicy?
 
-	gotPb := rp.getBranchPolicy(gh_control.GetBranchFromRef(ghConn.GetFullRef()))
+	gotPb := rp.getBranchPolicy(ghcontrol.GetBranchFromRef(ghConn.GetFullRef()))
 
 	if expectedBranchPolicy == nil {
 		if gotPb != nil {

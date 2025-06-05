@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 )
 
@@ -56,10 +56,10 @@ type TagProvenancePred struct {
 
 type ProvenanceAttestor struct {
 	verifier      Verifier
-	gh_connection *gh_control.GitHubConnection
+	gh_connection *ghcontrol.GitHubConnection
 }
 
-func NewProvenanceAttestor(gh_connection *gh_control.GitHubConnection, verifier Verifier) *ProvenanceAttestor {
+func NewProvenanceAttestor(gh_connection *ghcontrol.GitHubConnection, verifier Verifier) *ProvenanceAttestor {
 	return &ProvenanceAttestor{verifier: verifier, gh_connection: gh_connection}
 }
 
@@ -206,7 +206,7 @@ func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref
 		if err != nil {
 			return nil, nil, err
 		}
-		if ref == gh_control.AnyReference || prevProdPred.Branch == ref {
+		if ref == ghcontrol.AnyReference || prevProdPred.Branch == ref {
 			// Should be good!
 			return stmt, prevProdPred, nil
 		} else {
@@ -286,7 +286,7 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 	// Find the most recent VSA for this commit. Any reference is OK.
 	// TODO: in the future get all of them.
 	// TODO: we should actually verify this vsa: https://github.com/slsa-framework/slsa-source-poc/issues/148
-	vsaStatement, vsaPred, err := GetVsa(ctx, pa.gh_connection, pa.verifier, commit, gh_control.AnyReference)
+	vsaStatement, vsaPred, err := GetVsa(ctx, pa.gh_connection, pa.verifier, commit, ghcontrol.AnyReference)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching VSA when creating tag provenance %w", err)
 	}

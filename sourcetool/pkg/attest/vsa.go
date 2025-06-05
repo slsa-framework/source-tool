@@ -9,7 +9,7 @@ import (
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -66,7 +66,7 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa_ty
 }
 
 // Gets provenance for the commit from git notes.
-func GetVsa(ctx context.Context, ghc *gh_control.GitHubConnection, verifier Verifier, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
+func GetVsa(ctx context.Context, ghc *ghcontrol.GitHubConnection, verifier Verifier, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	notes, err := ghc.GetNotesForCommit(ctx, commit)
 	if notes == "" {
 		log.Printf("didn't find notes for commit %s", commit)
@@ -106,7 +106,7 @@ func MatchesTypeCommitAndRef(predicateType, commit, targetRef string) StatementM
 			return false
 		}
 		for _, ref := range refs {
-			if targetRef == gh_control.AnyReference || ref == targetRef {
+			if targetRef == ghcontrol.AnyReference || ref == targetRef {
 				log.Printf("statement \n%v\n matches commit '%s' on ref '%s'", StatementToString(statement), commit, targetRef)
 				return true
 			}
