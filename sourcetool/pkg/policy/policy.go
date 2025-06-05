@@ -15,7 +15,7 @@ import (
 	spb "github.com/in-toto/attestation/go/v1"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 
 	"github.com/go-git/go-git/v5"
@@ -83,19 +83,19 @@ func createDefaultBranchPolicy(branch string) *ProtectedBranch {
 		RequireReview:         false}
 }
 
-func getPolicyPath(gh_connection *gh_control.GitHubConnection) string {
+func getPolicyPath(gh_connection *ghcontrol.GitHubConnection) string {
 	return fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", gh_connection.Owner(), gh_connection.Repo())
 }
 
-func getPolicyRepoPath(pathToClone string, gh_connection *gh_control.GitHubConnection) string {
-	return fmt.Sprintf("%s/%s", pathToClone, getPolicyPath(gh_connection))
+func getPolicyRepoPath(pathToClone string, ghconnection *ghcontrol.GitHubConnection) string {
+	return fmt.Sprintf("%s/%s", pathToClone, getPolicyPath(ghconnection))
 }
 
 // If we can't find a policy we return a nil policy.
-func getRemotePolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (*RepoPolicy, string, error) {
-	path := getPolicyPath(gh_connection)
+func getRemotePolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnection) (*RepoPolicy, string, error) {
+	path := getPolicyPath(ghconnection)
 
-	policyContents, _, resp, err := gh_connection.Client().Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
+	policyContents, _, resp, err := ghconnection.Client().Repositories.GetContents(ctx, SourcePolicyRepoOwner, SourcePolicyRepo, path, nil)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
 		return nil, "", nil
 	}
@@ -130,9 +130,9 @@ func getLocalPolicy(path string) (*RepoPolicy, string, error) {
 	return &p, path, nil
 }
 
-func (pe PolicyEvaluator) getPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection) (policy *RepoPolicy, path string, err error) {
+func (pe PolicyEvaluator) getPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnection) (policy *RepoPolicy, path string, err error) {
 	if pe.UseLocalPolicy == "" {
-		policy, path, err = getRemotePolicy(ctx, gh_connection)
+		policy, path, err = getRemotePolicy(ctx, ghconnection)
 	} else {
 		policy, path, err = getLocalPolicy(pe.UseLocalPolicy)
 	}
@@ -142,7 +142,7 @@ func (pe PolicyEvaluator) getPolicy(ctx context.Context, gh_connection *gh_contr
 
 // Check to see if the local directory is a clean clone or not
 // TODO: Check if the policy exists remotely.
-func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnection, pathToClone string) error {
+func checkLocalDir(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, pathToClone string) error {
 	repo, err := git.PlainOpen(pathToClone)
 	if err != nil {
 		return err
@@ -159,7 +159,7 @@ func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnecti
 		return fmt.Errorf("you must run this command in a clean clone of %s", SourcePolicyUri)
 	}
 
-	path := getPolicyRepoPath(pathToClone, gh_connection)
+	path := getPolicyRepoPath(pathToClone, ghconnection)
 	// Is there already a local policy?
 	_, err = os.Stat(path)
 	if err != nil {
@@ -172,34 +172,34 @@ func checkLocalDir(ctx context.Context, gh_connection *gh_control.GitHubConnecti
 	}
 
 	// Is there a remote policy?
-	rp, _, _ := getRemotePolicy(ctx, gh_connection)
+	rp, _, _ := getRemotePolicy(ctx, ghconnection)
 	if rp != nil {
-		return fmt.Errorf("policy already exists remotely for %s", getPolicyPath(gh_connection))
+		return fmt.Errorf("policy already exists remotely for %s", getPolicyPath(ghconnection))
 	}
 	return nil
 }
 
-func CreateLocalPolicy(ctx context.Context, gh_connection *gh_control.GitHubConnection, pathToClone string) (string, error) {
+func CreateLocalPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, pathToClone string) (string, error) {
 	// First make sure they're in the right state...
-	err := checkLocalDir(ctx, gh_connection, pathToClone)
+	err := checkLocalDir(ctx, ghconnection, pathToClone)
 	if err != nil {
 		return "", err
 	}
 
-	path := getPolicyRepoPath(pathToClone, gh_connection)
+	path := getPolicyRepoPath(pathToClone, ghconnection)
 
 	// What's their latest commit (needed for checking control status)
-	branch := gh_control.GetBranchFromRef(gh_connection.GetFullRef())
+	branch := ghcontrol.GetBranchFromRef(ghconnection.GetFullRef())
 	if branch == "" {
-		return "", fmt.Errorf("cannot create local policy, ref %s isn't a branch", gh_connection.GetFullRef())
+		return "", fmt.Errorf("cannot create local policy, ref %s isn't a branch", ghconnection.GetFullRef())
 	}
-	latestCommit, err := gh_connection.GetLatestCommit(ctx, branch)
+	latestCommit, err := ghconnection.GetLatestCommit(ctx, branch)
 	if err != nil {
 		return "", fmt.Errorf("could not get latest commit: %w", err)
 	}
 
-	pa := attest.NewProvenanceAttestor(gh_connection, attest.GetDefaultVerifier())
-	_, provPred, err := pa.GetProvenance(ctx, latestCommit, gh_connection.GetFullRef())
+	pa := attest.NewProvenanceAttestor(ghconnection, attest.GetDefaultVerifier())
+	_, provPred, err := pa.GetProvenance(ctx, latestCommit, ghconnection.GetFullRef())
 	if err != nil {
 		return "", fmt.Errorf("could not get provenance for latest commit: %w", err)
 	}
@@ -368,7 +368,7 @@ func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls
 			return []slsa_types.ControlName{}, fmt.Errorf("policy specifies an invalid property name %v, custom property names MUST start with %v", rc.PropertyName, slsa_types.AllowedOrgPropPrefix)
 		}
 
-		control := controls.GetControl(gh_control.CheckNameToControlName(rc.CheckName))
+		control := controls.GetControl(ghcontrol.CheckNameToControlName(rc.CheckName))
 		if control != nil {
 			if rc.Since.Before(control.Since) {
 				return []slsa_types.ControlName{}, fmt.Errorf("policy requires check '%v' since %v, but that control has only been enabled since %v", rc.CheckName, rc.Since, control.Since)
@@ -455,15 +455,15 @@ func NewPolicyEvaluator() *PolicyEvaluator {
 }
 
 // Evaluates the control against the policy and returns the resulting source level and policy path.
-func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, gh_connection *gh_control.GitHubConnection, controlStatus *gh_control.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
+func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, controlStatus *ghcontrol.GhControlStatus) (slsa_types.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
-	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
+	rp, policyPath, err := pe.getPolicy(ctx, ghconnection)
 	if err != nil || rp == nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
-	branch := gh_control.GetBranchFromRef(gh_connection.GetFullRef())
+	branch := ghcontrol.GetBranchFromRef(ghconnection.GetFullRef())
 	branchPolicy := rp.getBranchPolicy(branch)
 	if branchPolicy == nil {
 		branchPolicy = createDefaultBranchPolicy(branch)
@@ -483,8 +483,8 @@ func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, gh_connection *gh
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
-	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
+func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
+	rp, policyPath, err := pe.getPolicy(ctx, ghconnection)
 	if err != nil || rp == nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
@@ -494,7 +494,7 @@ func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, gh_connection 
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}
 
-	branch := gh_control.GetBranchFromRef(gh_connection.GetFullRef())
+	branch := ghcontrol.GetBranchFromRef(ghconnection.GetFullRef())
 	branchPolicy := rp.getBranchPolicy(branch)
 	if branchPolicy == nil {
 		branchPolicy = createDefaultBranchPolicy(branch)
@@ -511,8 +511,8 @@ func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, gh_connection 
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func (pe PolicyEvaluator) EvaluateTagProv(ctx context.Context, gh_connection *gh_control.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
-	rp, policyPath, err := pe.getPolicy(ctx, gh_connection)
+func (pe PolicyEvaluator) EvaluateTagProv(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, prov *spb.Statement) (slsa_types.SourceVerifiedLevels, string, error) {
+	rp, policyPath, err := pe.getPolicy(ctx, ghconnection)
 	if err != nil {
 		return slsa_types.SourceVerifiedLevels{}, "", err
 	}

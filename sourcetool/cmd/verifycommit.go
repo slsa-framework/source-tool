@@ -9,7 +9,7 @@ import (
 	"log"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/spf13/cobra"
 )
 
@@ -36,17 +36,17 @@ func doVerifyCommit(commit, owner, repo, branch, tag string) {
 
 	ref := ""
 	if branch != "" {
-		ref = gh_control.BranchToFullRef(branch)
+		ref = ghcontrol.BranchToFullRef(branch)
 	} else if tag != "" {
-		ref = gh_control.TagToFullRef(tag)
+		ref = ghcontrol.TagToFullRef(tag)
 	} else {
 		log.Fatal("Must specify either branch or tag.")
 	}
 
-	gh_connection := gh_control.NewGhConnection(owner, repo, ref).WithAuthToken(githubToken)
+	ghconnection := ghcontrol.NewGhConnection(owner, repo, ref).WithAuthToken(githubToken)
 	ctx := context.Background()
 
-	_, vsaPred, err := attest.GetVsa(ctx, gh_connection, getVerifier(), commit, gh_connection.GetFullRef())
+	_, vsaPred, err := attest.GetVsa(ctx, ghconnection, getVerifier(), commit, ghconnection.GetFullRef())
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-github/v69/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa_types"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/testsupport"
 )
@@ -77,9 +77,9 @@ func newMockedGitHubClient(rulesetResponse *github.RepositoryRuleset, notesConte
 }
 
 // Helper to create a test GH Branch connection with no client.
-func newTestGhConnection(owner, repo, branch string, rulesetResponse *github.RepositoryRuleset, notesContent *github.RepositoryContent) *gh_control.GitHubConnection {
-	return gh_control.NewGhConnectionWithClient(
-		owner, repo, gh_control.BranchToFullRef(branch),
+func newTestGhConnection(owner, repo, branch string, rulesetResponse *github.RepositoryRuleset, notesContent *github.RepositoryContent) *ghcontrol.GitHubConnection {
+	return ghcontrol.NewGhConnectionWithClient(
+		owner, repo, ghcontrol.BranchToFullRef(branch),
 		newMockedGitHubClient(rulesetResponse, notesContent))
 }
 

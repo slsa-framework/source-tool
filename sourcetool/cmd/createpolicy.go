@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 
 	"github.com/spf13/cobra"
@@ -35,9 +35,9 @@ var (
 )
 
 func doCreatePolicy(policyRepoPath, owner, repo, branch string) {
-	gh_connection := gh_control.NewGhConnection(owner, repo, gh_control.BranchToFullRef(branch)).WithAuthToken(githubToken)
+	ghconnection := ghcontrol.NewGhConnection(owner, repo, ghcontrol.BranchToFullRef(branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
-	outpath, err := policy.CreateLocalPolicy(ctx, gh_connection, policyRepoPath)
+	outpath, err := policy.CreateLocalPolicy(ctx, ghconnection, policyRepoPath)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/gh_control"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -39,14 +39,14 @@ var (
 )
 
 func doCheckTag(args CheckTagArgs) {
-	gh_connection :=
-		gh_control.NewGhConnection(args.owner, args.repo, gh_control.TagToFullRef(args.tagName)).WithAuthToken(githubToken)
+	ghconnection :=
+		ghcontrol.NewGhConnection(args.owner, args.repo, ghcontrol.TagToFullRef(args.tagName)).WithAuthToken(githubToken)
 	ctx := context.Background()
 	verifier := getVerifier()
 
 	// Create tag provenance.
-	pa := attest.NewProvenanceAttestor(gh_connection, verifier)
-	prov, err := pa.CreateTagProvenance(ctx, args.commit, gh_control.TagToFullRef(args.tagName), args.actor)
+	pa := attest.NewProvenanceAttestor(ghconnection, verifier)
+	prov, err := pa.CreateTagProvenance(ctx, args.commit, ghcontrol.TagToFullRef(args.tagName), args.actor)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -54,13 +54,13 @@ func doCheckTag(args CheckTagArgs) {
 	// check p against policy
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = args.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateTagProv(ctx, gh_connection, prov)
+	verifiedLevels, policyPath, err := pe.EvaluateTagProv(ctx, ghconnection, prov)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// create vsa
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(gh_connection.GetRepoUri(), gh_connection.GetFullRef(), args.commit, verifiedLevels, policyPath)
+	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), args.commit, verifiedLevels, policyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
