@@ -37,7 +37,7 @@ func NewGhConnectionWithClient(owner, repo, ref string, client *github.Client) *
 		owner:   owner,
 		repo:    repo,
 		ref:     ref,
-		Options: defaultOptions,
+		Options: opts,
 	}
 }
 
