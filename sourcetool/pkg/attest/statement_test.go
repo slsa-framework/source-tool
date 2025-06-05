@@ -33,7 +33,7 @@ func newStatement(commit string, annotation *map[string]any) (*spb.Statement, er
 
 func stringToAnyArray(valArray []string) []any {
 	aa := make([]any, len(valArray))
-	for i, _ := range valArray {
+	for i := range valArray {
 		aa[i] = valArray[i]
 	}
 	return aa

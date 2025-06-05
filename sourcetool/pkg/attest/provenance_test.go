@@ -1,13 +1,13 @@
 package attest
 
 import (
-	"context"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/go-github/v69/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/testsupport"
@@ -46,7 +46,8 @@ func newNotesContent(content string) *github.RepositoryContent {
 }
 
 func newTagHygieneRulesetsResponse(id int64, target github.RulesetTarget, enforcement github.RulesetEnforcement,
-	updatedAt time.Time) *github.RepositoryRuleset {
+	updatedAt time.Time,
+) *github.RepositoryRuleset {
 	return &github.RepositoryRuleset{
 		ID:          github.Ptr(id),
 		Target:      github.Ptr(target),
@@ -108,7 +109,7 @@ func assertTagProvPredsEqual(t *testing.T, actual, expected TagProvenancePred) {
 	if len(actual.Controls) != len(expected.Controls) {
 		t.Errorf("Control %v does not match expected value %v", actual.Controls, expected.Controls)
 	} else {
-		for ci, _ := range actual.Controls {
+		for ci := range actual.Controls {
 			if !timesEqualWithinMargin(actual.Controls[ci].Since, expected.Controls[ci].Since, time.Second) {
 				t.Errorf("control at [%d]'s time %v does not match expected time %v", ci,
 					actual.Controls[ci].Since, expected.Controls[ci].Since)
@@ -131,7 +132,7 @@ func TestCreateTagProvenance(t *testing.T) {
 
 	pa := NewProvenanceAttestor(ghc, verifier)
 
-	stmt, err := pa.CreateTagProvenance(context.Background(), "abc123", "refs/tags/v1", "the-tag-pusher")
+	stmt, err := pa.CreateTagProvenance(t.Context(), "abc123", "refs/tags/v1", "the-tag-pusher")
 	if err != nil {
 		t.Fatalf("error creating tag prov %v", err)
 	}
@@ -140,12 +141,12 @@ func TestCreateTagProvenance(t *testing.T) {
 		t.Fatalf("returned statement is nil")
 	}
 
-	if stmt.PredicateType != TagProvPredicateType {
-		t.Errorf("statement pred type %v does not match expected %v", stmt.PredicateType, TagProvPredicateType)
+	if stmt.GetPredicateType() != TagProvPredicateType {
+		t.Errorf("statement pred type %v does not match expected %v", stmt.GetPredicateType(), TagProvPredicateType)
 	}
 
 	if !DoesSubjectIncludeCommit(stmt, "abc123") {
-		t.Errorf("statement subject %v does not match expected %v", stmt.Subject, "abc123")
+		t.Errorf("statement subject %v does not match expected %v", stmt.GetSubject(), "abc123")
 	}
 
 	tagPred, err := GetTagProvPred(stmt)

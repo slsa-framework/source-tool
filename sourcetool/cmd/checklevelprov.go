@@ -9,12 +9,12 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
-	"google.golang.org/protobuf/encoding/protojson"
-
-	"github.com/spf13/cobra"
 )
 
 type CheckLevelProvArgs struct {
@@ -46,8 +46,7 @@ var (
 )
 
 func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
-	ghconnection :=
-		ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
+	ghconnection := ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
 	ghconnection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
 	ctx := context.Background()
 
@@ -87,18 +86,18 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 
 	// Store both the unsigned provenance and vsa
 	if checkLevelProvArgs.outputUnsignedBundle != "" {
-		f, err := os.OpenFile(checkLevelProvArgs.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		f, err := os.OpenFile(checkLevelProvArgs.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer f.Close()
 
-		f.WriteString(string(unsignedProv))
+		f.Write(unsignedProv)
 		f.WriteString("\n")
 		f.WriteString(unsignedVsa)
 		f.WriteString("\n")
 	} else if checkLevelProvArgs.outputSignedBundle != "" {
-		f, err := os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		f, err := os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
 		if err != nil {
 			log.Fatal(err)
 		}

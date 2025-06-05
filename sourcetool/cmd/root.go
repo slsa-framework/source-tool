@@ -6,8 +6,9 @@ package cmd
 import (
 	"os"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/spf13/cobra"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 )
 
 var (
@@ -59,5 +60,4 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
 	rootCmd.PersistentFlags().StringVar(&expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
 	rootCmd.PersistentFlags().StringVar(&expectedSan, "expected_san", "", "The expect san of attestations.")
-
 }

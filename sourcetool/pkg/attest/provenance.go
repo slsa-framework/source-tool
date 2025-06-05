@@ -19,8 +19,10 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
-const SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft"
-const TagProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/tag-provenance/v1-draft"
+const (
+	SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft"
+	TagProvPredicateType    = "https://github.com/slsa-framework/slsa-source-poc/tag-provenance/v1-draft"
+)
 
 // The predicate that encodes source provenance data.
 // The git commit this corresponds to is encoded in the surrounding statement.
@@ -67,13 +69,13 @@ func GetSourceProvPred(statement *spb.Statement) (*SourceProvenancePred, error) 
 	if statement == nil {
 		return nil, errors.New("nil statement")
 	}
-	if statement.PredicateType != SourceProvPredicateType {
-		return nil, fmt.Errorf("unsupported predicate type: %s", statement.PredicateType)
+	if statement.GetPredicateType() != SourceProvPredicateType {
+		return nil, fmt.Errorf("unsupported predicate type: %s", statement.GetPredicateType())
 	}
-	if statement.Predicate == nil {
+	if statement.GetPredicate() == nil {
 		return nil, errors.New("nil predicate in statement")
 	}
-	predJson, err := protojson.Marshal(statement.Predicate)
+	predJson, err := protojson.Marshal(statement.GetPredicate())
 	if err != nil {
 		return nil, fmt.Errorf("cannot marshal predicate to JSON: %w", err)
 	}
@@ -94,13 +96,13 @@ func GetTagProvPred(statement *spb.Statement) (*TagProvenancePred, error) {
 	if statement == nil {
 		return nil, errors.New("nil statement")
 	}
-	if statement.PredicateType != TagProvPredicateType {
-		return nil, fmt.Errorf("unsupported predicate type: %s", statement.PredicateType)
+	if statement.GetPredicateType() != TagProvPredicateType {
+		return nil, fmt.Errorf("unsupported predicate type: %s", statement.GetPredicateType())
 	}
-	if statement.Predicate == nil {
+	if statement.GetPredicate() == nil {
 		return nil, errors.New("nil predicate in statement")
 	}
-	predJson, err := protojson.Marshal(statement.Predicate)
+	predJson, err := protojson.Marshal(statement.GetPredicate())
 	if err != nil {
 		return nil, fmt.Errorf("cannot marshal predicate to JSON: %w", err)
 	}
@@ -311,7 +313,7 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 		VsaSummaries: []VsaSummary{
 			{
 				SourceRefs:     vsaRefs,
-				VerifiedLevels: slsa.StringsToControlNames(vsaPred.VerifiedLevels),
+				VerifiedLevels: slsa.StringsToControlNames(vsaPred.GetVerifiedLevels()),
 			},
 		},
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v69/github"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
@@ -97,7 +98,7 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	}
 
 	newestRule := oldestDeletion
-	if newestRule.UpdatedAt.Time.Before(oldestNoFf.UpdatedAt.Time) {
+	if newestRule.UpdatedAt.Before(oldestNoFf.UpdatedAt.Time) {
 		newestRule = oldestNoFf
 	}
 
@@ -171,7 +172,7 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 				return nil, err
 			}
 			if ruleset.Enforcement == "active" {
-				if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
+				if oldestActive == nil || oldestActive.UpdatedAt.After(ruleset.UpdatedAt.Time) {
 					oldestActive = ruleset
 				}
 			}
@@ -221,7 +222,7 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 			return nil, err
 		}
 		if ruleset.Enforcement == "active" {
-			if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
+			if oldestActive == nil || oldestActive.UpdatedAt.After(ruleset.UpdatedAt.Time) {
 				oldestActive = ruleset
 			}
 		}
@@ -242,7 +243,8 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 		CommitPushTime: activity.Timestamp,
 		ActivityType:   activity.ActivityType,
 		ActorLogin:     activity.Actor.Login,
-		Controls:       slsa.Controls{}}
+		Controls:       slsa.Controls{},
+	}
 
 	branch := GetBranchFromRef(ref)
 	if branch == "" {
@@ -289,7 +291,8 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	controlStatus := GhControlStatus{
 		CommitPushTime: time.Now(),
-		Controls:       slsa.Controls{}}
+		Controls:       slsa.Controls{},
+	}
 
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
 	if err != nil {

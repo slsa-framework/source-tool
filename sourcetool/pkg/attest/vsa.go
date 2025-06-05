@@ -9,11 +9,12 @@ import (
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
 const VsaPredicateType = "https://slsa.dev/verification_summary/v1"
@@ -22,7 +23,8 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.So
 	resourceUri := fmt.Sprintf("git+%s", repoUri)
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
-			Id: "https://github.com/slsa-framework/slsa-source-poc"},
+			Id: "https://github.com/slsa-framework/slsa-source-poc",
+		},
 		TimeVerified:       timestamppb.Now(),
 		ResourceUri:        resourceUri,
 		Policy:             &vpb.VerificationSummary_Policy{Uri: policy},
@@ -80,7 +82,7 @@ func GetVsa(ctx context.Context, ghc *ghcontrol.GitHubConnection, verifier Verif
 }
 
 func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
-	predJson, err := protojson.Marshal(statement.Predicate)
+	predJson, err := protojson.Marshal(statement.GetPredicate())
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +98,8 @@ func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 
 func MatchesTypeCommitAndRef(predicateType, commit, targetRef string) StatementMatcher {
 	return func(statement *spb.Statement) bool {
-		if statement.PredicateType != predicateType {
-			log.Printf("statement predicate type (%s) doesn't match %s", statement.PredicateType, predicateType)
+		if statement.GetPredicateType() != predicateType {
+			log.Printf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
 			return false
 		}
 		refs, err := GetSourceRefsForCommit(statement, commit)

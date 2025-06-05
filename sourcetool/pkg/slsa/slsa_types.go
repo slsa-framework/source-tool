@@ -5,8 +5,10 @@ import (
 	"time"
 )
 
-type ControlName string
-type SlsaSourceLevel ControlName
+type (
+	ControlName     string
+	SlsaSourceLevel ControlName
+)
 
 const (
 	SlsaSourceLevel1         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
@@ -28,7 +30,8 @@ func IsSlsaSourceLevel(control ControlName) bool {
 			ControlName(SlsaSourceLevel1),
 			ControlName(SlsaSourceLevel2),
 			ControlName(SlsaSourceLevel3),
-			ControlName(SlsaSourceLevel4)},
+			ControlName(SlsaSourceLevel4),
+		},
 		control)
 }
 

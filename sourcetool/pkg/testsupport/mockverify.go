@@ -8,8 +8,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-type MockVerifier struct {
-}
+type MockVerifier struct{}
 
 func NewMockVerifier() *MockVerifier {
 	return &MockVerifier{}

@@ -12,13 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	spb "github.com/in-toto/attestation/go/v1"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-
-	"github.com/go-git/go-git/v5"
 )
 
 const (
@@ -80,7 +79,8 @@ func createDefaultBranchPolicy(branch string) *ProtectedBranch {
 		Name:                  branch,
 		Since:                 time.Now(),
 		TargetSlsaSourceLevel: slsa.SlsaSourceLevel1,
-		RequireReview:         false}
+		RequireReview:         false,
+	}
 }
 
 func getPolicyPath(gh_connection *ghcontrol.GitHubConnection) string {
@@ -205,8 +205,8 @@ func CreateLocalPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnec
 	}
 
 	// Default to SLSA1 since unset date
-	var eligibleSince = &time.Time{}
-	var eligibleLevel = slsa.SlsaSourceLevel1
+	eligibleSince := &time.Time{}
+	eligibleLevel := slsa.SlsaSourceLevel1
 
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
@@ -235,11 +235,11 @@ func CreateLocalPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnec
 	}
 
 	// Create the entire path if it doesn't already exist
-	if err := os.MkdirAll(filepath.Dir(path), 0770); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o770); err != nil {
 		return "", err
 	}
 
-	err = os.WriteFile(path, data, 0644)
+	err = os.WriteFile(path, data, 0o644)
 	if err != nil {
 		return "", err
 	}
@@ -259,7 +259,8 @@ func computeEligibleForLevel(controls slsa.Controls, level slsa.SlsaSourceLevel)
 func computeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
 	// Go from highest to lowest.
 	for _, level := range []slsa.SlsaSourceLevel{
-		slsa.SlsaSourceLevel4, slsa.SlsaSourceLevel3, slsa.SlsaSourceLevel2} {
+		slsa.SlsaSourceLevel4, slsa.SlsaSourceLevel3, slsa.SlsaSourceLevel2,
+	} {
 		eligible := computeEligibleForLevel(controls, level)
 		if eligible {
 			return level
@@ -275,7 +276,6 @@ func computeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
 func computeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*time.Time, error) {
-
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
 	var newestTime time.Time
 	for _, rc := range requiredControls {
@@ -383,7 +383,6 @@ func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls
 
 // Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a branch.
 func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls slsa.Controls) (slsa.SourceVerifiedLevels, error) {
-
 	policyComputers := []computePolicyResult{computeSlsaLevel, computeReviewEnforced, computeTagHygiene, computeOrgControls}
 
 	verifiedLevels := slsa.SourceVerifiedLevels{}
