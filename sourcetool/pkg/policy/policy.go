@@ -36,7 +36,7 @@ type OrgStatusCheckControl struct {
 	PropertyName slsa.ControlName `json:"property_name"`
 	// These controls have their own start time to enable orgs to enable
 	// new ones without violating continuity on other controls.
-	Since time.Time
+	Since time.Time `json:"Since"`
 	// The name of the 'Status Check' as reported in the GitHub UI & API.
 	CheckName string `json:"check_name"`
 }
@@ -44,8 +44,8 @@ type OrgStatusCheckControl struct {
 // When a branch requires multiple controls, they must all be enabled
 // at or before 'Since'.
 type ProtectedBranch struct {
-	Name                  string
-	Since                 time.Time
+	Name                  string                  `json:"Name"`
+	Since                 time.Time               `json:"Since"`
 	TargetSlsaSourceLevel slsa.SlsaSourceLevel    `json:"target_slsa_source_level"`
 	RequireReview         bool                    `json:"require_review"`
 	RequiredStatusChecks  []OrgStatusCheckControl `json:"org_status_check_controls"`
@@ -53,8 +53,8 @@ type ProtectedBranch struct {
 
 // The controls required for protected tags.
 type ProtectedTag struct {
-	Since      time.Time
-	TagHygiene bool `json:"tag_hygiene"`
+	Since      time.Time `json:"Since"`
+	TagHygiene bool      `json:"tag_hygiene"`
 }
 
 type RepoPolicy struct {
@@ -101,7 +101,7 @@ func getRemotePolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnecti
 	}
 
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("fetching policy code: %w", err)
 	}
 
 	content, err := policyContents.GetContent()
@@ -111,7 +111,7 @@ func getRemotePolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnecti
 	var p RepoPolicy
 	err = json.Unmarshal([]byte(content), &p)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("unmarshaling policy code: %w", err)
 	}
 	return &p, *policyContents.HTMLURL, nil
 }
@@ -123,7 +123,7 @@ func getLocalPolicy(path string) (*RepoPolicy, string, error) {
 	}
 
 	var p RepoPolicy
-	err = json.Unmarshal([]byte(contents), &p)
+	err = json.Unmarshal(contents, &p)
 	if err != nil {
 		return nil, "", err
 	}
@@ -172,7 +172,10 @@ func checkLocalDir(ctx context.Context, ghconnection *ghcontrol.GitHubConnection
 	}
 
 	// Is there a remote policy?
-	rp, _, _ := getRemotePolicy(ctx, ghconnection)
+	rp, _, err := getRemotePolicy(ctx, ghconnection)
+	if err != nil {
+		return fmt.Errorf("checking remote policy: %w", err)
+	}
 	if rp != nil {
 		return fmt.Errorf("policy already exists remotely for %s", getPolicyPath(ghconnection))
 	}
@@ -235,23 +238,19 @@ func CreateLocalPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnec
 	}
 
 	// Create the entire path if it doesn't already exist
-	if err := os.MkdirAll(filepath.Dir(path), 0o770); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return "", err
 	}
 
-	err = os.WriteFile(path, data, 0o644)
-	if err != nil {
-		return "", err
+	if err := os.WriteFile(path, data, 0o644); err != nil { //nolint:gosec
+		return "", fmt.Errorf("writing policy file: %w", err)
 	}
 	return path, nil
 }
 
 func computeEligibleForLevel(controls slsa.Controls, level slsa.SlsaSourceLevel) bool {
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
-	if controls.AreControlsAvailable(requiredControls) {
-		return true
-	}
-	return false
+	return controls.AreControlsAvailable(requiredControls)
 }
 
 // Computes the eligible SLSA level, and when they started being eligible for it,
@@ -275,6 +274,8 @@ func computeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
 }
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
+//
+//nolint:unparam
 func computeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*time.Time, error) {
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
 	var newestTime time.Time

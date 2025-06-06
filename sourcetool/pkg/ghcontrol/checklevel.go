@@ -12,6 +12,10 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
+const (
+	EnforcementActive = "active"
+)
+
 type actor struct {
 	Login string `json:"login"`
 }
@@ -124,7 +128,7 @@ func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
-func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa.Control, error) {
+func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, _ string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
 		if *ruleset.Target != github.RulesetTargetTag {
@@ -171,7 +175,7 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 			if err != nil {
 				return nil, err
 			}
-			if ruleset.Enforcement == "active" {
+			if ruleset.Enforcement == EnforcementActive {
 				if oldestActive == nil || oldestActive.UpdatedAt.After(ruleset.UpdatedAt.Time) {
 					oldestActive = ruleset
 				}
@@ -195,7 +199,7 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 		if err != nil {
 			return nil, err
 		}
-		if ruleset.Enforcement != "active" {
+		if ruleset.Enforcement != EnforcementActive {
 			// Only look at rules being enforced.
 			continue
 		}
@@ -221,7 +225,7 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 		if err != nil {
 			return nil, err
 		}
-		if ruleset.Enforcement == "active" {
+		if ruleset.Enforcement == EnforcementActive {
 			if oldestActive == nil || oldestActive.UpdatedAt.After(ruleset.UpdatedAt.Time) {
 				oldestActive = ruleset
 			}

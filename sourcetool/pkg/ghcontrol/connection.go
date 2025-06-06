@@ -8,7 +8,7 @@ import (
 	"github.com/google/go-github/v69/github"
 )
 
-const tokenEnvVar = "GITHUB_TOKEN"
+const tokenEnvVar = "GITHUB_TOKEN" //nolint:gosec // These are not credentials
 
 // Manages a connection to a GitHub repository.
 type GitHubConnection struct {

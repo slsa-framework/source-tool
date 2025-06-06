@@ -22,7 +22,7 @@ func NewBundleReader(reader *bufio.Reader, verifier Verifier) *BundleReader {
 	return &BundleReader{reader: reader, verifier: verifier}
 }
 
-func (br BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
+func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
 	// Is this a sigstore bundle with a statement?
 	vr, err := br.verifier.Verify(line)
 	if err == nil {

@@ -34,18 +34,20 @@ type CheckLevelProvArgs struct {
 
 // checklevelprovCmd represents the checklevelprov command
 var (
-	checkLevelProvArgs CheckLevelProvArgs
+	checkLevelProvArgs = &CheckLevelProvArgs{}
 
 	checklevelprovCmd = &cobra.Command{
 		Use:   "checklevelprov",
 		Short: "Checks the given commit against policy using & creating provenance",
 		Run: func(cmd *cobra.Command, args []string) {
-			doCheckLevelProv(checkLevelProvArgs)
+			if err := doCheckLevelProv(checkLevelProvArgs); err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 )
 
-func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
+func doCheckLevelProv(checkLevelProvArgs *CheckLevelProvArgs) error {
 	ghconnection := ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
 	ghconnection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
 	ctx := context.Background()
@@ -55,14 +57,14 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	if prevCommit == "" {
 		prevCommit, err = ghconnection.GetPriorCommit(ctx, checkLevelProvArgs.commit)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 
 	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier())
 	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit, ghconnection.GetFullRef())
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// check p against policy
@@ -70,58 +72,58 @@ func doCheckLevelProv(checkLevelProvArgs CheckLevelProvArgs) {
 	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
 	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, ghconnection, prov)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// create vsa
 	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), checkLevelProvArgs.commit, verifiedLevels, policyPath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	unsignedProv, err := protojson.Marshal(prov)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// Store both the unsigned provenance and vsa
-	if checkLevelProvArgs.outputUnsignedBundle != "" {
-		f, err := os.OpenFile(checkLevelProvArgs.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
+	switch {
+	case checkLevelProvArgs.outputUnsignedBundle != "":
+		f, err := os.OpenFile(checkLevelProvArgs.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck
 
-		f.Write(unsignedProv)
-		f.WriteString("\n")
-		f.WriteString(unsignedVsa)
-		f.WriteString("\n")
-	} else if checkLevelProvArgs.outputSignedBundle != "" {
-		f, err := os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
-		if err != nil {
-			log.Fatal(err)
+		if _, err := f.WriteString(string(unsignedProv) + "\n" + unsignedVsa + "\n"); err != nil {
+			return fmt.Errorf("writing signed bundle: %w", err)
 		}
-		defer f.Close()
+	case checkLevelProvArgs.outputSignedBundle != "":
+		f, err := os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
+		if err != nil {
+			return err
+		}
+		defer f.Close() //nolint:errcheck
 
 		signedProv, err := attest.Sign(string(unsignedProv))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		signedVsa, err := attest.Sign(unsignedVsa)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
-		f.WriteString(signedProv)
-		f.WriteString("\n")
-		f.WriteString(signedVsa)
-		f.WriteString("\n")
-	} else {
+		if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
+			return fmt.Errorf("writing bundle data: %w", err)
+		}
+	default:
 		log.Printf("unsigned prov: %s\n", unsignedProv)
 		log.Printf("unsigned vsa: %s\n", unsignedVsa)
 	}
 	fmt.Print(verifiedLevels)
+	return nil
 }
 
 func init() {

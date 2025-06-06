@@ -89,7 +89,7 @@ func timesEqualWithinMargin(t1, t2 time.Time, margin time.Duration) bool {
 	return diff <= margin
 }
 
-func assertTagProvPredsEqual(t *testing.T, actual, expected TagProvenancePred) {
+func assertTagProvPredsEqual(t *testing.T, actual, expected *TagProvenancePred) {
 	if actual.Actor != expected.Actor {
 		t.Errorf("Actor %v does not match expected value %v", actual.Actor, expected.Actor)
 	}
@@ -173,5 +173,5 @@ func TestCreateTagProvenance(t *testing.T) {
 		},
 	}
 
-	assertTagProvPredsEqual(t, *tagPred, expectedPred)
+	assertTagProvPredsEqual(t, tagPred, &expectedPred)
 }

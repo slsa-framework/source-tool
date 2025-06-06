@@ -36,11 +36,12 @@ func doVerifyCommit(commit, owner, repo, branch, tag string) {
 	}
 
 	ref := ""
-	if branch != "" {
+	switch {
+	case branch != "":
 		ref = ghcontrol.BranchToFullRef(branch)
-	} else if tag != "" {
+	case tag != "":
 		ref = ghcontrol.TagToFullRef(tag)
-	} else {
+	default:
 		log.Fatal("Must specify either branch or tag.")
 	}
 

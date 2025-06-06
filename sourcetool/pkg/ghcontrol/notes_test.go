@@ -8,11 +8,12 @@ import (
 )
 
 func TestGetNotesForCommit(t *testing.T) {
+	t.Parallel()
 	if tk := os.Getenv(tokenEnvVar); tk == "" {
 		t.Log("Skipping API test as no token is set")
 		t.Skip()
 	}
-	t.Parallel()
+
 	for _, tc := range []struct {
 		name        string
 		owner       string

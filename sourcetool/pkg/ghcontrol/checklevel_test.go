@@ -295,7 +295,7 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(string(tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			ghc := newTestGhConnection("owner", "repo", "branch_name",
 				newRepoRulesets(123, github.RulesetTargetTag,
 					github.RulesetEnforcementActive, priorTime, rulesForRequiredChecks()),
