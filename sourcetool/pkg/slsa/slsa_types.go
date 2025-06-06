@@ -5,8 +5,10 @@ import (
 	"time"
 )
 
-type ControlName string
-type SlsaSourceLevel ControlName
+type (
+	ControlName     string
+	SlsaSourceLevel ControlName
+)
 
 const (
 	SlsaSourceLevel1         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
@@ -28,7 +30,8 @@ func IsSlsaSourceLevel(control ControlName) bool {
 			ControlName(SlsaSourceLevel1),
 			ControlName(SlsaSourceLevel2),
 			ControlName(SlsaSourceLevel3),
-			ControlName(SlsaSourceLevel4)},
+			ControlName(SlsaSourceLevel4),
+		},
 		control)
 }
 
@@ -59,8 +62,8 @@ func (controls *Controls) AddControl(newControls ...*Control) {
 }
 
 // Gets the control with the corresponding name, returns nil if not found.
-func (controls Controls) GetControl(name ControlName) *Control {
-	for _, control := range controls {
+func (controls *Controls) GetControl(name ControlName) *Control {
+	for _, control := range *controls {
 		if control.Name == name {
 			return &control
 		}
@@ -68,7 +71,7 @@ func (controls Controls) GetControl(name ControlName) *Control {
 	return nil
 }
 
-func (controls Controls) AreControlsAvailable(names []ControlName) bool {
+func (controls *Controls) AreControlsAvailable(names []ControlName) bool {
 	for _, name := range names {
 		if controls.GetControl(name) == nil {
 			return false
@@ -78,10 +81,10 @@ func (controls Controls) AreControlsAvailable(names []ControlName) bool {
 }
 
 // Returns the names of the controls.
-func (controls Controls) Names() []ControlName {
-	names := make([]ControlName, len(controls))
-	for i := range controls {
-		names[i] = controls[i].Name
+func (controls *Controls) Names() []ControlName {
+	names := make([]ControlName, len(*controls))
+	for i := range *controls {
+		names[i] = (*controls)[i].Name
 	}
 	return names
 }

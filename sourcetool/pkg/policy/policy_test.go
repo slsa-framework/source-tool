@@ -25,9 +25,17 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
-var fixedTime = time.Unix(1678886400, 0) // March 15, 2023 00:00:00 UTC
-var earlierFixedTime = fixedTime.Add(-time.Hour)
-var laterFixedTime = fixedTime.Add(time.Hour)
+const (
+	testRepo       = "test-repo"
+	testOwner      = "test-owner"
+	mockPolicyPath = "https://github.example.com/policy.json"
+)
+
+var (
+	fixedTime        = time.Unix(1678886400, 0) // March 15, 2023 00:00:00 UTC
+	earlierFixedTime = fixedTime.Add(-time.Hour)
+	laterFixedTime   = fixedTime.Add(time.Hour)
+)
 
 func createTestBranchPolicy(branch string) ProtectedBranch {
 	return ProtectedBranch{
@@ -38,18 +46,17 @@ func createTestBranchPolicy(branch string) ProtectedBranch {
 	}
 }
 
-func createTestPolicy(pb ProtectedBranch) RepoPolicy {
+func createTestPolicy(pb *ProtectedBranch) RepoPolicy {
 	return RepoPolicy{
 		CanonicalRepo: "the-canonical-repo",
 		ProtectedBranches: []ProtectedBranch{
-			pb,
+			*pb,
 		},
 		ProtectedTag: &ProtectedTag{
 			Since:      fixedTime,
 			TagHygiene: true,
 		},
 	}
-
 }
 
 // Helper to create spb.Statement - moved here to be accessible by new test functions
@@ -85,11 +92,11 @@ func newTestGhBranchConnection(owner, repo, branch string) *ghcontrol.GitHubConn
 // If policyData is a string, it's written directly.
 func createTempPolicyFile(t *testing.T, policyData interface{}) string {
 	t.Helper()
-	tmpFile, err := os.CreateTemp("", "test-policy-*.json")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test-policy-*.json")
 	if err != nil {
 		t.Fatalf("Failed to create temp policy file: %v", err)
 	}
-	defer tmpFile.Close()
+	defer tmpFile.Close() //nolint:errcheck
 
 	switch data := policyData.(type) {
 	case RepoPolicy:
@@ -157,18 +164,17 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 			},
 		},
 	}
-	rp := createTestPolicy(pb)
+	rp := createTestPolicy(&pb)
 	rp.ProtectedTag.Since = fixedTime
 	rp.ProtectedTag.TagHygiene = true
 
 	expectedPolicyFilePath := createTempPolicyFile(t, rp)
-	defer os.Remove(expectedPolicyFilePath)
+	defer os.Remove(expectedPolicyFilePath) //nolint:errcheck
 	pe := &PolicyEvaluator{UseLocalPolicy: expectedPolicyFilePath}
 
 	ghConn := newTestGhBranchConnection("local", "local", "main")
 
-	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(context.Background(), ghConn, provenanceStatement)
-
+	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(t.Context(), ghConn, provenanceStatement)
 	if err != nil {
 		t.Errorf("EvaluateSourceProv() error = %v, want nil", err)
 	}
@@ -275,7 +281,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			pe := &PolicyEvaluator{}
 			var ghConn *ghcontrol.GitHubConnection
 
@@ -283,7 +289,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 				pe.UseLocalPolicy = "/path/to/nonexistent/test/policy.json" // Specific path for this test
 			} else if tt.policyContent != nil {
 				policyFilePath := createTempPolicyFile(t, tt.policyContent)
-				defer os.Remove(policyFilePath)
+				defer os.Remove(policyFilePath) //nolint:errcheck
 				pe.UseLocalPolicy = policyFilePath
 			}
 			ghConn = newTestGhBranchConnection("local", "local", tt.ghConnBranch)
@@ -310,9 +316,11 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 	// Controls for mock provenance
 	tagHygieneEarlier := slsa.Control{Name: slsa.TagHygiene, Since: earlierFixedTime}
 	origL2ReviewedSummary := createVsaSummary("refs/heads/orig", []slsa.ControlName{
-		slsa.ControlName(slsa.SlsaSourceLevel2), slsa.ReviewEnforced})
+		slsa.ControlName(slsa.SlsaSourceLevel2), slsa.ReviewEnforced,
+	})
 	mainL3Summary := createVsaSummary("refs/heads/main", []slsa.ControlName{
-		slsa.ControlName(slsa.SlsaSourceLevel3)})
+		slsa.ControlName(slsa.SlsaSourceLevel3),
+	})
 
 	tests := []struct {
 		name               string
@@ -338,7 +346,8 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 			vsaSummaries: []attest.VsaSummary{origL2ReviewedSummary, mainL3Summary},
 			// The spec says we MUST NOT return multiple levels per track in a VSA...
 			expectedLevels: slsa.SourceVerifiedLevels{
-				slsa.ReviewEnforced, slsa.ControlName(slsa.SlsaSourceLevel3)},
+				slsa.ReviewEnforced, slsa.ControlName(slsa.SlsaSourceLevel3),
+			},
 		},
 		{
 			name: "Policy has protected_tag setting, and it's not enabled",
@@ -382,17 +391,16 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 				RequireReview:         true,
 				Since:                 fixedTime,
 			}
-			rp := createTestPolicy(pb)
+			rp := createTestPolicy(&pb)
 			rp.ProtectedTag = tt.protectedTagPolicy
 
 			expectedPolicyFilePath := createTempPolicyFile(t, rp)
-			defer os.Remove(expectedPolicyFilePath)
+			defer os.Remove(expectedPolicyFilePath) //nolint:errcheck
 			pe := &PolicyEvaluator{UseLocalPolicy: expectedPolicyFilePath}
 
 			ghConn := newTestGhBranchConnection("local", "local", "main")
 
-			verifiedLevels, policyPath, err := pe.EvaluateTagProv(context.Background(), ghConn, provenanceStatement)
-
+			verifiedLevels, policyPath, err := pe.EvaluateTagProv(t.Context(), ghConn, provenanceStatement)
 			if err != nil {
 				t.Errorf("EvaluateTagProv() error = %v, want nil", err)
 			}
@@ -487,14 +495,14 @@ func TestEvaluateControl_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			pe := &PolicyEvaluator{}
 			var ghConn *ghcontrol.GitHubConnection
 			actualPolicyPath := tt.expectedPolicyPath // May be overridden for local temp file
 
 			if tt.policyContent != nil {
 				policyFilePath := createTempPolicyFile(t, tt.policyContent)
-				defer os.Remove(policyFilePath)
+				defer os.Remove(policyFilePath) //nolint:errcheck
 				pe.UseLocalPolicy = policyFilePath
 				if tt.expectedPolicyPath == "TEMP_POLICY_FILE_PATH" {
 					actualPolicyPath = policyFilePath
@@ -503,7 +511,6 @@ func TestEvaluateControl_Success(t *testing.T) {
 			ghConn = newTestGhBranchConnection("local", "local", tt.ghConnBranch)
 
 			verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, ghConn, tt.controlStatus)
-
 			if err != nil {
 				t.Errorf("EvaluateControl() error = %v, want nil", err)
 			}
@@ -513,7 +520,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(verifiedLevels, tt.expectedLevels) {
-				if !(len(verifiedLevels) == 0 && len(tt.expectedLevels) == 0) {
+				if len(verifiedLevels) != 0 || len(tt.expectedLevels) != 0 {
 					t.Errorf("EvaluateControl() verifiedLevels = %v, want %v", verifiedLevels, tt.expectedLevels)
 				}
 			}
@@ -568,7 +575,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			pe := &PolicyEvaluator{}
 			var ghConn *ghcontrol.GitHubConnection
 			policyFilePath := "" // Default to empty, will be set if policyContent is not nil
@@ -584,7 +591,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 					policyFilePath = createTempPolicyFile(t, tt.policyContent)
 				}
 				if policyFilePath != "" { // Ensure removal only if a file was created
-					defer os.Remove(policyFilePath)
+					defer os.Remove(policyFilePath) //nolint:errcheck
 				}
 				pe.UseLocalPolicy = policyFilePath
 			}
@@ -605,7 +612,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 // setupMockGitHubTestEnv creates a mock GitHub environment for testing.
 // It takes a handler function to simulate GitHub API responses.
 // It returns a GitHubConnection configured to use the mock server and the server itself.
-func setupMockGitHubTestEnv(t *testing.T, targetOwner string, targetRepo string, targetBranch string, handler http.HandlerFunc) (*ghcontrol.GitHubConnection, *httptest.Server) {
+func setupMockGitHubTestEnv(t *testing.T, targetOwner, targetRepo, targetBranch string, handler http.HandlerFunc) (*ghcontrol.GitHubConnection, *httptest.Server) {
 	t.Helper()
 
 	server := httptest.NewServer(handler)
@@ -627,16 +634,15 @@ func setupMockGitHubTestEnv(t *testing.T, targetOwner string, targetRepo string,
 // assertProtectedBranchEquals compares two ProtectedBranch structs for equality,
 // optionally ignoring the 'Since' field. It provides a detailed error message
 // if they are not equal.
-func assertProtectedBranchEquals(t *testing.T, got *ProtectedBranch, expected ProtectedBranch, ignoreSince bool) {
+func assertProtectedBranchEquals(t *testing.T, got, expected *ProtectedBranch, ignoreSince bool) {
 	t.Helper()
-
 	if got == nil {
 		return
 	}
 
 	actual := *got
 	actualCopy := actual
-	expectedCopy := expected
+	expectedCopy := *expected
 	sinceMatch := true
 
 	if ignoreSince {
@@ -854,15 +860,16 @@ func TestEvaluateBranchControls(t *testing.T) {
 			// sort.Strings(tt.expectedLevels)
 
 			if !reflect.DeepEqual(gotLevels, tt.expectedLevels) {
+				switch {
 				// To make debugging easier when DeepEqual fails on slices:
-				if len(gotLevels) == 0 && len(tt.expectedLevels) == 0 && tt.expectedLevels == nil && gotLevels != nil {
+				case len(gotLevels) == 0 && len(tt.expectedLevels) == 0 && tt.expectedLevels == nil && gotLevels != nil:
 					// This handles the specific case where expected is nil []string but got is empty non-nil []string
 					// reflect.DeepEqual(nil, []string{}) is false.
 					// For our purposes, an empty list of verified levels is the same whether it's nil or an empty slice.
 					// So if expected is nil and got is empty, we treat as equal.
-				} else if len(gotLevels) == 0 && tt.expectedLevels == nil {
+				case len(gotLevels) == 0 && tt.expectedLevels == nil:
 					// similar to above, if got is empty and expected is nil
-				} else {
+				default:
 					t.Errorf("evaluateBranchControls() gotLevels = %v, want %v", gotLevels, tt.expectedLevels)
 				}
 			}
@@ -1117,7 +1124,6 @@ func TestComputeOrgControls(t *testing.T) {
 func TestComputeSlsaLevel(t *testing.T) {
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
-	// later := now.Add(time.Hour) // Unused
 
 	// Controls
 	continuityEnforcedNow := slsa.Control{Name: slsa.ContinuityEnforced, Since: now}
@@ -1384,7 +1390,6 @@ func TestComputeEligibleSince(t *testing.T) {
 
 func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *ghcontrol.GitHubConnection, pe *PolicyEvaluator, expectedPolicy *RepoPolicy, expectedBranchPolicy *ProtectedBranch, expectedPath string) {
 	rp, gotPath, err := pe.getPolicy(ctx, ghConn)
-
 	if err != nil {
 		t.Fatalf("getPolicy() error = %v, want nil", err)
 	}
@@ -1412,22 +1417,20 @@ func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *ghcontr
 		}
 		return
 	}
-
-	assertProtectedBranchEquals(t, gotPb, *expectedBranchPolicy, false)
+	assertProtectedBranchEquals(t, gotPb, expectedBranchPolicy, false)
 }
 
 func TestGetPolicy_Local_SpecificFound(t *testing.T) {
 	pb := createTestBranchPolicy("feature")
-	policyToCreate := createTestPolicy(pb)
+	policyToCreate := createTestPolicy(&pb)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	ghConn := newTestGhBranchConnection("any", "any", "feature")
 	pe := &PolicyEvaluator{}
 
 	policyFilePath := createTempPolicyFile(t, policyToCreate)
-	defer os.Remove(policyFilePath)
+	defer os.Remove(policyFilePath) //nolint:errcheck
 	pe.UseLocalPolicy = policyFilePath
-
 	assertPolicyResultEquals(t, ctx, ghConn, pe, &policyToCreate, &pb, policyFilePath)
 }
 
@@ -1460,12 +1463,12 @@ func TestGetPolicy_Local_NotFoundCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			ghConn := newTestGhBranchConnection("any", "any", tt.branchName)
 			pe := &PolicyEvaluator{}
 
 			policyFilePath := createTempPolicyFile(t, tt.policyToCreate)
-			defer os.Remove(policyFilePath)
+			defer os.Remove(policyFilePath) //nolint:errcheck
 			pe.UseLocalPolicy = policyFilePath
 
 			assertPolicyResultEquals(t, ctx, ghConn, pe, &tt.policyToCreate, nil, policyFilePath)
@@ -1496,7 +1499,7 @@ func TestGetPolicy_Local_ErrorCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			ghConn := newTestGhBranchConnection("any", "any", tt.branchName)
 			pe := &PolicyEvaluator{}
 			var policyFilePath string
@@ -1506,7 +1509,7 @@ func TestGetPolicy_Local_ErrorCases(t *testing.T) {
 					t.Fatal("policyFileContent cannot be nil when useLocalPolicyPath is CREATE_TEMP for error cases")
 				}
 				policyFilePath = createTempPolicyFile(t, tt.policyFileContent)
-				defer os.Remove(policyFilePath) // Ensure cleanup even if test expects error
+				defer os.Remove(policyFilePath) //nolint:errcheck // Ensure cleanup even if test expects error
 				pe.UseLocalPolicy = policyFilePath
 			} else {
 				pe.UseLocalPolicy = tt.useLocalPolicyPath // For non-existent file
@@ -1528,14 +1531,13 @@ func TestGetPolicy_Local_ErrorCases(t *testing.T) {
 }
 
 func TestGetPolicy_Remote_SpecificFound(t *testing.T) {
-	mockPolicyPath := "https://github.example.com/policy.json"
 	targetOwner := "owner"
 	targetBranch := "feature"
 	targetRepo := "repo"
 	pb := createTestBranchPolicy(targetBranch)
-	expectedPolicy := createTestPolicy(pb)
+	expectedPolicy := createTestPolicy(&pb)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	pe := &PolicyEvaluator{UseLocalPolicy: ""}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1547,16 +1549,18 @@ func TestGetPolicy_Remote_SpecificFound(t *testing.T) {
 		}
 		encodedContent := base64.StdEncoding.EncodeToString(policyJSON)
 		mockFileContent := &github.RepositoryContent{
-			Type:     github.String("file"),
-			Encoding: github.String("base64"),
-			Content:  github.String(encodedContent),
-			HTMLURL:  github.String(mockPolicyPath),
+			Type:     github.Ptr("file"),
+			Encoding: github.Ptr("base64"),
+			Content:  github.Ptr(encodedContent),
+			HTMLURL:  github.Ptr(mockPolicyPath),
 		}
 		respData, err := json.Marshal(mockFileContent)
 		if err != nil {
 			t.Fatalf("Failed to marshal mock RepositoryContent: %v", err)
 		}
-		_, _ = w.Write(respData)
+		if _, err := w.Write(respData); err != nil {
+			t.Fatalf("writing data: %v", err)
+		}
 	})
 
 	ghConn, mockServer := setupMockGitHubTestEnv(t, targetOwner, targetRepo, targetBranch, handler)
@@ -1566,9 +1570,8 @@ func TestGetPolicy_Remote_SpecificFound(t *testing.T) {
 }
 
 func TestGetPolicy_Remote_NotFoundCases(t *testing.T) {
-	mockPolicyPath := "https://github.example.com/policy.json"
-	targetOwner := "test-owner"
-	targetRepo := "test-repo"
+	targetOwner := testOwner
+	targetRepo := testRepo
 
 	tests := []struct {
 		name               string
@@ -1613,7 +1616,7 @@ func TestGetPolicy_Remote_NotFoundCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			pe := &PolicyEvaluator{UseLocalPolicy: ""}
 
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1635,7 +1638,9 @@ func TestGetPolicy_Remote_NotFoundCases(t *testing.T) {
 					if err != nil {
 						t.Fatalf("Failed to marshal mock RepositoryContent: %v", err)
 					}
-					_, _ = w.Write(respData)
+					if _, err := w.Write(respData); err != nil {
+						t.Fatalf("writing data: %v", err)
+					}
 				}
 			})
 
@@ -1648,9 +1653,9 @@ func TestGetPolicy_Remote_NotFoundCases(t *testing.T) {
 }
 
 func TestGetPolicy_Remote_ServerError(t *testing.T) {
-	ctx := context.Background()
-	targetOwner := "test-owner"
-	targetRepo := "test-repo"
+	ctx := t.Context()
+	targetOwner := testOwner
+	targetRepo := testRepo
 	targetBranch := "main"
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1677,7 +1682,7 @@ func TestGetPolicy_Remote_ServerError(t *testing.T) {
 }
 
 func TestGetPolicy_Remote_MalformedJSON(t *testing.T) {
-	mockHTMLURL := "https://github.example.com/policy.json" // Still needed for one case
+	mockHTMLURL := mockPolicyPath // Still needed for one case
 	tests := []struct {
 		name               string
 		malformedOuterJSON bool // true if RepositoryContent JSON is bad
@@ -1695,28 +1700,33 @@ func TestGetPolicy_Remote_MalformedJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			targetOwner := "test-owner"
-			targetRepo := "test-repo"
+			ctx := t.Context()
+			targetOwner := testOwner
+			targetRepo := testRepo
 			targetBranch := "main"
 
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				validateMockServerRequestPath(t, r, targetOwner, targetRepo, targetBranch)
 				w.WriteHeader(http.StatusOK) // Status is OK, but content is bad
 				if tt.malformedOuterJSON {
-					_, _ = w.Write([]byte("this is not valid RepositoryContent JSON"))
+					if _, err := w.Write([]byte("this is not valid RepositoryContent JSON")); err != nil {
+						t.Fatalf("Writing data: %v", err)
+					}
 				} else if tt.badBase64Content {
 					mockFileContent := &github.RepositoryContent{
-						Type:     github.String("file"),
-						Encoding: github.String("base64"),
-						Content:  github.String("this-is-not-base64"),
-						HTMLURL:  github.String(mockHTMLURL),
+						Type:     github.Ptr("file"),
+						Encoding: github.Ptr("base64"),
+						Content:  github.Ptr("this-is-not-base64"),
+						HTMLURL:  github.Ptr(mockHTMLURL),
 					}
 					respData, err := json.Marshal(mockFileContent)
 					if err != nil {
 						t.Fatalf("Failed to marshal mock RepositoryContent: %v", err)
 					}
-					_, _ = w.Write(respData)
+					_, err = w.Write(respData)
+					if err != nil {
+						t.Fatalf("Failed writing response: %v", err)
+					}
 				}
 			})
 

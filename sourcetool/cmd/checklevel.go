@@ -10,11 +10,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
-
-	"github.com/spf13/cobra"
 )
 
 type CheckLevelArgs struct {
@@ -73,7 +73,7 @@ func doCheckLevel(cla *CheckLevelArgs) {
 		log.Fatal(err)
 	}
 	if cla.outputUnsignedVsa != "" {
-		if err = os.WriteFile(cla.outputUnsignedVsa, []byte(unsignedVsa), 0644); err != nil {
+		if err = os.WriteFile(cla.outputUnsignedVsa, []byte(unsignedVsa), 0o644); err != nil { //nolint:gosec
 			log.Fatal(err)
 		}
 	}
@@ -84,7 +84,7 @@ func doCheckLevel(cla *CheckLevelArgs) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = os.WriteFile(cla.outputVsa, []byte(signedVsa), 0644)
+		err = os.WriteFile(cla.outputVsa, []byte(signedVsa), 0o644) //nolint:gosec
 		if err != nil {
 			log.Fatal(err)
 		}

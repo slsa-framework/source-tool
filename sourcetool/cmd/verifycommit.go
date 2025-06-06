@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/spf13/cobra"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
-	"github.com/spf13/cobra"
 )
 
 type VerifyCommitArgs struct {
@@ -35,11 +36,12 @@ func doVerifyCommit(commit, owner, repo, branch, tag string) {
 	}
 
 	ref := ""
-	if branch != "" {
+	switch {
+	case branch != "":
 		ref = ghcontrol.BranchToFullRef(branch)
-	} else if tag != "" {
+	case tag != "":
 		ref = ghcontrol.TagToFullRef(tag)
-	} else {
+	default:
 		log.Fatal("Must specify either branch or tag.")
 	}
 
@@ -55,7 +57,7 @@ func doVerifyCommit(commit, owner, repo, branch, tag string) {
 		return
 	}
 
-	fmt.Printf("SUCCESS: commit %s verified with %v\n", commit, vsaPred.VerifiedLevels)
+	fmt.Printf("SUCCESS: commit %s verified with %v\n", commit, vsaPred.GetVerifiedLevels())
 }
 
 func init() {
@@ -66,5 +68,4 @@ func init() {
 	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.branch, "branch", "", "The branch within the repository.")
 	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.tag, "tag", "", "The tag within the repository.")
 	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.commit, "commit", "", "The commit to check - required.")
-
 }

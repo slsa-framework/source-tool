@@ -9,10 +9,10 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func newStatement(commit string, annotation *map[string]any) (*spb.Statement, error) {
+func newStatement(commit string, annotation map[string]any) (*spb.Statement, error) {
 	var sub []*spb.ResourceDescriptor
 	if annotation != nil {
-		annotationStruct, err := structpb.NewStruct(*annotation)
+		annotationStruct, err := structpb.NewStruct(annotation)
 		if err != nil {
 			return nil, fmt.Errorf("creating struct from map: %w", err)
 		}
@@ -33,7 +33,7 @@ func newStatement(commit string, annotation *map[string]any) (*spb.Statement, er
 
 func stringToAnyArray(valArray []string) []any {
 	aa := make([]any, len(valArray))
-	for i, _ := range valArray {
+	for i := range valArray {
 		aa[i] = valArray[i]
 	}
 	return aa
@@ -86,7 +86,7 @@ func TestGetSourceRefsForCommit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, err := newStatement("abc123", &map[string]any{tt.annotationName: stringToAnyArray(tt.refs)})
+			stmt, err := newStatement("abc123", map[string]any{tt.annotationName: stringToAnyArray(tt.refs)})
 			if err != nil {
 				t.Fatalf("error creating statement: %v", err)
 			}

@@ -9,11 +9,12 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type CheckTagArgs struct {
@@ -27,20 +28,22 @@ type CheckTagArgs struct {
 }
 
 var (
-	checkTagArgs CheckTagArgs
+	checkTagArgs = &CheckTagArgs{}
+
 	// checktagCmd represents the checktag command
 	checktagCmd = &cobra.Command{
 		Use:   "checktag",
 		Short: "Checks to see if the tag operation should be allowed and issues a VSA",
 		Run: func(cmd *cobra.Command, args []string) {
-			doCheckTag(checkTagArgs)
+			if err := doCheckTag(checkTagArgs); err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 )
 
-func doCheckTag(args CheckTagArgs) {
-	ghconnection :=
-		ghcontrol.NewGhConnection(args.owner, args.repo, ghcontrol.TagToFullRef(args.tagName)).WithAuthToken(githubToken)
+func doCheckTag(args *CheckTagArgs) error {
+	ghconnection := ghcontrol.NewGhConnection(args.owner, args.repo, ghcontrol.TagToFullRef(args.tagName)).WithAuthToken(githubToken)
 	ctx := context.Background()
 	verifier := getVerifier()
 
@@ -48,7 +51,7 @@ func doCheckTag(args CheckTagArgs) {
 	pa := attest.NewProvenanceAttestor(ghconnection, verifier)
 	prov, err := pa.CreateTagProvenance(ctx, args.commit, ghcontrol.TagToFullRef(args.tagName), args.actor)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// check p against policy
@@ -56,46 +59,46 @@ func doCheckTag(args CheckTagArgs) {
 	pe.UseLocalPolicy = args.useLocalPolicy
 	verifiedLevels, policyPath, err := pe.EvaluateTagProv(ctx, ghconnection, prov)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// create vsa
 	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), args.commit, verifiedLevels, policyPath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	unsignedProv, err := protojson.Marshal(prov)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if args.outputSignedBundle != "" {
-		f, err := os.OpenFile(args.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		f, err := os.OpenFile(args.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck
 
 		signedProv, err := attest.Sign(string(unsignedProv))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		signedVsa, err := attest.Sign(unsignedVsa)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
-		f.WriteString(signedProv)
-		f.WriteString("\n")
-		f.WriteString(signedVsa)
-		f.WriteString("\n")
+		if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
+			return fmt.Errorf("writing bundledata: %w", err)
+		}
 	} else {
 		log.Printf("unsigned prov: %s\n", unsignedProv)
 		log.Printf("unsigned vsa: %s\n", unsignedVsa)
 	}
 	fmt.Print(verifiedLevels)
+	return nil
 }
 
 func init() {
@@ -108,5 +111,4 @@ func init() {
 	checktagCmd.Flags().StringVar(&checkTagArgs.actor, "actor", "", "The username of the actor that pushed the tag.")
 	checktagCmd.Flags().StringVar(&checkTagArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 	checktagCmd.Flags().StringVar(&checkTagArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
-
 }

@@ -1,7 +1,6 @@
 package ghcontrol
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"slices"
@@ -10,11 +9,14 @@ import (
 
 	"github.com/google/go-github/v69/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
-var curTime = time.Unix(1678886400, 0) // March 15, 2023 00:00:00 UTC
-var priorTime = curTime.Add(-time.Hour)
+var (
+	curTime   = time.Unix(1678886400, 0) // March 15, 2023 00:00:00 UTC
+	priorTime = curTime.Add(-time.Hour)
+)
 
 // branchOrTagName could also be ~ALL or ~DEFAULT?
 func conditionsForRuleset(branchOrTagName string) *github.RepositoryRulesetConditions {
@@ -26,7 +28,8 @@ func conditionsForRuleset(branchOrTagName string) *github.RepositoryRulesetCondi
 }
 
 func newRepoRulesets(id int64, target github.RulesetTarget, enforcement github.RulesetEnforcement,
-	updatedAt time.Time, rules *github.RepositoryRulesetRules) *github.RepositoryRuleset {
+	updatedAt time.Time, rules *github.RepositoryRulesetRules,
+) *github.RepositoryRuleset {
 	return &github.RepositoryRuleset{
 		ID:          github.Ptr(id),
 		Target:      github.Ptr(target),
@@ -254,8 +257,7 @@ func TestBuiltinBranchControls(t *testing.T) {
 					github.RulesetEnforcementActive, priorTime, tt.rulesetRules),
 				activityForBranch("abc123", "refs/heads/branch_name"), &tt.branchRules)
 
-			controlStatus, err := ghc.GetBranchControls(context.Background(), "abc123", "refs/heads/branch_name")
-
+			controlStatus, err := ghc.GetBranchControls(t.Context(), "abc123", "refs/heads/branch_name")
 			if err != nil {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
@@ -293,15 +295,13 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(string(tt.name), func(t *testing.T) {
-
+		t.Run(tt.name, func(t *testing.T) {
 			ghc := newTestGhConnection("owner", "repo", "branch_name",
 				newRepoRulesets(123, github.RulesetTargetTag,
 					github.RulesetEnforcementActive, priorTime, rulesForRequiredChecks()),
 				activityForBranch("abc123", "refs/heads/branch_name"), &tt.checks)
 
-			controlStatus, err := ghc.GetBranchControls(context.Background(), "abc123", "refs/heads/branch_name")
-
+			controlStatus, err := ghc.GetBranchControls(t.Context(), "abc123", "refs/heads/branch_name")
 			if err != nil {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}

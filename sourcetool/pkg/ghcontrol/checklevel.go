@@ -8,7 +8,12 @@ import (
 	"time"
 
 	"github.com/google/go-github/v69/github"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+)
+
+const (
+	EnforcementActive = "active"
 )
 
 type actor struct {
@@ -97,7 +102,7 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	}
 
 	newestRule := oldestDeletion
-	if newestRule.UpdatedAt.Time.Before(oldestNoFf.UpdatedAt.Time) {
+	if newestRule.UpdatedAt.Before(oldestNoFf.UpdatedAt.Time) {
 		newestRule = oldestNoFf
 	}
 
@@ -123,7 +128,7 @@ func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
-func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, commit string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa.Control, error) {
+func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, _ string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
 		if *ruleset.Target != github.RulesetTargetTag {
@@ -170,8 +175,8 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 			if err != nil {
 				return nil, err
 			}
-			if ruleset.Enforcement == "active" {
-				if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
+			if ruleset.Enforcement == EnforcementActive {
+				if oldestActive == nil || oldestActive.UpdatedAt.After(ruleset.UpdatedAt.Time) {
 					oldestActive = ruleset
 				}
 			}
@@ -194,7 +199,7 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 		if err != nil {
 			return nil, err
 		}
-		if ruleset.Enforcement != "active" {
+		if ruleset.Enforcement != EnforcementActive {
 			// Only look at rules being enforced.
 			continue
 		}
@@ -220,8 +225,8 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 		if err != nil {
 			return nil, err
 		}
-		if ruleset.Enforcement == "active" {
-			if oldestActive == nil || oldestActive.UpdatedAt.Time.After(ruleset.UpdatedAt.Time) {
+		if ruleset.Enforcement == EnforcementActive {
+			if oldestActive == nil || oldestActive.UpdatedAt.After(ruleset.UpdatedAt.Time) {
 				oldestActive = ruleset
 			}
 		}
@@ -242,7 +247,8 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 		CommitPushTime: activity.Timestamp,
 		ActivityType:   activity.ActivityType,
 		ActorLogin:     activity.Actor.Login,
-		Controls:       slsa.Controls{}}
+		Controls:       slsa.Controls{},
+	}
 
 	branch := GetBranchFromRef(ref)
 	if branch == "" {
@@ -289,7 +295,8 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	controlStatus := GhControlStatus{
 		CommitPushTime: time.Now(),
-		Controls:       slsa.Controls{}}
+		Controls:       slsa.Controls{},
+	}
 
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
 	if err != nil {

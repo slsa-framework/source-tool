@@ -8,8 +8,10 @@ import (
 )
 
 // Matches any reference type.
-const AnyReference = "*"
-const GitHubActionsIntegrationId = int64(15368)
+const (
+	AnyReference               = "*"
+	GitHubActionsIntegrationId = int64(15368)
+)
 
 func BranchToFullRef(branch string) string {
 	return fmt.Sprintf("refs/heads/%s", branch)

@@ -2,13 +2,15 @@ package attest
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 
 	spb "github.com/in-toto/attestation/go/v1"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"google.golang.org/protobuf/encoding/protojson"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
 type BundleReader struct {
@@ -20,7 +22,7 @@ func NewBundleReader(reader *bufio.Reader, verifier Verifier) *BundleReader {
 	return &BundleReader{reader: reader, verifier: verifier}
 }
 
-func (br BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
+func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
 	// Is this a sigstore bundle with a statement?
 	vr, err := br.verifier.Verify(line)
 	if err == nil {
@@ -43,11 +45,11 @@ func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]strin
 		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", StatementToString(vsaStatement), commit)
 	}
 	annotations := subject.GetAnnotations()
-	sourceRefs, ok := annotations.Fields[slsa.SourceRefsAnnotation]
+	sourceRefs, ok := annotations.GetFields()[slsa.SourceRefsAnnotation]
 	if !ok {
 		// This used to be called 'source_branches', maybe this is an old VSA.
 		// TODO: remove once we're not worried about backward compatibility.
-		sourceRefs, ok = annotations.Fields[slsa.SourceBranchesAnnotation]
+		sourceRefs, ok = annotations.GetFields()[slsa.SourceBranchesAnnotation]
 		if !ok {
 			return []string{}, fmt.Errorf("no source_refs or source_branches annotation in VSA subject")
 		}
@@ -55,7 +57,7 @@ func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]strin
 
 	protoRefs := sourceRefs.GetListValue()
 	stringRefs := []string{}
-	for _, ref := range protoRefs.Values {
+	for _, ref := range protoRefs.GetValues() {
 		stringRefs = append(stringRefs, ref.GetStringValue())
 	}
 	return stringRefs, nil
@@ -65,8 +67,8 @@ type StatementMatcher func(*spb.Statement) bool
 
 func MatchesTypeAndCommit(predicateType, commit string) StatementMatcher {
 	return func(statement *spb.Statement) bool {
-		if statement.PredicateType != predicateType {
-			log.Printf("statement predicate type (%s) doesn't match %s", statement.PredicateType, predicateType)
+		if statement.GetPredicateType() != predicateType {
+			log.Printf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
 			return false
 		}
 		if !DoesSubjectIncludeCommit(statement, commit) {
@@ -86,7 +88,7 @@ func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*spb.Statement,
 		line, err := br.reader.ReadString('\n')
 		if err != nil {
 			// Handle end of file gracefully
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				return nil, err
 			}
 			if line == "" {
@@ -121,8 +123,8 @@ func DoesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
 // Returns the _first_ subject that includes the commit.
 // TODO: add support for multiple subjects...
 func GetSubjectForCommit(statement *spb.Statement, commit string) *spb.ResourceDescriptor {
-	for _, subject := range statement.Subject {
-		if subject.Digest["gitCommit"] == commit {
+	for _, subject := range statement.GetSubject() {
+		if subject.GetDigest()["gitCommit"] == commit {
 			return subject
 		}
 	}

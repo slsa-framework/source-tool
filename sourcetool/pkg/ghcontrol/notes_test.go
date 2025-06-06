@@ -1,7 +1,6 @@
 package ghcontrol
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -9,11 +8,12 @@ import (
 )
 
 func TestGetNotesForCommit(t *testing.T) {
+	t.Parallel()
 	if tk := os.Getenv(tokenEnvVar); tk == "" {
 		t.Log("Skipping API test as no token is set")
 		t.Skip()
 	}
-	t.Parallel()
+
 	for _, tc := range []struct {
 		name        string
 		owner       string
@@ -28,7 +28,7 @@ func TestGetNotesForCommit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ghc := NewGhConnection(tc.owner, tc.repo, "main")
-			notes, err := ghc.GetNotesForCommit(context.Background(), tc.commit)
+			notes, err := ghc.GetNotesForCommit(t.Context(), tc.commit)
 			if tc.mustErr {
 				require.Error(t, err)
 				return
