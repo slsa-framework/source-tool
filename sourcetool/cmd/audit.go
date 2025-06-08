@@ -90,11 +90,14 @@ func doAudit(auditArgs *AuditArgs) error {
 
 	count := 1
 	for ar, err := range auditor.AuditBranch(ctx, auditArgs.branch) {
+		if ar == nil {
+			return err
+		}
 		if auditArgs.auditDepth > 0 && count > auditArgs.auditDepth {
 			return nil
 		}
 		if err != nil {
-			return err
+			fmt.Printf("\terror: %v\n", err)
 		}
 		printAuditResult(ar)
 		count++

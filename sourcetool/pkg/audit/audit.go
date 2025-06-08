@@ -35,21 +35,26 @@ func NewAuditor(ghc *ghcontrol.GitHubConnection, pa *attest.ProvenanceAttestor, 
 	}
 }
 
-func (a *Auditor) AuditCommit(ctx context.Context, commit string) (*AuditCommitResult, error) {
+func (a *Auditor) AuditCommit(ctx context.Context, commit string) (ar *AuditCommitResult, err error) {
+	ar = &AuditCommitResult{Commit: commit}
+
 	_, vsa, err := attest.GetVsa(ctx, a.ghc, a.verifier, commit, a.ghc.GetFullRef())
 	if err != nil {
 		return nil, fmt.Errorf("getting vsa for revision %s: %w", commit, err)
 	}
+	ar.VsaPred = vsa
 
 	_, prov, err := a.pa.GetProvenance(ctx, commit, a.ghc.GetFullRef())
 	if err != nil {
 		return nil, fmt.Errorf("getting prov for revision %s: %w", commit, err)
 	}
+	ar.ProvPred = prov
 
 	ghPrior, err := a.ghc.GetPriorCommit(ctx, commit)
 	if err != nil {
 		return nil, fmt.Errorf("could not get prior commit for revision %s: %w", commit, err)
 	}
+	ar.GhPriorCommit = ghPrior
 
 	var controlStatus *ghcontrol.GhControlStatus
 	if prov == nil {
@@ -58,17 +63,13 @@ func (a *Auditor) AuditCommit(ctx context.Context, commit string) (*AuditCommitR
 		// in place.
 		controlStatus, err = a.ghc.GetBranchControls(ctx, commit, a.ghc.GetFullRef())
 		if err != nil {
-			return nil, fmt.Errorf("could not get controls for %s on %s: %w", commit, a.ghc.GetFullRef(), err)
+			// Let's still return ar so they can continue if they want.
+			return ar, fmt.Errorf("could not get controls for %s on %s: %w", commit, a.ghc.GetFullRef(), err)
 		}
 	}
+	ar.GhControlStatus = controlStatus
 
-	return &AuditCommitResult{
-		Commit:          commit,
-		VsaPred:         vsa,
-		ProvPred:        prov,
-		GhPriorCommit:   ghPrior,
-		GhControlStatus: controlStatus,
-	}, nil
+	return ar, nil
 }
 
 func (a *Auditor) AuditBranch(ctx context.Context, branch string) iter.Seq2[*AuditCommitResult, error] {

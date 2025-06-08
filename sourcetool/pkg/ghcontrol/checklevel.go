@@ -55,7 +55,7 @@ func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit, targetR
 		}
 	}
 
-	return nil, fmt.Errorf("could not find repo activity for commit %s and ref %s", commit, targetRef)
+	return nil, fmt.Errorf("could not find repo activity for %s on %s", commit, targetRef)
 }
 
 type RequiredCheck struct {
