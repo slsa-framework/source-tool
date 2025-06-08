@@ -191,9 +191,6 @@ func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref
 	for {
 		stmt, err := reader.ReadStatement(MatchesTypeAndCommit(SourceProvPredicateType, commit))
 		if err != nil {
-			return nil, nil, err
-		}
-		if err != nil {
 			// Ignore errors, we want to check all the lines.
 			Debugf("error while processing line: %v", err)
 			continue
