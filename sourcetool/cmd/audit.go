@@ -63,6 +63,9 @@ func printAuditResult(ar *audit.AuditCommitResult) {
 	} else {
 		fmt.Printf("\tprov: none\n")
 	}
+	if ar.GhControlStatus != nil {
+		fmt.Printf("\tgh controls: %v\n", ar.GhControlStatus.Controls)
+	}
 }
 
 func doAudit(auditArgs *AuditArgs) error {

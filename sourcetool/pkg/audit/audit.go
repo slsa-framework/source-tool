@@ -23,7 +23,8 @@ type AuditCommitResult struct {
 	VsaPred  *vpb.VerificationSummary
 	ProvPred *attest.SourceProvenancePred
 	// The previous commit reported by GH.
-	GhPriorCommit string
+	GhPriorCommit   string
+	GhControlStatus *ghcontrol.GhControlStatus
 }
 
 func NewAuditor(ghc *ghcontrol.GitHubConnection, pa *attest.ProvenanceAttestor, verifier attest.Verifier) *Auditor {
@@ -50,11 +51,23 @@ func (a *Auditor) AuditCommit(ctx context.Context, commit string) (*AuditCommitR
 		return nil, fmt.Errorf("could not get prior commit for revision %s: %w", commit, err)
 	}
 
+	var controlStatus *ghcontrol.GhControlStatus
+	if prov == nil {
+		// If there's no provenance, let's check the controls to see how they're looking.
+		// It could be that provenance generation failed, but the controls were still
+		// in place.
+		controlStatus, err = a.ghc.GetBranchControls(ctx, commit, a.ghc.GetFullRef())
+		if err != nil {
+			return nil, fmt.Errorf("could not get controls for %s on %s: %w", commit, a.ghc.GetFullRef(), err)
+		}
+	}
+
 	return &AuditCommitResult{
-		Commit:        commit,
-		VsaPred:       vsa,
-		ProvPred:      prov,
-		GhPriorCommit: ghPrior,
+		Commit:          commit,
+		VsaPred:         vsa,
+		ProvPred:        prov,
+		GhPriorCommit:   ghPrior,
+		GhControlStatus: controlStatus,
 	}, nil
 }
 
