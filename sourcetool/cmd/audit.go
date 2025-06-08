@@ -30,7 +30,6 @@ func (aa *AuditArgs) Validate() error {
 	return nil
 }
 
-// auditCmd represents the audit command
 var (
 	auditArgs = &AuditArgs{}
 

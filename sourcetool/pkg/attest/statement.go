@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -31,7 +30,7 @@ func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, err
 	} else {
 		// We ignore errors because there could be other stuff in the
 		// bundle this line came from.
-		log.Printf("Line '%s' failed verification: %v", line, err)
+		Debugf("Line '%s' failed verification: %v", line, err)
 	}
 
 	// TODO: add support for 'regular' DSSEs.
@@ -68,11 +67,11 @@ type StatementMatcher func(*spb.Statement) bool
 func MatchesTypeAndCommit(predicateType, commit string) StatementMatcher {
 	return func(statement *spb.Statement) bool {
 		if statement.GetPredicateType() != predicateType {
-			log.Printf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
+			Debugf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
 			return false
 		}
 		if !DoesSubjectIncludeCommit(statement, commit) {
-			log.Printf("statement \n%v\n does not match commit %s", StatementToString(statement), commit)
+			Debugf("statement \n%v\n does not match commit %s", StatementToString(statement), commit)
 			return false
 		}
 		return true
@@ -102,7 +101,8 @@ func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*spb.Statement,
 		}
 		statement, err := br.convertLineToStatement(line)
 		if err != nil {
-			return nil, fmt.Errorf("problem converting line to statement line: '%s', error: %w", line, err)
+			// Ignore errors, the next line could be fine.
+			Debugf("problem converting line to statement line: '%s', error: %w", line, err)
 		}
 		if statement == nil {
 			// Not sure what this is, just continue

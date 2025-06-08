@@ -12,7 +12,7 @@ import (
 )
 
 type Auditor struct {
-	ghc      *ghcontrol.GitHubConnection
+	ghc *ghcontrol.GitHubConnection
 	// TODO: This should probably be turned into a pointer.
 	verifier attest.Verifier
 	pa       *attest.ProvenanceAttestor
