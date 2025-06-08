@@ -174,7 +174,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit, ref string) (*spb.Statement, *SourceProvenancePred, error) {
 	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
 	if notes == "" {
-		log.Printf("didn't find notes for commit %s", commit)
+		Debugf("didn't find notes for commit %s", commit)
 		return nil, nil, nil
 	}
 
@@ -195,7 +195,7 @@ func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref
 		}
 		if err != nil {
 			// Ignore errors, we want to check all the lines.
-			log.Printf("error while processing line: %v", err)
+			Debugf("error while processing line: %v", err)
 			continue
 		}
 
@@ -212,11 +212,11 @@ func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref
 			// Should be good!
 			return stmt, prevProdPred, nil
 		} else {
-			log.Printf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, ref)
+			Debugf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, ref)
 		}
 	}
 
-	log.Printf("didn't find commit %s for ref %s", commit, ref)
+	Debugf("didn't find commit %s for ref %s", commit, ref)
 	return nil, nil, nil
 }
 
@@ -250,7 +250,7 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 
 	// No prior provenance found, so we just go with current.
 	if prevProvStmt == nil || prevProvPred == nil {
-		log.Printf("No previous provenance found, have to bootstrap\n")
+		Debugf("No previous provenance found, have to bootstrap\n")
 		return curProv, nil
 	}
 

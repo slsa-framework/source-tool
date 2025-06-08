@@ -28,7 +28,7 @@ func NewGhConnectionWithClient(owner, repo, ref string, client *github.Client) *
 	if t := os.Getenv(tokenEnvVar); t != "" {
 		opts.accessToken = t
 		if client != nil {
-			client.WithAuthToken(t)
+			client = client.WithAuthToken(t)
 		}
 	}
 
