@@ -102,7 +102,7 @@ func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*spb.Statement,
 		statement, err := br.convertLineToStatement(line)
 		if err != nil {
 			// Ignore errors, the next line could be fine.
-			Debugf("problem converting line to statement line: '%s', error: %w", line, err)
+			Debugf("problem converting line to statement line: '%s', error: %v", line, err)
 		}
 		if statement == nil {
 			// Not sure what this is, just continue
