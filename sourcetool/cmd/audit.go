@@ -17,10 +17,11 @@ import (
 )
 
 type AuditArgs struct {
-	owner      string
-	repo       string
-	branch     string
-	auditDepth int
+	owner        string
+	repo         string
+	branch       string
+	auditDepth   int
+	endingCommit string
 }
 
 func (aa *AuditArgs) Validate() error {
@@ -88,18 +89,23 @@ func doAudit(auditArgs *AuditArgs) error {
 
 	fmt.Printf("Auditing branch %s starting from revision %s\n", auditArgs.branch, latestCommit)
 
-	count := 1
+	count := 0
 	for ar, err := range auditor.AuditBranch(ctx, auditArgs.branch) {
 		if ar == nil {
 			return err
-		}
-		if auditArgs.auditDepth > 0 && count > auditArgs.auditDepth {
-			return nil
 		}
 		if err != nil {
 			fmt.Printf("\terror: %v\n", err)
 		}
 		printAuditResult(ar)
+		if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
+			fmt.Printf("Found ending commit %s\n", auditArgs.endingCommit)
+			return nil
+		}
+		if auditArgs.auditDepth > 0 && count >= auditArgs.auditDepth {
+			fmt.Printf("Reached depth limit %d\n", auditArgs.auditDepth)
+			return nil
+		}
 		count++
 	}
 
@@ -113,4 +119,5 @@ func init() {
 	auditCmd.Flags().StringVar(&auditArgs.repo, "repo", "", "The GitHub repository name - required.")
 	auditCmd.Flags().StringVar(&auditArgs.branch, "branch", "", "The branch within the repository - required.")
 	auditCmd.Flags().IntVar(&auditArgs.auditDepth, "depth", 0, "The max number of revisions to audit (depth <= audit all revisions).")
+	auditCmd.Flags().StringVar(&auditArgs.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
 }
