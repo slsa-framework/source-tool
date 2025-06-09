@@ -4,7 +4,7 @@ go 1.24.3
 
 require (
 	github.com/carabiner-dev/bnd v0.2.0
-	github.com/go-git/go-git/v5 v5.16.1
+	github.com/go-git/go-git/v5 v5.16.2
 	github.com/google/go-github/v69 v69.2.0
 	github.com/in-toto/attestation v1.1.2-0.20250128181946-c0b4d86cf712
 	github.com/migueleliasweb/go-github-mock v1.3.0
