@@ -28,17 +28,15 @@ type AuditCommitResult struct {
 }
 
 func (ar *AuditCommitResult) IsGood() bool {
-	good := true
-	if ar.VsaPred == nil {
-		good = false
-	}
+	// Have to have a VSA
+	good := ar.VsaPred != nil
 
+	// Have to have provenance
 	if ar.ProvPred == nil {
 		good = false
-	} else {
-		if ar.ProvPred.PrevCommit != ar.GhPriorCommit {
-			good = false
-		}
+	} else if ar.ProvPred.PrevCommit != ar.GhPriorCommit {
+		// Commits need to be the same.
+		good = false
 	}
 
 	return good
