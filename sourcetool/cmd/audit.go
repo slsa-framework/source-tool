@@ -76,6 +76,17 @@ var (
 	auditCmd = &cobra.Command{
 		Use:   "audit",
 		Short: "Audits the SLSA properties and controls of a repository",
+		Long: `Checks the revisions on the specified branch within the repository.
+
+Revisions 'pass'and audit if they have:
+1. A corresponding VSA
+2. Corresponding source provenance
+3. The revision (commit) listed in the provenance matches the revision reported by GitHub
+
+Future:
+* Check the provenance to validate the verifiedLevels in the VSA match expectations
+  (i.e. that the VSA was issued correctly)
+`,
 		Run: func(cmd *cobra.Command, args []string) {
 			err := doAudit(auditArgs)
 			if err != nil {
