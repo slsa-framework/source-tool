@@ -27,6 +27,23 @@ type AuditCommitResult struct {
 	GhControlStatus *ghcontrol.GhControlStatus
 }
 
+func (ar *AuditCommitResult) IsGood() bool {
+	good := true
+	if ar.VsaPred == nil {
+		good = false
+	}
+
+	if ar.ProvPred == nil {
+		good = false
+	} else {
+		if ar.ProvPred.PrevCommit != ar.GhPriorCommit {
+			good = false
+		}
+	}
+
+	return good
+}
+
 func NewAuditor(ghc *ghcontrol.GitHubConnection, pa *attest.ProvenanceAttestor, verifier attest.Verifier) *Auditor {
 	return &Auditor{
 		ghc:      ghc,

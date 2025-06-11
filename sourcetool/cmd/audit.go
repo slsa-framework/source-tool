@@ -16,12 +16,51 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 )
 
+type AuditMode int
+
+const (
+	AuditModeBasic AuditMode = 1
+	AuditModeFull  AuditMode = 2
+)
+
+// Enable audit mode enum
+// String is used both by fmt.Print and by Cobra in help text
+func (e *AuditMode) String() string {
+	switch *e {
+	case AuditModeBasic:
+		return "basic"
+	case AuditModeFull:
+		return "full"
+	}
+	return "error"
+}
+
+// Set must have pointer receiver so it doesn't change the value of a copy
+func (e *AuditMode) Set(v string) error {
+	switch v {
+	case "basic":
+		*e = AuditModeBasic
+		return nil
+	case "full":
+		*e = AuditModeFull
+		return nil
+	default:
+		return errors.New(`must be one of "foo", "bar", or "moo"`)
+	}
+}
+
+// Type is only used in help text
+func (e *AuditMode) Type() string {
+	return "AuditMode"
+}
+
 type AuditArgs struct {
 	owner        string
 	repo         string
 	branch       string
 	auditDepth   int
 	endingCommit string
+	auditMode    AuditMode
 }
 
 func (aa *AuditArgs) Validate() error {
@@ -46,8 +85,14 @@ var (
 	}
 )
 
-func printAuditResult(ar *audit.AuditCommitResult) {
-	fmt.Printf("commit: %s\n", ar.Commit)
+func printResult(ar *audit.AuditCommitResult, mode AuditMode) {
+	good := ar.IsGood()
+	fmt.Printf("commit: %s - passed: %v\n", ar.Commit, good)
+
+	if good && AuditModeBasic == mode {
+		return
+	}
+
 	if ar.VsaPred != nil {
 		fmt.Printf("\tvsa: %v\n", ar.VsaPred.GetVerifiedLevels())
 	} else {
@@ -97,7 +142,7 @@ func doAudit(auditArgs *AuditArgs) error {
 		if err != nil {
 			fmt.Printf("\terror: %v\n", err)
 		}
-		printAuditResult(ar)
+		printResult(ar, auditArgs.auditMode)
 		if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
 			fmt.Printf("Found ending commit %s\n", auditArgs.endingCommit)
 			return nil
@@ -120,4 +165,6 @@ func init() {
 	auditCmd.Flags().StringVar(&auditArgs.branch, "branch", "", "The branch within the repository - required.")
 	auditCmd.Flags().IntVar(&auditArgs.auditDepth, "depth", 0, "The max number of revisions to audit (depth <= audit all revisions).")
 	auditCmd.Flags().StringVar(&auditArgs.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
+	auditArgs.auditMode = AuditModeBasic
+	auditCmd.Flags().Var(&auditArgs.auditMode, "audit-mode", "'basic' for limited details (default), 'full' for all details")
 }
