@@ -71,7 +71,7 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.So
 func GetVsa(ctx context.Context, ghc *ghcontrol.GitHubConnection, verifier Verifier, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	notes, err := ghc.GetNotesForCommit(ctx, commit)
 	if notes == "" {
-		log.Printf("didn't find notes for commit %s", commit)
+		Debugf("didn't find notes for commit %s", commit)
 		return nil, nil, nil
 	}
 
@@ -99,21 +99,21 @@ func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
 func MatchesTypeCommitAndRef(predicateType, commit, targetRef string) StatementMatcher {
 	return func(statement *spb.Statement) bool {
 		if statement.GetPredicateType() != predicateType {
-			log.Printf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
+			Debugf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
 			return false
 		}
 		refs, err := GetSourceRefsForCommit(statement, commit)
 		if err != nil {
-			log.Printf("statement \n%v\n does not match commit %s: %v", StatementToString(statement), commit, err)
+			Debugf("statement \n%v\n does not match commit %s: %v", StatementToString(statement), commit, err)
 			return false
 		}
 		for _, ref := range refs {
 			if targetRef == ghcontrol.AnyReference || ref == targetRef {
-				log.Printf("statement \n%v\n matches commit '%s' on ref '%s'", StatementToString(statement), commit, targetRef)
+				Debugf("statement \n%v\n matches commit '%s' on ref '%s'", StatementToString(statement), commit, targetRef)
 				return true
 			}
 		}
-		log.Printf("source_refs (%v) in VSA does not contain %s", refs, targetRef)
+		Debugf("source_refs (%v) in VSA does not contain %s", refs, targetRef)
 		return false
 	}
 }
@@ -123,7 +123,7 @@ func getVsaFromReader(reader *BundleReader, commit, ref string) (*spb.Statement,
 		stmt, err := reader.ReadStatement(MatchesTypeCommitAndRef(VsaPredicateType, commit, ref))
 		if err != nil {
 			// Ignore errors, we want to check all the lines.
-			log.Printf("error while processing line: %v", err)
+			Debugf("error while processing line: %v", err)
 			continue
 		}
 
@@ -140,6 +140,6 @@ func getVsaFromReader(reader *BundleReader, commit, ref string) (*spb.Statement,
 		return stmt, vsaPred, nil
 	}
 
-	log.Printf("didn't find commit %s for ref %s", commit, ref)
+	Debugf("didn't find commit %s for ref %s", commit, ref)
 	return nil, nil, nil
 }
