@@ -85,9 +85,13 @@ var (
 	}
 )
 
-func printResult(ar *audit.AuditCommitResult, mode AuditMode) {
+func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, mode AuditMode) {
 	good := ar.IsGood()
-	fmt.Printf("commit: %s - passed: %v\n", ar.Commit, good)
+	status := "passed"
+	if !good {
+		status = "failed"
+	}
+	fmt.Printf("commit: %s - %v\n", ar.Commit, status)
 
 	if good && AuditModeBasic == mode {
 		return
@@ -112,6 +116,8 @@ func printResult(ar *audit.AuditCommitResult, mode AuditMode) {
 	if ar.GhControlStatus != nil {
 		fmt.Printf("\tgh controls: %v\n", ar.GhControlStatus.Controls)
 	}
+
+	fmt.Printf("\tlink: https://github.com/%s/%s/commit/%s\n", ghc.Owner(), ghc.Repo(), ar.GhPriorCommit)
 }
 
 func doAudit(auditArgs *AuditArgs) error {
@@ -142,7 +148,7 @@ func doAudit(auditArgs *AuditArgs) error {
 		if err != nil {
 			fmt.Printf("\terror: %v\n", err)
 		}
-		printResult(ar, auditArgs.auditMode)
+		printResult(ghc, ar, auditArgs.auditMode)
 		if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
 			fmt.Printf("Found ending commit %s\n", auditArgs.endingCommit)
 			return nil
