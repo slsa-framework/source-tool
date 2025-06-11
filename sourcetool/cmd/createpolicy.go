@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 
@@ -28,20 +27,21 @@ var (
 		Long: `Creates a SLSA source policy in a local copy of slsa-source-poc.
 
 		The created policy should then be sent as a PR to slsa-framework/slsa-source-poc.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			doCreatePolicy(createPolicyArgs.policyRepoPath, createPolicyArgs.owner, createPolicyArgs.repo, createPolicyArgs.branch)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doCreatePolicy(createPolicyArgs.policyRepoPath, createPolicyArgs.owner, createPolicyArgs.repo, createPolicyArgs.branch)
 		},
 	}
 )
 
-func doCreatePolicy(policyRepoPath, owner, repo, branch string) {
+func doCreatePolicy(policyRepoPath, owner, repo, branch string) error {
 	ghconnection := ghcontrol.NewGhConnection(owner, repo, ghcontrol.BranchToFullRef(branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
 	outpath, err := policy.CreateLocalPolicy(ctx, ghconnection, policyRepoPath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	fmt.Printf("Wrote policy to %s\n", outpath)
+	return nil
 }
 
 func init() {

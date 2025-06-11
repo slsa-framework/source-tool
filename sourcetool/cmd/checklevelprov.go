@@ -39,10 +39,8 @@ var (
 	checklevelprovCmd = &cobra.Command{
 		Use:   "checklevelprov",
 		Short: "Checks the given commit against policy using & creating provenance",
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := doCheckLevelProv(checkLevelProvArgs); err != nil {
-				log.Fatal(err)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doCheckLevelProv(checkLevelProvArgs)
 		},
 	}
 )

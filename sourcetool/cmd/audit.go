@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 
@@ -87,11 +86,8 @@ Future:
 * Check the provenance to validate the verifiedLevels in the VSA match expectations
   (i.e. that the VSA was issued correctly)
 `,
-		Run: func(cmd *cobra.Command, args []string) {
-			err := doAudit(auditArgs)
-			if err != nil {
-				log.Fatal(err)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doAudit(auditArgs)
 		},
 	}
 )

@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -25,25 +24,26 @@ var (
 	provCmd  = &cobra.Command{
 		Use:   "prov",
 		Short: "Creates provenance for the given commit, but does not check policy.",
-		Run: func(cmd *cobra.Command, args []string) {
-			doProv(provArgs.prevAttPath, provArgs.commit, provArgs.prevCommit, provArgs.owner, provArgs.repo, provArgs.branch)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doProv(provArgs.prevAttPath, provArgs.commit, provArgs.prevCommit, provArgs.owner, provArgs.repo, provArgs.branch)
 		},
 	}
 )
 
-func doProv(prevAttPath, commit, prevCommit, owner, repo, branch string) {
+func doProv(prevAttPath, commit, prevCommit, owner, repo, branch string) error {
 	ghconnection := ghcontrol.NewGhConnection(owner, repo, ghcontrol.BranchToFullRef(branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
 	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier())
 	newProv, err := pa.CreateSourceProvenance(ctx, prevAttPath, commit, prevCommit, ghconnection.GetFullRef())
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	provStr, err := protojson.Marshal(newProv)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	fmt.Printf("%s\n", string(provStr))
+	fmt.Println(string(provStr))
+	return nil
 }
 
 func init() {
