@@ -265,8 +265,7 @@ func TestBuiltinBranchControls(t *testing.T) {
 			control := controlStatus.Controls.GetControl(tt.expectedControl)
 			if control == nil {
 				t.Fatalf("expected controls to contain %v, got %+v", tt.expectedControl, controlStatus.Controls)
-			}
-			if !control.Since.Equal(priorTime) {
+			} else if !control.Since.Equal(priorTime) {
 				t.Fatalf("expected control.Since %v, got %v", priorTime, control.Since)
 			}
 		})
