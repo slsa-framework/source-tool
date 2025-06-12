@@ -34,10 +34,8 @@ var (
 	checktagCmd = &cobra.Command{
 		Use:   "checktag",
 		Short: "Checks to see if the tag operation should be allowed and issues a VSA",
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := doCheckTag(checkTagArgs); err != nil {
-				log.Fatal(err)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doCheckTag(checkTagArgs)
 		},
 	}
 )

@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 
@@ -24,25 +23,25 @@ var (
 	verifycommitCmd  = &cobra.Command{
 		Use:   "verifycommit",
 		Short: "Verifies the specified commit is valid",
-		Run: func(cmd *cobra.Command, args []string) {
-			doVerifyCommit(verifyCommitArgs.commit, verifyCommitArgs.owner, verifyCommitArgs.repo, verifyCommitArgs.branch, verifyCommitArgs.tag)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doVerifyCommit(verifyCommitArgs.commit, verifyCommitArgs.owner, verifyCommitArgs.repo, verifyCommitArgs.branch, verifyCommitArgs.tag)
 		},
 	}
 )
 
-func doVerifyCommit(commit, owner, repo, branch, tag string) {
+func doVerifyCommit(commit, owner, repo, branch, tag string) error {
 	if commit == "" || owner == "" || repo == "" {
-		log.Fatal("Must set commit, owner and repo.")
+		return fmt.Errorf("must set commit, owner and repo")
 	}
 
-	ref := ""
+	var ref string
 	switch {
 	case branch != "":
 		ref = ghcontrol.BranchToFullRef(branch)
 	case tag != "":
 		ref = ghcontrol.TagToFullRef(tag)
 	default:
-		log.Fatal("Must specify either branch or tag.")
+		return fmt.Errorf("must specify either branch or tag")
 	}
 
 	ghconnection := ghcontrol.NewGhConnection(owner, repo, ref).WithAuthToken(githubToken)
@@ -50,14 +49,15 @@ func doVerifyCommit(commit, owner, repo, branch, tag string) {
 
 	_, vsaPred, err := attest.GetVsa(ctx, ghconnection, getVerifier(), commit, ghconnection.GetFullRef())
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if vsaPred == nil {
 		fmt.Printf("FAILED: no VSA matching commit '%s' on branch '%s' found in github.com/%s/%s\n", commit, branch, owner, repo)
-		return
+		return nil
 	}
 
 	fmt.Printf("SUCCESS: commit %s verified with %v\n", commit, vsaPred.GetVerifiedLevels())
+	return nil
 }
 
 func init() {

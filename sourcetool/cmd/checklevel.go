@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,42 +38,40 @@ var (
 		Long: `Determines the SLSA Source Level of the repo.
 
 This is meant to be run within the corresponding GitHub Actions workflow.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			doCheckLevel(&checkLevelArgs)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doCheckLevel(&checkLevelArgs)
 		},
 	}
 )
 
-func doCheckLevel(cla *CheckLevelArgs) {
+func doCheckLevel(cla *CheckLevelArgs) error {
 	if err := cla.Validate(); err != nil {
-		log.Fatalf("Error: %v", err)
+		return err
 	}
 
-	ghconnection := ghcontrol.NewGhConnection(
-		cla.owner, cla.repo, ghcontrol.BranchToFullRef(cla.branch),
-	).WithAuthToken(githubToken)
+	ghconnection := ghcontrol.NewGhConnection(cla.owner, cla.repo, ghcontrol.BranchToFullRef(cla.branch)).WithAuthToken(githubToken)
 	ghconnection.Options.AllowMergeCommits = cla.allowMergeCommits
 
 	ctx := context.Background()
 	controlStatus, err := ghconnection.GetBranchControls(ctx, cla.commit, ghconnection.GetFullRef())
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
 	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, ghconnection, controlStatus)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	fmt.Print(verifiedLevels)
 
 	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), cla.commit, verifiedLevels, policyPath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if cla.outputUnsignedVsa != "" {
-		if err = os.WriteFile(cla.outputUnsignedVsa, []byte(unsignedVsa), 0o644); err != nil { //nolint:gosec
-			log.Fatal(err)
+		if err := os.WriteFile(cla.outputUnsignedVsa, []byte(unsignedVsa), 0o644); err != nil { //nolint:gosec
+			return err
 		}
 	}
 
@@ -82,13 +79,15 @@ func doCheckLevel(cla *CheckLevelArgs) {
 		// This will output in the sigstore bundle format.
 		signedVsa, err := attest.Sign(unsignedVsa)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		err = os.WriteFile(cla.outputVsa, []byte(signedVsa), 0o644) //nolint:gosec
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+
+	return nil
 }
 
 func init() {
