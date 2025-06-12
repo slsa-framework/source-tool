@@ -102,7 +102,16 @@ func (so *statusOptions) AddFlags(cmd *cobra.Command) {
 func addStatus(parentCmd *cobra.Command) {
 	opts := &statusOptions{}
 	statusCmd := &cobra.Command{
-		Short:         "check the status of a branch",
+		Short: "Check the SLSA Source status of a repo/branch",
+		Long: `
+sourcetool status: Check the SLSA Source status of a repo/branch
+
+The status subcommand reads the current controls enabled for a branch
+and reports the SLSA source level that the repository can claim. This
+command is intended to help maintainers implementing SLSA controls
+understand the next steps to secure their repos and progress in their
+SLSA journey. 
+`,
 		Use:           "status",
 		SilenceUsage:  false,
 		SilenceErrors: true,
