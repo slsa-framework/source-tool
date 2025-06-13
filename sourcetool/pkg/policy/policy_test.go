@@ -235,7 +235,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 			policyContent:         "not valid policy json",
 			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType),
 			ghConnBranch:          "main",
-			expectedErrorContains: "invalid character 'o' in literal null (expecting 'u')", // Error from getPolicy via getLocalPolicy
+			expectedErrorContains: "invalid character 'o' in literal null (expecting 'u')", // Error from GetPolicy via getLocalPolicy
 		},
 		{
 			name:                  "Non-existent Policy File -> Error",
@@ -1389,22 +1389,22 @@ func TestComputeEligibleSince(t *testing.T) {
 }
 
 func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *ghcontrol.GitHubConnection, pe *PolicyEvaluator, expectedPolicy *RepoPolicy, expectedBranchPolicy *ProtectedBranch, expectedPath string) {
-	rp, gotPath, err := pe.getPolicy(ctx, ghConn)
+	rp, gotPath, err := pe.GetPolicy(ctx, ghConn)
 	if err != nil {
-		t.Fatalf("getPolicy() error = %v, want nil", err)
+		t.Fatalf("GetPolicy() error = %v, want nil", err)
 	}
 	if gotPath != expectedPath {
-		t.Errorf("getPolicy() gotPath = %q, want %q (temp file path)", gotPath, expectedPath)
+		t.Errorf("GetPolicy() gotPath = %q, want %q (temp file path)", gotPath, expectedPath)
 	}
 	if expectedPolicy == nil {
 		if rp != nil {
-			t.Fatalf("getPolicy() expectedPolicy == nil but got non-nil policy %+v", rp)
+			t.Fatalf("GetPolicy() expectedPolicy == nil but got non-nil policy %+v", rp)
 		}
 		return // quite while we're ahead
 	}
 
 	if rp == nil {
-		t.Fatalf("getPolicy() rp is nil but expectedPolicy is not")
+		t.Fatalf("GetPolicy() rp is nil but expectedPolicy is not")
 	}
 
 	// TODO: check the rest of the contents of expectedPolicy?
@@ -1413,7 +1413,7 @@ func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *ghcontr
 
 	if expectedBranchPolicy == nil {
 		if gotPb != nil {
-			t.Fatalf("getPolicy() expectedBranchPolicy == nil but got non-nil branch policy %+v", rp)
+			t.Fatalf("GetPolicy() expectedBranchPolicy == nil but got non-nil branch policy %+v", rp)
 		}
 		return
 	}
@@ -1515,16 +1515,16 @@ func TestGetPolicy_Local_ErrorCases(t *testing.T) {
 				pe.UseLocalPolicy = tt.useLocalPolicyPath // For non-existent file
 			}
 
-			gotRp, gotPath, err := pe.getPolicy(ctx, ghConn)
+			gotRp, gotPath, err := pe.GetPolicy(ctx, ghConn)
 
 			if err == nil {
-				t.Errorf("getPolicy() error = nil, want non-nil error")
+				t.Errorf("GetPolicy() error = nil, want non-nil error")
 			}
 			if gotRp != nil {
-				t.Errorf("getPolicy() gotRp = %v, want nil", gotRp)
+				t.Errorf("GetPolicy() gotRp = %v, want nil", gotRp)
 			}
 			if gotPath != "" {
-				t.Errorf("getPolicy() gotPath = %q, want \"\"", gotPath)
+				t.Errorf("GetPolicy() gotPath = %q, want \"\"", gotPath)
 			}
 		})
 	}
@@ -1669,7 +1669,7 @@ func TestGetPolicy_Remote_ServerError(t *testing.T) {
 	pe := PolicyEvaluator{UseLocalPolicy: ""}
 	// ghConn is now returned by setupMockGitHubTestEnv
 
-	gotPolicy, gotPath, err := pe.getPolicy(ctx, ghConn)
+	gotPolicy, gotPath, err := pe.GetPolicy(ctx, ghConn)
 	if err == nil {
 		t.Errorf("Expected an error for server-side issues, got nil")
 	}
@@ -1735,7 +1735,7 @@ func TestGetPolicy_Remote_MalformedJSON(t *testing.T) {
 
 			pe := PolicyEvaluator{UseLocalPolicy: ""}
 
-			gotPolicy, gotPath, err := pe.getPolicy(ctx, ghConn)
+			gotPolicy, gotPath, err := pe.GetPolicy(ctx, ghConn)
 			if err == nil {
 				t.Errorf("Expected an error for malformed JSON, got nil")
 			}

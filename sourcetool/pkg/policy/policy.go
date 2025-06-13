@@ -130,7 +130,10 @@ func getLocalPolicy(path string) (*RepoPolicy, string, error) {
 	return &p, path, nil
 }
 
-func (pe PolicyEvaluator) getPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnection) (policy *RepoPolicy, path string, err error) {
+// GetPolicy fetches the policy for a repository from the SLSA source repo.
+// For debugging purposes, if UseLocalPolicy is defined, then the policy will
+// be read from a local file.
+func (pe PolicyEvaluator) GetPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnection) (policy *RepoPolicy, path string, err error) {
 	if pe.UseLocalPolicy == "" {
 		policy, path, err = getRemotePolicy(ctx, ghconnection)
 	} else {
@@ -458,7 +461,7 @@ func NewPolicyEvaluator() *PolicyEvaluator {
 func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, controlStatus *ghcontrol.GhControlStatus) (slsa.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
-	rp, policyPath, err := pe.getPolicy(ctx, ghconnection)
+	rp, policyPath, err := pe.GetPolicy(ctx, ghconnection)
 	if err != nil || rp == nil {
 		return slsa.SourceVerifiedLevels{}, "", err
 	}
@@ -484,7 +487,7 @@ func (pe PolicyEvaluator) EvaluateControl(ctx context.Context, ghconnection *ghc
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
 func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, prov *spb.Statement) (slsa.SourceVerifiedLevels, string, error) {
-	rp, policyPath, err := pe.getPolicy(ctx, ghconnection)
+	rp, policyPath, err := pe.GetPolicy(ctx, ghconnection)
 	if err != nil || rp == nil {
 		return slsa.SourceVerifiedLevels{}, "", err
 	}
@@ -512,7 +515,7 @@ func (pe PolicyEvaluator) EvaluateSourceProv(ctx context.Context, ghconnection *
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
 func (pe PolicyEvaluator) EvaluateTagProv(ctx context.Context, ghconnection *ghcontrol.GitHubConnection, prov *spb.Statement) (slsa.SourceVerifiedLevels, string, error) {
-	rp, policyPath, err := pe.getPolicy(ctx, ghconnection)
+	rp, policyPath, err := pe.GetPolicy(ctx, ghconnection)
 	if err != nil {
 		return slsa.SourceVerifiedLevels{}, "", err
 	}

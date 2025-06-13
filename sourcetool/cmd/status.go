@@ -82,9 +82,7 @@ type statusOptions struct {
 func (so *statusOptions) Validate() error {
 	errs := []error{}
 	errs = append(errs, so.branchOptions.Validate())
-	if so.commit == "" {
-		errs = append(errs, errors.New("commit must be set"))
-	}
+
 	return errors.Join(errs...)
 }
 
@@ -97,7 +95,7 @@ func (so *statusOptions) AddFlags(cmd *cobra.Command) {
 }
 
 // TODO(puerco): Most of the logic in this subcommand (except maybe the output)
-// will be moved to a sourcetool obkect in the future to consolidate it into
+// will be moved to a sourcetool object in the future to consolidate it into
 // a reusable library.
 func addStatus(parentCmd *cobra.Command) {
 	opts := &statusOptions{}
@@ -129,6 +127,15 @@ SLSA journey.
 			ctx := context.Background()
 			ghc := ghcontrol.NewGhConnection(opts.owner, opts.repository, opts.branch)
 
+			// If we didn't get a commit, assume HEAD
+			if opts.commit == "" {
+				commitSha, err := ghc.GetLatestCommit(ctx, opts.branch)
+				if err != nil {
+					return fmt.Errorf("fetching latest commit hash: %w", err)
+				}
+				opts.commit = commitSha
+			}
+
 			// Get the active controls
 			activeControls, err := ghc.GetBranchControls(ctx, opts.commit, ghcontrol.BranchToFullRef(opts.branch))
 			if err != nil {
@@ -156,9 +163,7 @@ SLSA journey.
 			}
 
 			// Check if there is a policy:
-			pcy, err := policy.NewPolicyEvaluator().GetRepositoryPolicy(
-				ctx, fmt.Sprintf("git+https://github.com/%s/%s@%s", opts.owner, opts.repository, opts.branch),
-			)
+			pcy, _, err := policy.NewPolicyEvaluator().GetPolicy(ctx, ghc)
 			if err != nil {
 				return fmt.Errorf("checking if the repository has a policy %w", err)
 			}
