@@ -719,7 +719,7 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			level := computeEligibleSlsaLevel(tt.controls)
+			level := ComputeEligibleSlsaLevel(tt.controls)
 			if level != tt.expectedLevel {
 				t.Errorf("computeEligibleSlsaLevel() level = %v, want %v", level, tt.expectedLevel)
 			}

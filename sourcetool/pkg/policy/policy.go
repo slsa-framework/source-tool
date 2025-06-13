@@ -217,7 +217,7 @@ func CreateLocalPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnec
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
 	if provPred != nil {
-		eligibleLevel = computeEligibleSlsaLevel(provPred.Controls)
+		eligibleLevel = ComputeEligibleSlsaLevel(provPred.Controls)
 		eligibleSince, err = computeEligibleSince(provPred.Controls, eligibleLevel)
 		if err != nil {
 			return "", fmt.Errorf("could not compute eligible since: %w", err)
@@ -258,7 +258,7 @@ func computeEligibleForLevel(controls slsa.Controls, level slsa.SlsaSourceLevel)
 
 // Computes the eligible SLSA level, and when they started being eligible for it,
 // if only they had a policy.  Also returns a rationale for why it's eligible for this level.
-func computeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
+func ComputeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
 	// Go from highest to lowest.
 	for _, level := range []slsa.SlsaSourceLevel{
 		slsa.SlsaSourceLevel4, slsa.SlsaSourceLevel3, slsa.SlsaSourceLevel2,
@@ -300,7 +300,7 @@ func computeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*
 type computePolicyResult func(*ProtectedBranch, *ProtectedTag, slsa.Controls) ([]slsa.ControlName, error)
 
 func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa.Controls) ([]slsa.ControlName, error) {
-	eligibleLevel := computeEligibleSlsaLevel(controls)
+	eligibleLevel := ComputeEligibleSlsaLevel(controls)
 
 	if !slsa.IsLevelHigherOrEqualTo(eligibleLevel, branchPolicy.TargetSlsaSourceLevel) {
 		return []slsa.ControlName{}, fmt.Errorf(
