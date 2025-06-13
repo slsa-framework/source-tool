@@ -24,6 +24,11 @@ const (
 	AllowedOrgPropPrefix                     = "ORG_SOURCE_"
 )
 
+// AllLevelControls lists all the SLSA controls managed by sourcetool
+var AllLevelControls = []ControlName{
+	ContinuityEnforced, ProvenanceAvailable, ReviewEnforced, TagHygiene,
+}
+
 func IsSlsaSourceLevel(control ControlName) bool {
 	return slices.Contains(
 		[]ControlName{

@@ -173,7 +173,7 @@ SLSA journey.
 			fmt.Println(w(title))
 			fmt.Println(strings.Repeat("=", len(title)))
 
-			for _, c := range slsa.ControlNames {
+			for _, c := range slsa.AllLevelControls {
 				fmt.Printf("%-35s  ", c)
 				if slices.Contains(activeControls.Controls.Names(), c) {
 					fmt.Println("✅")
