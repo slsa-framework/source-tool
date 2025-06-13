@@ -142,8 +142,6 @@ SLSA journey.
 				return fmt.Errorf("checking status: %w", err)
 			}
 
-			activeLabels := activeControls.Controls.Names()
-
 			// We need to manually check for PROVENANCE_AVAILABLE
 			attestor := attest.NewProvenanceAttestor(
 				ghcontrol.NewGhConnection(opts.owner, opts.repository, opts.branch),
@@ -156,7 +154,9 @@ SLSA journey.
 				return fmt.Errorf("attempting to read provenance from commit: %w", err)
 			}
 			if attestation != nil {
-				activeLabels = append(activeLabels, "PROVENANCE_AVAILABLE")
+				activeControls.Controls.AddControl(&slsa.Control{
+					Name: slsa.ProvenanceAvailable,
+				})
 			}
 
 			// Check if there is a policy:
@@ -166,15 +166,7 @@ SLSA journey.
 			}
 
 			// Compute the maximum level possible:
-			var toplevel slsa.SlsaSourceLevel
-			for _, level := range []slsa.SlsaSourceLevel{
-				slsa.SlsaSourceLevel1, slsa.SlsaSourceLevel2,
-				slsa.SlsaSourceLevel3, slsa.SlsaSourceLevel4,
-			} {
-				if met, _ := level.MetByControls(activeLabels); met {
-					toplevel = level
-				}
-			}
+			toplevel := policy.ComputeEligibleSlsaLevel(activeControls.Controls)
 
 			title := fmt.Sprintf("SLSA Source Status for %s/%s", opts.owner, opts.repository)
 			fmt.Printf("")
@@ -183,7 +175,7 @@ SLSA journey.
 
 			for _, c := range slsa.ControlNames {
 				fmt.Printf("%-35s  ", c)
-				if slices.Contains(activeLabels, c) {
+				if slices.Contains(activeControls.Controls.Names(), c) {
 					fmt.Println("✅")
 				} else {
 					fmt.Println("🚫")
