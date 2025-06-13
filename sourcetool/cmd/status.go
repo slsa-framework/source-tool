@@ -142,10 +142,7 @@ SLSA journey.
 				return fmt.Errorf("checking status: %w", err)
 			}
 
-			activeLabels := []string{}
-			for _, c := range activeControls.Controls {
-				activeLabels = append(activeLabels, string(c.Name))
-			}
+			activeLabels := activeControls.Controls.Names()
 
 			// We need to manually check for PROVENANCE_AVAILABLE
 			attestor := attest.NewProvenanceAttestor(
@@ -174,7 +171,7 @@ SLSA journey.
 				slsa.SlsaSourceLevel1, slsa.SlsaSourceLevel2,
 				slsa.SlsaSourceLevel3, slsa.SlsaSourceLevel4,
 			} {
-				if met, _ := level.MetByControls(slsa.StringsToControlNames(activeLabels)); met {
+				if met, _ := level.MetByControls(activeLabels); met {
 					toplevel = level
 				}
 			}
@@ -186,7 +183,7 @@ SLSA journey.
 
 			for _, c := range slsa.ControlNames {
 				fmt.Printf("%-35s  ", c)
-				if slices.Contains(activeLabels, string(c)) {
+				if slices.Contains(activeLabels, c) {
 					fmt.Println("✅")
 				} else {
 					fmt.Println("🚫")
