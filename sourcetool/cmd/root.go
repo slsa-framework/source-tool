@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -48,6 +49,7 @@ func getVerifier() attest.Verifier {
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -60,4 +62,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
 	rootCmd.PersistentFlags().StringVar(&expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
 	rootCmd.PersistentFlags().StringVar(&expectedSan, "expected_san", "", "The expect san of attestations.")
+
+	addStatus(rootCmd)
 }
