@@ -38,6 +38,19 @@ func addVerifyCommit(cmd *cobra.Command) {
 	verifyCommitCmd := &cobra.Command{
 		Use:   "verifycommit",
 		Short: "Verifies the specified commit is valid",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				if err := opts.ParseLocator(args[0]); err != nil {
+					return err
+				}
+			}
+
+			if err := opts.EnsureDefaults(); err != nil {
+				return err
+			}
+
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return fmt.Errorf("validating options: %w", err)
