@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/carabiner-dev/vcslocator"
 	"github.com/spf13/cobra"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 )
 
 type repoOptions struct {
@@ -87,6 +90,20 @@ func (bo *branchOptions) ParseLocator(lString string) error {
 	return nil
 }
 
+func (bo *branchOptions) EnsureDefaults() error {
+	if bo.branch != "" {
+		return nil
+	}
+
+	gcx := ghcontrol.NewGhConnection(bo.owner, bo.repository, "").WithAuthToken(githubToken)
+	branch, err := gcx.GetDefaultBranch(context.Background())
+	if err != nil {
+		return fmt.Errorf("reading repository default branch: %w", err)
+	}
+	bo.branch = branch
+	return nil
+}
+
 // commitOptions defines the fields and flags to ask the user for the data of a commit
 type commitOptions struct {
 	branchOptions
@@ -124,5 +141,21 @@ func (co *commitOptions) ParseLocator(lString string) error {
 		co.commit = components.Commit
 	}
 
+	return nil
+}
+
+func (co *commitOptions) EnsureDefaults() error {
+	if err := co.branchOptions.EnsureDefaults(); err != nil {
+		return fmt.Errorf("fetching default branch of %s/%s: %w", co.owner, co.repository, err)
+	}
+
+	if co.commit == "" {
+		gcx := ghcontrol.NewGhConnection(co.owner, co.repository, "").WithAuthToken(githubToken)
+		digest, err := gcx.GetLatestCommit(context.Background(), co.branch)
+		if err != nil {
+			return fmt.Errorf("fetching last commit from %q: %w", co.branch, err)
+		}
+		co.commit = digest
+	}
 	return nil
 }

@@ -99,3 +99,13 @@ func (ghc *GitHubConnection) GetLatestCommit(ctx context.Context, targetBranch s
 	}
 	return *branch.Commit.SHA, nil
 }
+
+// GetDefaultBranch reads the default repository branch from the GitHub API
+func (ghc *GitHubConnection) GetDefaultBranch(ctx context.Context) (string, error) {
+	repo, _, err := ghc.Client().Repositories.Get(ctx, ghc.owner, ghc.repo)
+	if err != nil {
+		return "", fmt.Errorf("fetching repository data: %w", err)
+	}
+
+	return repo.GetDefaultBranch(), nil
+}
