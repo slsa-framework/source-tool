@@ -72,10 +72,13 @@ type branchOptions struct {
 	branch string
 }
 
-// statusOptions
-type statusOptions struct {
+type commitOptions struct {
 	branchOptions
 	commit string
+}
+
+// statusOptions
+type statusOptions struct {
 }
 
 // Validate checks the options
