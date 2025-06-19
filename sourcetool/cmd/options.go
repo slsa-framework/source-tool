@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/carabiner-dev/vcslocator"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +36,16 @@ func (ro *repoOptions) AddFlags(cmd *cobra.Command) {
 	)
 }
 
+func (ro *repoOptions) ParseSlug(lString string) error {
+	pts := strings.Split(strings.TrimPrefix(strings.TrimSuffix(lString, "/"), "/"), "/")
+	if len(pts) != 2 {
+		return errors.New("repository slug malformed, must be owner/repo")
+	}
+	ro.owner = pts[0]
+	ro.repository = pts[1]
+	return nil
+}
+
 func (bo *branchOptions) Validate() error {
 	errs := []error{}
 	errs = append(errs, bo.repoOptions.Validate())
@@ -57,6 +70,23 @@ type branchOptions struct {
 	branch string
 }
 
+func (bo *branchOptions) ParseLocator(lString string) error {
+	components, err := vcslocator.Locator(lString).Parse()
+	if err != nil {
+		return fmt.Errorf("parsing repository slug: %w", err)
+	}
+
+	if err := bo.ParseSlug(components.RepoPath); err != nil {
+		return err
+	}
+
+	if components.Branch != "" {
+		bo.branch = components.Branch
+	}
+
+	return nil
+}
+
 // commitOptions defines the fields and flags to ask the user for the data of a commit
 type commitOptions struct {
 	branchOptions
@@ -78,4 +108,21 @@ func (co *commitOptions) Validate() error {
 		errs = append(errs, errors.New("commit digest must be set"))
 	}
 	return errors.Join(errs...)
+}
+
+func (co *commitOptions) ParseLocator(lString string) error {
+	components, err := vcslocator.Locator(lString).Parse()
+	if err != nil {
+		return fmt.Errorf("parsing repository slug: %w", err)
+	}
+
+	if err := co.ParseSlug(components.RepoPath); err != nil {
+		return err
+	}
+
+	if components.Commit != "" {
+		co.commit = components.Commit
+	}
+
+	return nil
 }
