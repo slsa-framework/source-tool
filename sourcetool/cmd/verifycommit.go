@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -13,21 +14,40 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 )
 
-type VerifyCommitArgs struct {
-	owner, repo, branch, commit, tag string
+type verifyCommitOptions struct {
+	tag string
+	commitOptions
 }
 
-// checklevelCmd represents the checklevel command
-var (
-	verifyCommitArgs VerifyCommitArgs
-	verifycommitCmd  = &cobra.Command{
+func (vco *verifyCommitOptions) Validate() error {
+	errs := []error{
+		vco.commitOptions.Validate(),
+	}
+	return errors.Join(errs...)
+}
+
+func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
+	vco.commitOptions.AddFlags(cmd)
+	cmd.PersistentFlags().StringVar(
+		&vco.tag, "tag", "", "The tag within the repository",
+	)
+}
+
+func addVerifyCommit(cmd *cobra.Command) {
+	opts := verifyCommitOptions{}
+	verifyCommitCmd := &cobra.Command{
 		Use:   "verifycommit",
 		Short: "Verifies the specified commit is valid",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doVerifyCommit(verifyCommitArgs.commit, verifyCommitArgs.owner, verifyCommitArgs.repo, verifyCommitArgs.branch, verifyCommitArgs.tag)
+			if err := opts.Validate(); err != nil {
+				return fmt.Errorf("validating options: %w", err)
+			}
+			return doVerifyCommit(opts.commit, opts.owner, opts.repository, opts.branch, opts.tag)
 		},
 	}
-)
+	opts.AddFlags(cmd)
+	cmd.AddCommand(verifyCommitCmd)
+}
 
 func doVerifyCommit(commit, owner, repo, branch, tag string) error {
 	if commit == "" || owner == "" || repo == "" {
@@ -58,14 +78,4 @@ func doVerifyCommit(commit, owner, repo, branch, tag string) error {
 
 	fmt.Printf("SUCCESS: commit %s verified with %v\n", commit, vsaPred.GetVerifiedLevels())
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(verifycommitCmd)
-
-	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.owner, "owner", "", "The GitHub repository owner - required.")
-	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.repo, "repo", "", "The GitHub repository name - required.")
-	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.branch, "branch", "", "The branch within the repository.")
-	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.tag, "tag", "", "The tag within the repository.")
-	verifycommitCmd.Flags().StringVar(&verifyCommitArgs.commit, "commit", "", "The commit to check - required.")
 }
