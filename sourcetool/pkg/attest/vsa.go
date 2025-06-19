@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
@@ -70,14 +69,15 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.So
 // Gets provenance for the commit from git notes.
 func GetVsa(ctx context.Context, ghc *ghcontrol.GitHubConnection, verifier Verifier, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	notes, err := ghc.GetNotesForCommit(ctx, commit)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching commit note: %w", err)
+	}
+
 	if notes == "" {
 		Debugf("didn't find notes for commit %s", commit)
 		return nil, nil, nil
 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
 	return getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), verifier), commit, ref)
 }
 
