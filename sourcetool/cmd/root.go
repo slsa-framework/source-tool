@@ -63,5 +63,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
 	rootCmd.PersistentFlags().StringVar(&expectedSan, "expected_san", "", "The expect san of attestations.")
 
+	addVerifyCommit(rootCmd)
 	addStatus(rootCmd)
 }

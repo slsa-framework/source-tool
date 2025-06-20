@@ -21,77 +21,22 @@ import (
 
 var w = color.New(color.FgHiWhite, color.BgBlack).SprintFunc()
 
-type repoOptions struct {
-	owner      string
-	repository string
-}
-
-func (ro *repoOptions) Validate() error {
-	errs := []error{}
-	if ro.owner == "" {
-		errs = append(errs, errors.New("repository owner not set"))
-	}
-	if ro.repository == "" {
-		errs = append(errs, errors.New(""))
-	}
-	return errors.Join(errs...)
-}
-
-// AddFlags adds the subcommands flags
-func (ro *repoOptions) AddFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(
-		&ro.repository, "repository", "", "name of the repository",
-	)
-
-	cmd.PersistentFlags().StringVar(
-		&ro.owner, "owner", "", "user or oganization that owns the repo",
-	)
-}
-
-func (bo *branchOptions) Validate() error {
-	errs := []error{}
-	errs = append(errs, bo.repoOptions.Validate())
-
-	if bo.branch == "" {
-		return errors.New("branch not set")
-	}
-	return errors.Join(errs...)
-}
-
-// AddFlags adds the subcommands flags
-func (bo *branchOptions) AddFlags(cmd *cobra.Command) {
-	bo.repoOptions.AddFlags(cmd)
-
-	cmd.PersistentFlags().StringVar(
-		&bo.branch, "branch", "", "name of the branch",
-	)
-}
-
-type branchOptions struct {
-	repoOptions
-	branch string
-}
-
 // statusOptions
 type statusOptions struct {
-	branchOptions
-	commit string
+	commitOptions
 }
 
 // Validate checks the options
 func (so *statusOptions) Validate() error {
 	errs := []error{}
-	errs = append(errs, so.branchOptions.Validate())
+	errs = append(errs, so.commitOptions.Validate())
 
 	return errors.Join(errs...)
 }
 
 // AddFlags adds the subcommands flags
 func (so *statusOptions) AddFlags(cmd *cobra.Command) {
-	so.branchOptions.AddFlags(cmd)
-	cmd.PersistentFlags().StringVar(
-		&so.commit, "commit", "", "commit to check",
-	)
+	so.commitOptions.AddFlags(cmd)
 }
 
 // TODO(puerco): Most of the logic in this subcommand (except maybe the output)
