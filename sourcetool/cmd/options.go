@@ -23,7 +23,7 @@ func (ro *repoOptions) Validate() error {
 		errs = append(errs, errors.New("repository owner not set"))
 	}
 	if ro.repository == "" {
-		errs = append(errs, errors.New(""))
+		errs = append(errs, errors.New("repository name not set"))
 	}
 	return errors.Join(errs...)
 }
@@ -91,6 +91,10 @@ func (bo *branchOptions) ParseLocator(lString string) error {
 }
 
 func (bo *branchOptions) EnsureDefaults() error {
+	if bo.owner == "" || bo.repository == "" {
+		return errors.New("unable to fetch branch defaults, repository data incomplete")
+	}
+
 	if bo.branch != "" {
 		return nil
 	}
@@ -145,6 +149,10 @@ func (co *commitOptions) ParseLocator(lString string) error {
 }
 
 func (co *commitOptions) EnsureDefaults() error {
+	if co.owner == "" || co.repository == "" {
+		return fmt.Errorf("unable to fetch commit defaults, repository data incomplete")
+	}
+
 	if err := co.branchOptions.EnsureDefaults(); err != nil {
 		return fmt.Errorf("fetching default branch of %s/%s: %w", co.owner, co.repository, err)
 	}

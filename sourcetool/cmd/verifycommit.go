@@ -45,6 +45,12 @@ func addVerifyCommit(cmd *cobra.Command) {
 				}
 			}
 
+			// Validate early the repository options to provide a more
+			// useful message to the user
+			if err := opts.repoOptions.Validate(); err != nil {
+				return err
+			}
+
 			if err := opts.EnsureDefaults(); err != nil {
 				return err
 			}
