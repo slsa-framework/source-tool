@@ -95,6 +95,6 @@ func doVerifyCommit(commit, owner, repo, branch, tag string) error {
 		return nil
 	}
 
-	fmt.Printf("SUCCESS: commit %s verified with %v\n", commit, vsaPred.GetVerifiedLevels())
+	fmt.Printf("SUCCESS: commit %s on %s verified with %v\n", commit, branch, vsaPred.GetVerifiedLevels())
 	return nil
 }
