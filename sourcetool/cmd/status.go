@@ -59,6 +59,22 @@ SLSA journey.
 		SilenceUsage:  false,
 		SilenceErrors: true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				if err := opts.ParseLocator(args[0]); err != nil {
+					return err
+				}
+			}
+
+			// Validate early the repository options to provide a more
+			// useful message to the user
+			if err := opts.repoOptions.Validate(); err != nil {
+				return err
+			}
+
+			if err := opts.EnsureDefaults(); err != nil {
+				return err
+			}
+
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
