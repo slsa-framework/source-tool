@@ -1,147 +1,191 @@
 # SLSA Source PoC - Requirements Mapping
 
-This file describes how this tool comes to a conclusion about what SLSA Source Level a given commit meets.
+This file describes how this tool comes to a conclusion about what SLSA Source
+Level a given commit meets.
 
-It is currently written based on https://slsa.dev/spec/draft/source-requirements as of 2025-01-06
-
-## Safe Expunging Process
-
-Users of this tool can support the safe expunging process by using the
-[bypass list](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository#granting-bypass-permissions-for-your-branch-or-tag-ruleset)
-feature of rulesets.  Organizations should have the bypass list set to include _only_ a custom
-'safe-expunging' role which maps to the trusted accounts that can perform this operation.
-
-In addition the role must only be assigned to accounts that are used for this process and
-_must not_ include accounts that are used for day-to-day development.
-
-There is no technical enforcement of this requirement.
+It is currently written based on the
+[SLSA Source Track v1.2-RC1 requirements](https://slsa.dev/spec/v1.2-rc1/source-requirements)
+as of June 21, 2025.
 
 ## Organization Requirements
 
-Open question: does our tooling even need to care about these things?  Should VSA creation
-take this into account (it seems like it could depending on how the open questions below
-are answered).
+These requirements are primarily for the organization that is producing the
+source code. The `slsa-source-poc` tool helps organizations meet these
+requirements when using GitHub as their Source Control System (SCS).
 
-### Use Modern Tools
+### [Choose an appropriate source control system](https://slsa.dev/spec/v1.2-rc1/source-requirements#choose-scs)
 
-Level 1+: git is one of the modern tools, since this tool only works with git this requirement is met.
+**Required for: SLSA Source Level 1+**
 
-### Canonical location
+This requirement is for the organization to select an SCS that can meet their
+desired SLSA Source Level. The `slsa-source-poc` tool is designed specifically
+for organizations using **GitHub**.
 
-Open question: It's unclear how this should be checked by tooling. One thought is that this
-requirement may be in the wrong spot.  Instead perhaps what we're looking for is that given
-packages distributed further downstream should indicate which source repos are canonical.
-They could do this using SLSA _build_ provenance.
+### [Protect consumable branches and tags](https://slsa.dev/spec/v1.2-rc1/source-requirements#protect-consumable-branches-and-tags)
 
-TODO: Now enabling people to set a canonical location in a policy file.  Not yet required for Level 1.
+**Required for: SLSA Source Level 2+**
 
-### Distribute summary attestations
+The `slsa-source-poc` tool is designed around this principle.
 
-This tool stores summary attestations with other attestations in `git notes`, one attestation per line.
+- **Policy:** Users define a
+  [policy file](https://github.com/slsa-framework/slsa-source-poc/blob/main/DESIGN.md#policy)
+  to specify which branches are protected and what their target SLSA level is.
+  The policy also allows for specifying which tags should be protected.
+- **Identity Management:** The tool relies on GitHub's built-in
+  [identity management](https://docs.github.com/en/get-started/learning-about-github/types-of-github-accounts#user-accounts)
+  to configure which actors can perform sensitive actions.
+- **Technical Controls:** The tool enforces technical controls via GitHub's
+  [rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository).
+  [DESIGN.md](https://github.com/slsa-framework/slsa-source-poc/blob/main/DESIGN.md)
+  outlines several controls such as `CONTINUITY_ENFORCED`, `REVIEW_ENFORCED`,
+  `TAG_HYGIENE`, and custom `GH_REQUIRED_CHECK_*` controls that map to
+  organization-defined checks. These are included in the generated VSAs as
+  `ORG_SOURCE_*` properties.
 
-### Distribute provenance attestations
+### [Safe Expunging Process](https://slsa.dev/spec/v1.2-rc1/source-requirements#safe-expunging-process)
 
-Level 1: N/A
+**Required for: SLSA Source Level 2+**
 
-Level 2: N/A
+The `slsa-source-poc` tool does not provide a technical enforcement mechanism
+for a safe expunging process. However, it recommends a process based on GitHub's
+features:
 
-Level 3:
+- **Bypass List:** Organizations can use the
+  [bypass list](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository#granting-bypass-permissions-for-your-branch-or-tag-ruleset)
+  feature of rulesets to allow a specific, trusted role (e.g., 'safe-expunging')
+  to perform these operations.
+- **Dedicated Accounts:** The accounts associated with this role should be used
+  exclusively for this purpose and not for day-to-day development.
 
-This tool stores provenance attestations with other attestations in `git notes`, one attestation per line.
+**Gap:** There is no technical enforcement to ensure that the bypass list is
+used only for safe expunging. This relies on organizational process.
 
 ## Source Control System Requirements
 
-### Revisions are immutable and uniquely identifiable
+These requirements are for the Source Control System itself. The
+`slsa-source-poc` tool leverages GitHub's capabilities to meet these
+requirements.
 
-Level 1+: This tool only attests to git revisions (commits), and those are inherently immutable and
-uniquely identifiable.
+### [Repositories are uniquely identifiable](https://slsa.dev/spec/v1.2-rc1/source-requirements#repository-ids)
 
-### Repository IDs	
+**Required for: SLSA Source Level 1+**
 
-Level 1+: This tool currently only supports GitHub repositories and those are uniquely identified
-by the repository URL (e.g. `https://github.com/slsa-framework/slsa-source-poc`).
+The tool works with **GitHub repositories**, which are uniquely identified by
+their URL (e.g., `https://github.com/slsa-framework/slsa-source-poc`).
 
-### Revision IDs	
+### [Revisions are immutable and uniquely identifiable](https://slsa.dev/spec/v1.2-rc1/source-requirements#revision-ids)
 
-Level 1+: This tool only attests to git revisions (commits) and those have immutability inherently
-enforced.
+**Required for: SLSA Source Level 1+**
 
-Open question: Is this duplicative of "Revisions are immutable and uniquely identifiable"
+The tool attests to **git commits**, which are inherently immutable and uniquely
+identified by their commit hash.
 
-### Source Summary Attestations
+### [Source Verification Summary Attestations](https://slsa.dev/spec/v1.2-rc1/source-requirements#source-summary)
 
-Level 1+: This is the tool that is generating these summary attestations.
+**Required for: SLSA Source Level 1+**
 
-This tool stores summary attestations with other attestations in `git notes`, one attestation per line.
+The `slsa-source-poc` tool generates
+[Verification Summary Attestations (VSAs)](https://github.com/slsa-framework/slsa-source-poc/blob/main/DESIGN.md#verification-summary-attestations-vsa)
+for each commit on a protected branch. These VSAs indicate the SLSA Source Level
+of the revision. The tool uses its generated
+[source provenance](#source-provenance) to issue these VSAs for Level 3 and
+above. The VSAs are stored in `git notes`, making them accessible to anyone who
+can access the revision.
 
-Open question: Is this duplicative of "Distribute summary attestations"
+### [Protected Branches](https://slsa.dev/spec/v1.2-rc1/source-requirements#branches)
 
-### Branches
+**Required for: SLSA Source Level 2+**
 
-Level 1: N/A
+The tool requires users to specify protected branches in the
+[policy file](https://github.com/slsa-framework/slsa-source-poc/blob/main/DESIGN.md#policy).
+The tool's logic for determining SLSA levels is then applied to these branches.
 
-Level 2+: For a commit on a branch to qualify as Level 2+ it must be explicitly indicated in the corresponding policy file.
-This is taken as an indication that it is meant for consumption.
+### [History](https://slsa.dev/spec/v1.2-rc1/source-requirements#history)
 
-### Continuity
+**Required for: SLSA Source Level 2+**
 
-Level 1: N/A
+The tool relies on GitHub's branch protection rules to preserve the history of
+protected branches. Specifically, the `CONTINUITY_ENFORCED` control checks for
+the `deletion` and `non_fast_forward` rules to be active. This prevents
+tampering with the history of protected branches.
 
-Level 2+: Repos are eligible for Level 2 if they have enabled the "Restrict Deletions" (`deletion`) and "Block force pushes" (`non_fast_forward`) rules for the branch in question.
+### [Enforced change management process](https://slsa.dev/spec/v1.2-rc1/source-requirements#enforced-change-management-process)
 
-### Identity Management
+**Required for: SLSA Source Level 2+**
 
-Level 1: N/A
+The `slsa-source-poc` tool enforces the change management process through a
+combination of its policy file and GitHub's rulesets.
 
-Level 2+: This tool relies on GitHub's [built-in user management](https://docs.github.com/en/get-started/learning-about-github/types-of-github-accounts#user-accounts).
+- The tool checks for the enforcement of specific rules on protected branches.
+- The policy file can specify required status checks (e.g., unit tests), which
+  are then included in the generated provenance as
+  `GH_REQUIRED_CHECK_<check name>` and the VSA as the corresponding
+  `ORG_SOURCE_*` properties.
+- The tool allows for the distribution of additional attestations by storing
+  them in `git notes` alongside the VSA and source provenance.
 
-### Strong Authentication	
+### [Continuity](https://slsa.dev/spec/v1.2-rc1/source-requirements#continuity)
 
-Level 1: N/A
+**Required for: SLSA Source Level 2+**
 
-Level 2: N/A
+Continuity is a core concept in the `slsa-source-poc` design.
 
-Level 3:
+- The `CONTINUITY_ENFORCED` control ensures that history protection rules are
+  continuously enforced.
+- The
+  [provenance-based approach](https://github.com/slsa-framework/slsa-source-poc/blob/main/DESIGN.md#provenance-based)
+  is designed to track continuity of controls from one commit to the next. If a
+  prior commit's provenance shows the same level of control, the start time of
+  that control is carried forward. This ensures that there are no gaps in
+  control enforcement.
 
-#### Multi Factor
+### [Protected Tags](https://slsa.dev/spec/v1.2-rc1/source-requirements#protected-tags)
 
-GitHub requires all users who contribute to github.com repos to use multi-factor auth
-[reference](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/about-mandatory-two-factor-authentication).
+**Required for: SLSA Source Level 2+**
 
-#### Strong auth id in source provenance
+The tool has a `TAG_HYGIENE` control which checks that the repository has rules
+to prevent the update or deletion of tags. The policy file can be configured to
+require this for a given SLSA level.
 
-The identity used by GitHub (with strong auth) is stored in the source provenance `actor` field.
+**Gap:** The tool does not yet support protecting only a subset of tags; the
+`tag_hygiene` setting applies to all tags. This is tracked in
+[issue #129](https://github.com/slsa-framework/slsa-source-poc/issues/129).
 
-### Source Provenance	
+### [Identity Management](https://slsa.dev/spec/v1.2-rc1/source-requirements#identity-management)
 
-Level 1: N/A
+**Required for: SLSA Source Level 2+**
 
-Level 2: N/A
+The tool relies on **GitHub's built-in user management** and authentication
+system. The actors who perform actions are identified and authorized based on
+their GitHub user accounts.
 
-Level 3:
-This tool creates 'source provenance' attestations for each push to a protected branch.  It records, at least
+### [Source Provenance](https://slsa.dev/spec/v1.2-rc1/source-requirements#source-provenance)
 
-* The actor that did the push
-* The current commit
-* The previous commit
-* The SLSA source level the current commit meets
-* The time the provenance was created
-* The time the branch began meeting that level's requirements
+**Required for: SLSA Source Level 3+**
 
-### Enforced change management process
+For Level 3, the `slsa-source-poc` tool creates **source provenance
+attestations** for each push to a protected branch. The
+[design document](https://github.com/slsa-framework/slsa-source-poc/blob/main/DESIGN.md#source-provenance)
+specifies the format of these attestations, which include the actor, the current
+and previous commits, the controls in place, and timestamps.
 
-Level 1: N/A
+This provenance is generated contemporaneously with the branch update by a
+reusable GitHub Actions workflow.
 
-Level 2: N/A
+The provenance attestations are stored in git notes, making them accessible to
+anyone who can access the revision.
 
-Level 3:
+### [Two party review](https://slsa.dev/spec/v1.2-rc1/source-requirements#two-party-review)
 
-#### Rules discoverable by authorized users of the repo
+**Required for: SLSA Source Level 4**
 
-This tool leverages GitHub rulesets which are readable by anyone with repository access.
+For Level 4, the `slsa-source-poc` tool has a `REVIEW_ENFORCED` control. This
+control checks that the repository is configured to:
 
-#### Cannot be bypassed except by the change management process.
+- Require Pull Requests.
+- Require at least one approval.
+- Dismiss stale approvals when new commits are pushed.
+- Require review from Code Owners.
+- Require approval of the most recent reviewable push.
 
-This as outlined in [Safe Expunging Process](#safe-expunging-process) and elsewhere
-this tool relies on 'active' enforced rulesets and advises the organization to
-only allow bypass to accounts used when performing safe expunging.
+These checks are intended to meet the two-party review requirement.
