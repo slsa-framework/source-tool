@@ -13,10 +13,10 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool"
 )
 
 var w = color.New(color.FgHiWhite, color.BgBlack).SprintFunc()
@@ -88,36 +88,20 @@ SLSA journey.
 			ctx := context.Background()
 			ghc := ghcontrol.NewGhConnection(opts.owner, opts.repository, opts.branch)
 
-			// If we didn't get a commit, assume HEAD
-			if opts.commit == "" {
-				commitSha, err := ghc.GetLatestCommit(ctx, opts.branch)
-				if err != nil {
-					return fmt.Errorf("fetching latest commit hash: %w", err)
-				}
-				opts.commit = commitSha
-			}
-
-			// Get the active controls
-			activeControls, err := ghc.GetBranchControls(ctx, opts.commit, ghcontrol.BranchToFullRef(opts.branch))
-			if err != nil {
-				return fmt.Errorf("checking status: %w", err)
-			}
-
-			// We need to manually check for PROVENANCE_AVAILABLE
-			attestor := attest.NewProvenanceAttestor(
-				ghcontrol.NewGhConnection(opts.owner, opts.repository, opts.branch),
-				attest.GetDefaultVerifier(),
+			// Create a new sourcetool object
+			srctool, err := sourcetool.New(
+				sourcetool.WithOwner(opts.owner),
+				sourcetool.WithRepo(opts.repository),
+				sourcetool.WithBranch(opts.branch),
+				sourcetool.WithCommit(opts.commit),
 			)
-
-			// Fetch the attestation, if found then add the control
-			attestation, _, err := attestor.GetProvenance(ctx, opts.commit, "refs/heads/"+opts.branch)
 			if err != nil {
-				return fmt.Errorf("attempting to read provenance from commit: %w", err)
+				return err
 			}
-			if attestation != nil {
-				activeControls.Controls.AddControl(&slsa.Control{
-					Name: slsa.ProvenanceAvailable,
-				})
+
+			controls, err := srctool.GetRepoControls()
+			if err != nil {
+				return fmt.Errorf("fetching active controls: %w", err)
 			}
 
 			// Check if there is a policy:
@@ -127,7 +111,7 @@ SLSA journey.
 			}
 
 			// Compute the maximum level possible:
-			toplevel := policy.ComputeEligibleSlsaLevel(activeControls.Controls)
+			toplevel := policy.ComputeEligibleSlsaLevel(controls)
 
 			title := fmt.Sprintf("SLSA Source Status for %s/%s", opts.owner, opts.repository)
 			fmt.Printf("")
@@ -136,7 +120,7 @@ SLSA journey.
 
 			for _, c := range slsa.AllLevelControls {
 				fmt.Printf("%-35s  ", c)
-				if slices.Contains(activeControls.Controls.Names(), c) {
+				if slices.Contains(controls.Names(), c) {
 					fmt.Println("✅")
 				} else {
 					fmt.Println("🚫")
