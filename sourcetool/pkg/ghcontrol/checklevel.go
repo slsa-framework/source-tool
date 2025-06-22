@@ -131,7 +131,7 @@ func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
-func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, _ string, allRulesets []*github.RepositoryRuleset, activityTime *time.Time) (*slsa.Control, error) {
+func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, allRulesets []*github.RepositoryRuleset) (*slsa.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
 		if *ruleset.Target != github.RulesetTargetTag {
@@ -158,11 +158,6 @@ func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, _ str
 	}
 
 	if validRuleset == nil {
-		return nil, nil
-	}
-
-	// Check that the commit was created after this rule was enabled.
-	if activityTime.Before(validRuleset.UpdatedAt.Time) {
 		return nil, nil
 	}
 
@@ -286,7 +281,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 	if err != nil {
 		return nil, err
 	}
-	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, commit, allRulesets, &activity.Timestamp)
+	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, allRulesets)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate TagHygieneControl: %w", err)
 	}
@@ -303,13 +298,14 @@ func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref str
 
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting repository rules from API: %w", err)
 	}
-	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, commit, allRulesets, &controlStatus.CommitPushTime)
+
+	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, allRulesets)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate TagHygieneControl: %w", err)
 	}
-	controlStatus.Controls.AddControl(TagHygieneControl)
+	controlStatus.AddControl(TagHygieneControl)
 
 	return &controlStatus, nil
 }
