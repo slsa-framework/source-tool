@@ -23,6 +23,7 @@ func NewBundleReader(reader *bufio.Reader, verifier Verifier) *BundleReader {
 
 func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
 	// Is this a sigstore bundle with a statement?
+	// Verify will check the signature, but nothing else.
 	vr, err := br.verifier.Verify(line)
 	if err == nil {
 		// This is it.
@@ -79,8 +80,9 @@ func MatchesTypeAndCommit(predicateType, commit string) StatementMatcher {
 }
 
 // Reads all the statements that:
-// 1. Have the specified predicate type.
-// 2. Have a subject that matches the specified git commit.
+// 1. Have a valid signature
+// 2. Have the specified predicate type.
+// 3. Have a subject that matches the specified git commit.
 func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*spb.Statement, error) {
 	// Read until we get a statement or end of file.
 	for {

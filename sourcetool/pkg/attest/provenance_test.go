@@ -1,6 +1,7 @@
 package attest
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -31,12 +32,18 @@ func conditionsForTagImmutability() *github.RepositoryRulesetConditions {
 	}
 }
 
-func createTestVsa(t *testing.T, repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels) string {
-	vsa, err := CreateUnsignedSourceVsa(repoUri, ref, commit, verifiedLevels, "test-policy")
+func createTestProv(t *testing.T, repoUri, ref, commit string) string {
+	provPred := SourceProvenancePred{RepoUri: repoUri, Branch: ref, ActivityType: "pr_merge", Actor: "test actor"}
+	stmt, err := addPredToStatement(provPred, SourceProvPredicateType, commit)
 	if err != nil {
-		t.Fatalf("failure creating test vsa: %v", err)
+		t.Fatalf("failure creating test prov: %v", err)
 	}
-	return vsa
+
+	statementBytes, err := json.Marshal(&stmt)
+	if err != nil {
+		t.Fatalf("failure marshalling statement: %v", err)
+	}
+	return string(statementBytes)
 }
 
 func newNotesContent(content string) *github.RepositoryContent {
@@ -121,8 +128,46 @@ func assertTagProvPredsEqual(t *testing.T, actual, expected *TagProvenancePred) 
 	}
 }
 
+func TestReadProvSuccess(t *testing.T) {
+	testProv := createTestProv(t, "https://github.com/owner/repo", "main", "abc123")
+	ghc := newTestGhConnection("owner", "repo", "branch",
+		// We just need _some_ rulesets response, we don't care what.
+		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
+			github.RulesetEnforcementActive, rulesetOldTime),
+		newNotesContent(testProv))
+	verifier := testsupport.NewMockVerifier()
+
+	pa := NewProvenanceAttestor(ghc, verifier)
+	readStmt, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
+	if err != nil {
+		t.Fatalf("error finding prov: %v", err)
+	}
+	if readStmt == nil || readPred == nil {
+		t.Errorf("could not find provenance")
+	}
+}
+
+func TestReadProvFailure(t *testing.T) {
+	testProv := createTestProv(t, "foo", "main", "abc123")
+	ghc := newTestGhConnection("owner", "repo", "branch",
+		// We just need _some_ rulesets response, we don't care what.
+		newTagHygieneRulesetsResponse(456, github.RulesetTargetBranch,
+			github.RulesetEnforcementEvaluate, rulesetOldTime),
+		newNotesContent(testProv))
+	verifier := testsupport.NewMockVerifier()
+
+	pa := NewProvenanceAttestor(ghc, verifier)
+	_, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
+	if err != nil {
+		t.Fatalf("error finding prov: %v", err)
+	}
+	if readPred != nil {
+		t.Errorf("should not have gotten provenance: %+v", readPred)
+	}
+}
+
 func TestCreateTagProvenance(t *testing.T) {
-	testVsa := createTestVsa(t, "http://repo", "refs/some/ref", "abc123", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
+	testVsa := createTestVsa(t, "https://github.com/owner/repo", "refs/some/ref", "abc123", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
 
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
