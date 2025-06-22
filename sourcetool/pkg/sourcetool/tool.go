@@ -1,8 +1,22 @@
 package sourcetool
 
 import (
+	"fmt"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
+
+type ControlConfiguration string
+
+const (
+	CONFIG_POLICY              ControlConfiguration = "CONFIG_POLICY"
+	CONFIG_PROVENANCE_WORKFLOW ControlConfiguration = "CONFIG_PROVENANCE_WORKFLOW"
+	CONFIG_BRANCH_RULES        ControlConfiguration = "CONFIG_BRANCH_RULES"
+)
+
+var ControlConfigurations = []ControlConfiguration{
+	CONFIG_POLICY, CONFIG_PROVENANCE_WORKFLOW, CONFIG_BRANCH_RULES,
+}
 
 // New initializes a new source tool instance.
 func New(funcs ...ooFn) (*Tool, error) {
@@ -37,4 +51,71 @@ func (t *Tool) GetRepoControls(funcs ...ooFn) (slsa.Controls, error) {
 	}
 
 	return t.impl.GetActiveControls(&opts)
+}
+
+// OnboardRepository configures a repository to set up the required controls
+// to meet SLSA Source L3.
+func (t *Tool) OnboardRepository(funcs ...ooFn) error {
+	opts := t.Options
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return err
+		}
+	}
+
+	if err := t.impl.EnsureDefaults(&opts); err != nil {
+		return fmt.Errorf("ensuring runtime defaults: %w", err)
+	}
+
+	if err := t.impl.VerifyOptionsForFullOnboard(&opts); err != nil {
+		return fmt.Errorf("verifying options: %w", err)
+	}
+
+	if err := t.impl.CreateRepoRuleset(&opts); err != nil {
+		return fmt.Errorf("creating rules in the repository: %w", err)
+	}
+
+	if err := t.impl.CreateWorkflowPR(&opts); err != nil {
+		return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
+	}
+
+	if err := t.impl.CreatePolicyPR(&opts); err != nil {
+		return fmt.Errorf("opening the policy pull request: %w", err)
+	}
+
+	return nil
+}
+
+// ConfigureControls setsup a control in the repo
+func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...ooFn) error {
+	opts := t.Options
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return err
+		}
+	}
+
+	if err := t.impl.EnsureDefaults(&opts); err != nil {
+		return fmt.Errorf("ensuring default option values: %w", err)
+	}
+
+	for _, config := range configs {
+		switch config {
+		case CONFIG_BRANCH_RULES:
+			if err := t.impl.CreateRepoRuleset(&opts); err != nil {
+				return fmt.Errorf("creating rules in the repository: %w", err)
+			}
+		case CONFIG_PROVENANCE_WORKFLOW:
+			if err := t.impl.CreateWorkflowPR(&opts); err != nil {
+				return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
+			}
+		case CONFIG_POLICY:
+			if err := t.impl.CreatePolicyPR(&opts); err != nil {
+				return fmt.Errorf("opening the policy pull request: %w", err)
+			}
+		default:
+			return fmt.Errorf("unknown configuration flag: %q", config)
+		}
+	}
+	return nil
 }
