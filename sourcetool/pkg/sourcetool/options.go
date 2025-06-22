@@ -40,7 +40,7 @@ func (o *Options) GetGitHubConnection() (*ghcontrol.GitHubConnection, error) {
 		return nil, errors.New("repository not set")
 	}
 
-	return ghcontrol.NewGhConnection(o.Owner, o.Repo, o.Branch), nil
+	return ghcontrol.NewGhConnection(o.Owner, o.Repo, ghcontrol.BranchToFullRef(o.Branch)), nil
 }
 
 // EnsureCommit checks the options have a commit sha defined. If not, then

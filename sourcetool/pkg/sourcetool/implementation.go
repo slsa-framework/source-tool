@@ -195,7 +195,24 @@ func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(opts *Options
 }
 
 func (impl *defaultToolImplementation) CreateRepoRuleset(opts *Options) error {
-	return fmt.Errorf("create repo ruleset not implemented yet")
+	// Ensure we have branch and defaults
+	if err := opts.EnsureBranch(); err != nil {
+		return err
+	}
+	if err := opts.EnsureCommit(); err != nil {
+		return err
+	}
+
+	ghc, err := opts.GetGitHubConnection()
+	if err != nil {
+		return err
+	}
+
+	if err := ghc.EnableBranchRules(context.Background()); err != nil {
+		return fmt.Errorf("enabling branch protection rules: %w", err)
+	}
+
+	return nil
 }
 
 func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
