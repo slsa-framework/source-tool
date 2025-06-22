@@ -76,7 +76,7 @@ func (a *Auditor) AuditCommit(ctx context.Context, commit string) (ar *AuditComm
 		// If there's no provenance, let's check the controls to see how they're looking.
 		// It could be that provenance generation failed, but the controls were still
 		// in place.
-		controlStatus, err = a.ghc.GetBranchControls(ctx, commit, a.ghc.GetFullRef())
+		controlStatus, err = a.ghc.GetBranchControlsAtCommit(ctx, commit, a.ghc.GetFullRef())
 		if err != nil {
 			// Let's still return ar so they can continue if they want.
 			return ar, fmt.Errorf("could not get controls for %s on %s: %w", commit, a.ghc.GetFullRef(), err)

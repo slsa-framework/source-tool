@@ -258,7 +258,7 @@ func TestBuiltinBranchControls(t *testing.T) {
 					github.RulesetEnforcementActive, priorTime, tt.rulesetRules),
 				activityForBranch("abc123", "refs/heads/branch_name"), &tt.branchRules)
 
-			controlStatus, err := ghc.GetBranchControls(t.Context(), "abc123", "refs/heads/branch_name")
+			controlStatus, err := ghc.GetBranchControlsAtCommit(t.Context(), "abc123", "refs/heads/branch_name")
 			if err != nil {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
@@ -302,7 +302,7 @@ func TestBuiltinBranchControlsEnabledLater(t *testing.T) {
 					github.RulesetEnforcementActive, laterTime, tt.rulesetRules),
 				activityForBranch("abc123", "refs/heads/branch_name"), &tt.branchRules)
 
-			controlStatus, err := ghc.GetBranchControls(t.Context(), "abc123", "refs/heads/branch_name")
+			controlStatus, err := ghc.GetBranchControlsAtCommit(t.Context(), "abc123", "refs/heads/branch_name")
 			if err != nil {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
@@ -342,7 +342,7 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 					github.RulesetEnforcementActive, priorTime, rulesForRequiredChecks()),
 				activityForBranch("abc123", "refs/heads/branch_name"), &tt.checks)
 
-			controlStatus, err := ghc.GetBranchControls(t.Context(), "abc123", "refs/heads/branch_name")
+			controlStatus, err := ghc.GetBranchControlsAtCommit(t.Context(), "abc123", "refs/heads/branch_name")
 			if err != nil {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}

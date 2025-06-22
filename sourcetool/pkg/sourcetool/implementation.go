@@ -34,7 +34,7 @@ func (impl *defaultToolImplementation) GetActiveControls(opts *Options) (slsa.Co
 	}
 
 	// Get the active controls
-	activeControls, err := ghc.GetBranchControls(ctx, opts.Commit, ghcontrol.BranchToFullRef(opts.Branch))
+	activeControls, err := ghc.GetBranchControlsAtCommit(ctx, opts.Commit, ghcontrol.BranchToFullRef(opts.Branch))
 	if err != nil {
 		return nil, fmt.Errorf("checking status: %w", err)
 	}

@@ -53,7 +53,7 @@ func doCheckLevel(cla *CheckLevelArgs) error {
 	ghconnection.Options.AllowMergeCommits = cla.allowMergeCommits
 
 	ctx := context.Background()
-	controlStatus, err := ghconnection.GetBranchControls(ctx, cla.commit, ghconnection.GetFullRef())
+	controlStatus, err := ghconnection.GetBranchControlsAtCommit(ctx, cla.commit, ghconnection.GetFullRef())
 	if err != nil {
 		return err
 	}

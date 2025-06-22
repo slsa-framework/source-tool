@@ -232,9 +232,10 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 	return oldestActive, nil
 }
 
-// Determines the controls that are in place for a branch at a specific commit using GitHub's APIs
-// This is necessarily only as good as GitHub's controls and existing APIs.
-func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
+// GetBranchControlsAtCommit determines the controls that are in place for a branch
+// at a specific commit using GitHub's APIs. This is necessarily only as good as
+// GitHub's controls and existing APIs.
+func (ghc *GitHubConnection) GetBranchControlsAtCommit(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
 	activity, err := ghc.commitActivity(ctx, commit, ref)
 	if err != nil {
