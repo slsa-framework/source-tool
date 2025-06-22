@@ -85,7 +85,7 @@ func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBra
 }
 
 // Computes the continuity control returning nil if it's not enabled.
-func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commit string, rules *github.BranchRules, activity *activity) (*slsa.Control, error) {
+func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, rules *github.BranchRules) (*slsa.Control, error) {
 	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
 	if err != nil {
 		return nil, err
@@ -104,12 +104,6 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	newestRule := oldestDeletion
 	if newestRule.UpdatedAt.Before(oldestNoFf.UpdatedAt.Time) {
 		newestRule = oldestNoFf
-	}
-
-	// Check that the commit was created after the newest rule was enabled...
-	// to be sure folks aren't somehow sneaking something through...
-	if activity.Timestamp.Before(newestRule.UpdatedAt.Time) {
-		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRule.UpdatedAt.Time)
 	}
 
 	return &slsa.Control{Name: slsa.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
@@ -260,7 +254,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 		return nil, err
 	}
 	// Compute the controls enforced.
-	continuityControl, err := ghc.computeContinuityControl(ctx, commit, branchRules, activity)
+	continuityControl, err := ghc.computeContinuityControl(ctx, branchRules)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate ContinuityControl: %w", err)
 	}
