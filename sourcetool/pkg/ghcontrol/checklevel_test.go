@@ -16,6 +16,7 @@ import (
 var (
 	curTime   = time.Unix(1678886400, 0) // March 15, 2023 00:00:00 UTC
 	priorTime = curTime.Add(-time.Hour)
+	laterTime = curTime.Add(time.Hour)
 )
 
 // branchOrTagName could also be ~ALL or ~DEFAULT?
@@ -267,6 +268,47 @@ func TestBuiltinBranchControls(t *testing.T) {
 				t.Fatalf("expected controls to contain %v, got %+v", tt.expectedControl, controlStatus.Controls)
 			} else if !control.Since.Equal(priorTime) {
 				t.Fatalf("expected control.Since %v, got %v", priorTime, control.Since)
+			}
+		})
+	}
+}
+
+func TestBuiltinBranchControlsEnabledLater(t *testing.T) {
+	tests := []struct {
+		branchRules  []branchRuleRawResponse
+		rulesetRules *github.RepositoryRulesetRules
+		name         slsa.ControlName
+	}{
+		{
+			branchRules:  createContinuityBranchRules(),
+			rulesetRules: rulesForBranchContinuity(),
+			name:         slsa.ContinuityEnforced,
+		},
+		{
+			branchRules:  createReviewBranchRules(),
+			rulesetRules: rulesForReviewEnforced(),
+			name:         slsa.ReviewEnforced,
+		},
+		{
+			branchRules:  createTagHygieneRules(),
+			rulesetRules: rulesForTagHygiene(),
+			name:         slsa.TagHygiene,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.name), func(t *testing.T) {
+			ghc := newTestGhConnection("owner", "repo", "branch_name",
+				newRepoRulesets(123, github.RulesetTargetTag,
+					github.RulesetEnforcementActive, laterTime, tt.rulesetRules),
+				activityForBranch("abc123", "refs/heads/branch_name"), &tt.branchRules)
+
+			controlStatus, err := ghc.GetBranchControls(t.Context(), "abc123", "refs/heads/branch_name")
+			if err != nil {
+				t.Fatalf("Error getting branch controls: %v", err)
+			}
+
+			if len(controlStatus.Controls) != 0 {
+				t.Errorf("execpted no controls, got: %+v", controlStatus.Controls)
 			}
 		})
 	}
