@@ -66,7 +66,7 @@ func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.So
 	return string(statement), nil
 }
 
-// Gets provenance for the commit from git notes.
+// Gets a VSA for the commit from git notes.
 func GetVsa(ctx context.Context, ghc *ghcontrol.GitHubConnection, verifier Verifier, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	notes, err := ghc.GetNotesForCommit(ctx, commit)
 	if err != nil {
@@ -119,6 +119,10 @@ func MatchesTypeCommitAndRef(predicateType, commit, targetRef string) StatementM
 }
 
 func getVsaFromReader(reader *BundleReader, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
+	// We want to return the first valid VSA.
+	// We should follow instructions from
+	// https://slsa.dev/spec/draft/verifying-source#how-to-verify-slsa-a-source-revision
+
 	for {
 		stmt, err := reader.ReadStatement(MatchesTypeCommitAndRef(VsaPredicateType, commit, ref))
 		if err != nil {

@@ -201,13 +201,14 @@ func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref
 			break
 		}
 
-		prevProdPred, err := GetSourceProvPred(stmt)
+		// We know the statement is good, what about the predicate?
+		provPred, err := GetSourceProvPred(stmt)
 		if err != nil {
 			return nil, nil, err
 		}
-		if ref == ghcontrol.AnyReference || prevProdPred.Branch == ref {
+		if pa.gh_connection.GetRepoUri() == provPred.RepoUri && (ref == ghcontrol.AnyReference || provPred.Branch == ref) {
 			// Should be good!
-			return stmt, prevProdPred, nil
+			return stmt, provPred, nil
 		} else {
 			Debugf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, ref)
 		}

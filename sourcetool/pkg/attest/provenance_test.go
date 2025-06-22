@@ -1,6 +1,7 @@
 package attest
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -37,6 +38,21 @@ func createTestVsa(t *testing.T, repoUri, ref, commit string, verifiedLevels sls
 		t.Fatalf("failure creating test vsa: %v", err)
 	}
 	return vsa
+}
+
+func createTestProv(t *testing.T, repoUri, ref, commit string) string {
+
+	provPred := SourceProvenancePred{RepoUri: repoUri, Branch: ref, ActivityType: "pr_merge", Actor: "test actor"}
+	stmt, err := addPredToStatement(provPred, SourceProvPredicateType, commit)
+	if err != nil {
+		t.Fatalf("failure creating test prov: %v", err)
+	}
+
+	statementBytes, err := json.Marshal(&stmt)
+	if err != nil {
+		t.Fatalf("failure marshalling statement: %v", err)
+	}
+	return string(statementBytes)
 }
 
 func newNotesContent(content string) *github.RepositoryContent {
@@ -118,6 +134,42 @@ func assertTagProvPredsEqual(t *testing.T, actual, expected *TagProvenancePred) 
 	}
 	if !reflect.DeepEqual(actual.VsaSummaries, expected.VsaSummaries) {
 		t.Errorf("VsaSummaries %v does not match expected value %v", actual.VsaSummaries, expected.VsaSummaries)
+	}
+}
+
+func TestReadProvSuccess(t *testing.T) {
+	testProv := createTestProv(t, "https://github.com/owner/repo", "main", "abc123")
+	ghc := newTestGhConnection("owner", "repo", "branch",
+		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
+			github.RulesetEnforcementActive, rulesetOldTime),
+		newNotesContent(testProv))
+	verifier := testsupport.NewMockVerifier()
+
+	pa := NewProvenanceAttestor(ghc, verifier)
+	readStmt, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
+	if err != nil {
+		t.Fatalf("cannot find prov: %v", err)
+	}
+	if readStmt == nil || readPred == nil {
+		t.Errorf("could not find provenance")
+	}
+}
+
+func TestReadProvFailure(t *testing.T) {
+	testProv := createTestProv(t, "foo", "main", "abc123")
+	ghc := newTestGhConnection("owner", "repo", "branch",
+		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
+			github.RulesetEnforcementActive, rulesetOldTime),
+		newNotesContent(testProv))
+	verifier := testsupport.NewMockVerifier()
+
+	pa := NewProvenanceAttestor(ghc, verifier)
+	_, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
+	if err != nil {
+		t.Fatalf("cannot find prov: %v", err)
+	}
+	if readPred != nil {
+		t.Errorf("should have gotten provenance: %+v", readPred)
 	}
 }
 
