@@ -16,8 +16,10 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
-const VsaPredicateType = "https://slsa.dev/verification_summary/v1"
-const VsaVerifierId = "https://github.com/slsa-framework/slsa-source-poc"
+const (
+	VsaPredicateType = "https://slsa.dev/verification_summary/v1"
+	VsaVerifierId    = "https://github.com/slsa-framework/slsa-source-poc"
+)
 
 func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels, policy string) (string, error) {
 	return createUnsignedSourceVsaAllParams(repoUri, ref, commit, verifiedLevels, policy, VsaVerifierId, "PASSED")

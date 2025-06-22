@@ -33,7 +33,6 @@ func conditionsForTagImmutability() *github.RepositoryRulesetConditions {
 }
 
 func createTestProv(t *testing.T, repoUri, ref, commit string) string {
-
 	provPred := SourceProvenancePred{RepoUri: repoUri, Branch: ref, ActivityType: "pr_merge", Actor: "test actor"}
 	stmt, err := addPredToStatement(provPred, SourceProvPredicateType, commit)
 	if err != nil {
