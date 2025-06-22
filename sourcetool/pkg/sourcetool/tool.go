@@ -106,10 +106,16 @@ func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...ooFn) 
 				return fmt.Errorf("creating rules in the repository: %w", err)
 			}
 		case CONFIG_PROVENANCE_WORKFLOW:
+			if err := t.impl.CheckWorkflowFork(&opts); err != nil {
+				return fmt.Errorf("checking repository fork: %w", err)
+			}
 			if err := t.impl.CreateWorkflowPR(&opts); err != nil {
 				return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
 			}
 		case CONFIG_POLICY:
+			if err := t.impl.CheckPolicyFork(&opts); err != nil {
+				return fmt.Errorf("checking policy repo fork")
+			}
 			if err := t.impl.CreatePolicyPR(&opts); err != nil {
 				return fmt.Errorf("opening the policy pull request: %w", err)
 			}

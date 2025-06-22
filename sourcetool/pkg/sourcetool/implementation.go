@@ -52,7 +52,9 @@ type toolImplementation interface {
 	EnsureDefaults(opts *Options) error
 	VerifyOptionsForFullOnboard(*Options) error
 	CreateRepoRuleset(*Options) error
+	CheckWorkflowFork(*Options) error
 	CreateWorkflowPR(*Options) error
+	CheckPolicyFork(*Options) error
 	CreatePolicyPR(*Options) error
 }
 
@@ -215,6 +217,25 @@ func (impl *defaultToolImplementation) CreateRepoRuleset(opts *Options) error {
 	return nil
 }
 
+// CheckWorkflowFork verifies that the user has a fork of the repository
+// we are configuring.
+func (impl *defaultToolImplementation) CheckWorkflowFork(opts *Options) error {
+	userForkOrg := opts.UserForkOrg
+	userForkRepo := opts.Repo // For now we only support forks with the same name
+
+	if err := kgithub.VerifyFork(
+		fmt.Sprintf("slsa-source-workflow-%d", time.Now().Unix()), userForkOrg, userForkRepo, opts.Owner, opts.Repo,
+	); err != nil {
+		return fmt.Errorf(
+			"while checking fork of %s/%s in %s: %w ",
+			opts.Owner, opts.Repo, opts.UserForkOrg, err,
+		)
+	}
+	return nil
+}
+
+// CreateWorkflowPR creates the pull request to add the provenance workflow
+// to the repository
 func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
 	// Branchname to be created on the user's fork
 	branchname := fmt.Sprintf("slsa-source-workflow-%d", time.Now().Unix())
@@ -224,15 +245,6 @@ func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
 
 	userForkOrg := opts.UserForkOrg
 	userForkRepo := opts.Repo // For now we only support forks with the same name
-
-	if err := kgithub.VerifyFork(
-		branchname, userForkOrg, userForkRepo, opts.Owner, opts.Repo,
-	); err != nil {
-		return fmt.Errorf(
-			"while checking fork of %s/%s in %s: %w ",
-			opts.Owner, opts.Repo, opts.UserForkOrg, err,
-		)
-	}
 
 	// Clone the repository being onboarded
 	gitCloneOpts := &gogit.CloneOptions{Depth: 1}
@@ -300,13 +312,32 @@ SLSA Source compliance on every push.
 	return nil
 }
 
+func (impl *defaultToolImplementation) CheckPolicyFork(opts *Options) error {
+	policyOrg, policyRepo, ok := strings.Cut(opts.PolicyRepo, "/")
+	if !ok || policyRepo == "" {
+		return fmt.Errorf("unable to parse policy repository slug")
+	}
+	userForkOrg := opts.UserForkOrg
+	userForkRepo := policyRepo // For now we only support forks with the same name
+
+	// Check the user has a fork of the slsa repo
+	if err := kgithub.VerifyFork(
+		fmt.Sprintf("slsa-source-policy-%d", time.Now().Unix()), userForkOrg, userForkRepo, policyOrg, policyRepo,
+	); err != nil {
+		return fmt.Errorf(
+			"while checking fork of %s/%s in %s: %w ",
+			policyOrg, policyRepo, userForkOrg, err,
+		)
+	}
+	return nil
+}
+
 // CreatePolicyPR creates a pull request to push the policy
 func (impl *defaultToolImplementation) CreatePolicyPR(opts *Options) error {
 	// Branchname to be created on the user's fork
 	branchname := fmt.Sprintf("slsa-source-policy-%d", time.Now().Unix())
 
 	gh := kgithub.New()
-
 	policyOrg, policyRepo, ok := strings.Cut(opts.PolicyRepo, "/")
 	if !ok || policyRepo == "" {
 		return fmt.Errorf("unable to parse policy repository slug")
@@ -314,16 +345,6 @@ func (impl *defaultToolImplementation) CreatePolicyPR(opts *Options) error {
 
 	userForkOrg := opts.UserForkOrg
 	userForkRepo := policyRepo // For now we only support forks with the same name
-
-	// Check the user has a fork of the slsa repo
-	if err := kgithub.VerifyFork(
-		branchname, userForkOrg, userForkRepo, policyOrg, policyRepo,
-	); err != nil {
-		return fmt.Errorf(
-			"while checking fork of %s/%s in %s: %w ",
-			policyOrg, policyRepo, userForkOrg, err,
-		)
-	}
 
 	// Clone the slsa repo
 	gitCloneOpts := &gogit.CloneOptions{Depth: 1}
