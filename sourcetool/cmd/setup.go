@@ -90,6 +90,10 @@ the security controls required to get a repository to a specific SLSA level.
 This command is ideal for new repositories or when you are sure the implemented
 changes will not disrupt existing workflows.
 
+To use this subcommand you need to export a GitHub token as an environment
+variable called GITHUB_TOKEN. The token needs admin permissions on the repo
+to configure the branch rules.
+
 `,
 		Use:           "repo owner/repo",
 		SilenceUsage:  false,
@@ -209,7 +213,7 @@ The setup controls subcommand configures the specified SLSA security
 controls in a repository. As opposed to "setup repo", this subcommand lets you
 configure each security control individually.
 
-To use this subcommand you need to export a GitHuib token as an environment
+To use this subcommand you need to export a GitHub token as an environment
 variable called GITHUB_TOKEN. To configure the branch rules, the token needs
 admin permissions on the repo. For the other configuration it is only required
 as an identity source.

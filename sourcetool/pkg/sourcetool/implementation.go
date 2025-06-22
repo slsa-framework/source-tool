@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	tokenVar = "GITHUB_TOKEN" //nolint:gosec // This are note creds, just the name
+	tokenVar = "GITHUB_TOKEN" //nolint:gosec // This are not creds, just the name
 
 	workflowPath   = ".github/workflows/compute_slsa_source.yaml"
 	workflowSource = "git+https://github.com/slsa-"
@@ -38,7 +38,7 @@ var workflowData = `# SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
 name: SLSA Source
 on:
   push:
-    branches: [ "main" ]
+    branches: [ %q ]
 
 jobs:
   # Whenever new source is pushed recompute the slsa source information.
@@ -272,7 +272,7 @@ func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
 	}
 
 	// Write the workflow file to disk
-	if err := os.WriteFile(fullPath, []byte(workflowData), os.FileMode(0o644)); err != nil {
+	if err := os.WriteFile(fullPath, []byte(fmt.Sprintf(workflowData, opts.Branch)), os.FileMode(0o644)); err != nil {
 		return fmt.Errorf("writing workflow data to disk: %w", err)
 	}
 
