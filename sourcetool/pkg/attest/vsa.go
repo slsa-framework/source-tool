@@ -149,22 +149,22 @@ func getVsaFromReader(reader *BundleReader, commit, ref, repoUri string) (*spb.S
 		}
 
 		// Is it the verifier ID we expect?
-		if vsaPred.Verifier.Id != VsaVerifierId {
-			Debugf("we do not accept Verifier.Id %s", vsaPred.Verifier.Id)
+		if vsaPred.GetVerifier().GetId() != VsaVerifierId {
+			Debugf("we do not accept Verifier.Id %s", vsaPred.GetVerifier().GetId())
 			continue
 		}
 
 		// Does repo match?
 		// remove git+http:// from resourceUri
-		cleanResourceUri := strings.TrimPrefix(vsaPred.ResourceUri, "git+")
+		cleanResourceUri := strings.TrimPrefix(vsaPred.GetResourceUri(), "git+")
 		if cleanResourceUri != repoUri {
 			Debugf("ResourceUri is %s but we want %s", cleanResourceUri, repoUri)
 			continue
 		}
 
 		// Is the result PASSED?
-		if vsaPred.VerificationResult != "PASSED" {
-			Debugf("verificationResult is %s but must be PASSED", vsaPred.VerificationResult)
+		if vsaPred.GetVerificationResult() != "PASSED" {
+			Debugf("verificationResult is %s but must be PASSED", vsaPred.GetVerificationResult())
 			continue
 		}
 

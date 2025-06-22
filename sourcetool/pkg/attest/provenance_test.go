@@ -151,8 +151,8 @@ func TestReadProvFailure(t *testing.T) {
 	testProv := createTestProv(t, "foo", "main", "abc123")
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		// We just need _some_ rulesets response, we don't care what.
-		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
-			github.RulesetEnforcementActive, rulesetOldTime),
+		newTagHygieneRulesetsResponse(456, github.RulesetTargetBranch,
+			github.RulesetEnforcementEvaluate, rulesetOldTime),
 		newNotesContent(testProv))
 	verifier := testsupport.NewMockVerifier()
 
