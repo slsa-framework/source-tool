@@ -77,6 +77,15 @@ type GhControlStatus struct {
 	Controls slsa.Controls
 }
 
+// Adds the control, but only if it existed when the commit was pushed.
+func (cs *GhControlStatus) AddControl(newControls ...*slsa.Control) {
+	for _, newControl := range newControls {
+		if newControl != nil && cs.CommitPushTime.After(newControl.Since) {
+			cs.Controls.AddControl(newControl)
+		}
+	}
+}
+
 func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBranchRule) bool {
 	return rule.Parameters.RequiredApprovingReviewCount > 0 &&
 		rule.Parameters.DismissStaleReviewsOnPush &&
@@ -85,7 +94,7 @@ func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBra
 }
 
 // Computes the continuity control returning nil if it's not enabled.
-func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commit string, rules *github.BranchRules, activity *activity) (*slsa.Control, error) {
+func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, rules *github.BranchRules) (*slsa.Control, error) {
 	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
 	if err != nil {
 		return nil, err
@@ -104,12 +113,6 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, commi
 	newestRule := oldestDeletion
 	if newestRule.UpdatedAt.Before(oldestNoFf.UpdatedAt.Time) {
 		newestRule = oldestNoFf
-	}
-
-	// Check that the commit was created after the newest rule was enabled...
-	// to be sure folks aren't somehow sneaking something through...
-	if activity.Timestamp.Before(newestRule.UpdatedAt.Time) {
-		return nil, fmt.Errorf("commit %s created before (%v) the rule was enabled (%v), that shouldn't happen", commit, activity.Timestamp, newestRule.UpdatedAt.Time)
 	}
 
 	return &slsa.Control{Name: slsa.ContinuityEnforced, Since: newestRule.UpdatedAt.Time}, nil
@@ -234,7 +237,7 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 	return oldestActive, nil
 }
 
-// Determines the controls that are in place for a branch using GitHub's APIs
+// Determines the controls that are in place for a branch at a specific commit using GitHub's APIs
 // This is necessarily only as good as GitHub's controls and existing APIs.
 func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
@@ -260,23 +263,23 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 		return nil, err
 	}
 	// Compute the controls enforced.
-	continuityControl, err := ghc.computeContinuityControl(ctx, commit, branchRules, activity)
+	continuityControl, err := ghc.computeContinuityControl(ctx, branchRules)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate ContinuityControl: %w", err)
 	}
-	controlStatus.Controls.AddControl(continuityControl)
+	controlStatus.AddControl(continuityControl)
 
 	reviewControl, err := ghc.computeReviewControl(ctx, branchRules.PullRequest)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate ReviewControl: %w", err)
 	}
-	controlStatus.Controls.AddControl(reviewControl)
+	controlStatus.AddControl(reviewControl)
 
 	requiredCheckControls, err := ghc.computeRequiredChecks(ctx, branchRules.RequiredStatusChecks)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate RequiredChecks: %w", err)
 	}
-	controlStatus.Controls.AddControl(requiredCheckControls...)
+	controlStatus.AddControl(requiredCheckControls...)
 
 	// Check the tag rules.
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
@@ -287,7 +290,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 	if err != nil {
 		return nil, fmt.Errorf("could not populate TagHygieneControl: %w", err)
 	}
-	controlStatus.Controls.AddControl(TagHygieneControl)
+	controlStatus.AddControl(TagHygieneControl)
 
 	return &controlStatus, nil
 }
