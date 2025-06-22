@@ -83,7 +83,7 @@ func GetVsa(ctx context.Context, ghc *ghcontrol.GitHubConnection, verifier Verif
 		return nil, nil, nil
 	}
 
-	return getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), verifier), commit, ref)
+	return getVsaFromReader(NewBundleReader(bufio.NewReader(strings.NewReader(notes)), verifier), commit, ref, ghc.GetRepoUri())
 }
 
 func getVsaPred(statement *spb.Statement) (*vpb.VerificationSummary, error) {
@@ -123,7 +123,7 @@ func MatchesTypeCommitAndRef(predicateType, commit, targetRef string) StatementM
 	}
 }
 
-func getVsaFromReader(reader *BundleReader, commit, ref string) (*spb.Statement, *vpb.VerificationSummary, error) {
+func getVsaFromReader(reader *BundleReader, commit, ref, repoUri string) (*spb.Statement, *vpb.VerificationSummary, error) {
 	// We want to return the first valid VSA.
 	// We should follow instructions from
 	// https://slsa.dev/spec/draft/verifying-source#how-to-verify-slsa-a-source-revision
@@ -153,7 +153,12 @@ func getVsaFromReader(reader *BundleReader, commit, ref string) (*spb.Statement,
 		}
 
 		// Does repo match?
-		// TODO!
+		// remove git+http:// from resourceUri
+		cleanResourceUri := strings.TrimPrefix(vsaPred.ResourceUri, "git+")
+		if cleanResourceUri != repoUri {
+			Debugf("ResourceUri is %s but we want %s", cleanResourceUri, repoUri)
+			continue
+		}
 
 		// Is the result PASSED?
 		if vsaPred.VerificationResult != "PASSED" {

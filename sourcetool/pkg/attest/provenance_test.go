@@ -168,7 +168,7 @@ func TestReadProvFailure(t *testing.T) {
 }
 
 func TestCreateTagProvenance(t *testing.T) {
-	testVsa := createTestVsa(t, "http://repo", "refs/some/ref", "abc123", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
+	testVsa := createTestVsa(t, "https://github.com/owner/repo", "refs/some/ref", "abc123", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
 
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
