@@ -414,7 +414,7 @@ func (impl *defaultToolImplementation) CreatePolicyPR(opts *Options) error {
 
 // CheckForks checks that the user has forks of the required repositories
 func (impl *defaultToolImplementation) CheckForks(opts *Options) error {
-	var errs = []error{}
+	errs := []error{}
 	if err := impl.CheckPolicyFork(opts); err != nil {
 		errs = append(errs, err)
 	}

@@ -28,6 +28,7 @@ type Options struct {
 // DefaultOptions holds the default options the tool initializes with
 var DefaultOptions = Options{
 	PolicyRepo: fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo),
+	UseSSH:     true,
 }
 
 // GetGitHubConnection creates a new github connection to the repository

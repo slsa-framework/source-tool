@@ -129,3 +129,32 @@ func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...ooFn) 
 	}
 	return nil
 }
+
+// ControlConfigurationDescr
+func (t *Tool) ControlConfigurationDescr(config ControlConfiguration, funcs ...ooFn) string {
+	opts := t.Options
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return ""
+		}
+	}
+	switch config {
+	case CONFIG_BRANCH_RULES:
+		return fmt.Sprintf(
+			"Enable push and delete protection on branch %q of %s/%s",
+			opts.Branch, opts.Owner, opts.Repo,
+		)
+	case CONFIG_PROVENANCE_WORKFLOW:
+		return fmt.Sprintf(
+			"Open a pull request on %s/%s to add the provenance generation workflow",
+			opts.Owner, opts.Repo,
+		)
+	case CONFIG_POLICY:
+		return fmt.Sprintf(
+			"Open a pull request on %s to check-in the %s/%s SLSA source policy",
+			opts.PolicyRepo, opts.Owner, opts.Repo,
+		)
+	default:
+		return ""
+	}
+}

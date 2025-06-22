@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/release-utils/util"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool"
@@ -16,6 +17,7 @@ type setupOpts struct {
 	policyRepo  string
 	userForkOrg string
 	enforce     bool
+	interactive bool
 }
 
 func (so *setupOpts) AddFlags(cmd *cobra.Command) {
@@ -29,6 +31,10 @@ func (so *setupOpts) AddFlags(cmd *cobra.Command) {
 	)
 	cmd.PersistentFlags().StringVar(
 		&so.policyRepo, "policy-repo", fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo), "repository to store the SLSA source policy",
+	)
+
+	cmd.PersistentFlags().BoolVar(
+		&so.interactive, "interactive", true, "confirm before performing changes",
 	)
 }
 
@@ -123,6 +129,31 @@ changes will not disrupt existing workflows.
 			)
 			if err != nil {
 				return err
+			}
+
+			if opts.interactive {
+				fmt.Printf(`
+sourcetool is about to perform the following actions on your behalf:
+
+  - %s.
+  - %s.
+  - %s.
+
+`,
+					srctool.ControlConfigurationDescr(sourcetool.CONFIG_POLICY),
+					srctool.ControlConfigurationDescr(sourcetool.CONFIG_PROVENANCE_WORKFLOW),
+					srctool.ControlConfigurationDescr(sourcetool.CONFIG_BRANCH_RULES),
+				)
+
+				_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+				if err != nil {
+					return err
+				}
+
+				if !s {
+					fmt.Println("Cancelled.")
+					return nil
+				}
 			}
 
 			err = srctool.OnboardRepository(
@@ -240,21 +271,39 @@ a fork of the repository you want to protect.
 				sourcetool.WithOwner(opts.owner),
 				sourcetool.WithRepo(opts.repository),
 				sourcetool.WithBranch(opts.branch),
+				sourcetool.WithPolicyRepo(opts.policyRepo),
+				sourcetool.WithUserForkOrg(opts.userForkOrg),
 			)
 			if err != nil {
 				return err
 			}
-
 			cs := []sourcetool.ControlConfiguration{}
-			for _, c := range opts.configs {
-				cs = append(cs, sourcetool.ControlConfiguration(c))
-			}
+			if opts.interactive {
+				fmt.Println("\nsourcetool is about to perform the following actions on your behalf:")
+				fmt.Println("")
 
+				for _, c := range opts.configs {
+					cs = append(cs, sourcetool.ControlConfiguration(c))
+					fmt.Printf("  - %s.\n", srctool.ControlConfigurationDescr(sourcetool.ControlConfiguration(c)))
+				}
+				fmt.Println("")
+
+				_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+				if err != nil {
+					return err
+				}
+
+				if !s {
+					fmt.Println("Cancelled.")
+					return nil
+				}
+			} else {
+				for _, c := range opts.configs {
+					cs = append(cs, sourcetool.ControlConfiguration(c))
+				}
+			}
 			err = srctool.ConfigureControls(
-				cs,
-				sourcetool.WithUserForkOrg(opts.userForkOrg),
-				sourcetool.WithEnforce(opts.enforce),
-				sourcetool.WithPolicyRepo(opts.policyRepo),
+				cs, sourcetool.WithEnforce(opts.enforce),
 			)
 			if err != nil {
 				return fmt.Errorf("configuring controls: %w", err)
