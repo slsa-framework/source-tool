@@ -32,14 +32,6 @@ func conditionsForTagImmutability() *github.RepositoryRulesetConditions {
 	}
 }
 
-func createTestVsa(t *testing.T, repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels) string {
-	vsa, err := CreateUnsignedSourceVsa(repoUri, ref, commit, verifiedLevels, "test-policy")
-	if err != nil {
-		t.Fatalf("failure creating test vsa: %v", err)
-	}
-	return vsa
-}
-
 func createTestProv(t *testing.T, repoUri, ref, commit string) string {
 
 	provPred := SourceProvenancePred{RepoUri: repoUri, Branch: ref, ActivityType: "pr_merge", Actor: "test actor"}
@@ -140,6 +132,7 @@ func assertTagProvPredsEqual(t *testing.T, actual, expected *TagProvenancePred) 
 func TestReadProvSuccess(t *testing.T) {
 	testProv := createTestProv(t, "https://github.com/owner/repo", "main", "abc123")
 	ghc := newTestGhConnection("owner", "repo", "branch",
+		// We just need _some_ rulesets response, we don't care what.
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
 			github.RulesetEnforcementActive, rulesetOldTime),
 		newNotesContent(testProv))
@@ -148,7 +141,7 @@ func TestReadProvSuccess(t *testing.T) {
 	pa := NewProvenanceAttestor(ghc, verifier)
 	readStmt, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
 	if err != nil {
-		t.Fatalf("cannot find prov: %v", err)
+		t.Fatalf("error finding prov: %v", err)
 	}
 	if readStmt == nil || readPred == nil {
 		t.Errorf("could not find provenance")
@@ -158,6 +151,7 @@ func TestReadProvSuccess(t *testing.T) {
 func TestReadProvFailure(t *testing.T) {
 	testProv := createTestProv(t, "foo", "main", "abc123")
 	ghc := newTestGhConnection("owner", "repo", "branch",
+		// We just need _some_ rulesets response, we don't care what.
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
 			github.RulesetEnforcementActive, rulesetOldTime),
 		newNotesContent(testProv))
@@ -166,10 +160,10 @@ func TestReadProvFailure(t *testing.T) {
 	pa := NewProvenanceAttestor(ghc, verifier)
 	_, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
 	if err != nil {
-		t.Fatalf("cannot find prov: %v", err)
+		t.Fatalf("error finding prov: %v", err)
 	}
 	if readPred != nil {
-		t.Errorf("should have gotten provenance: %+v", readPred)
+		t.Errorf("should not have gotten provenance: %+v", readPred)
 	}
 }
 

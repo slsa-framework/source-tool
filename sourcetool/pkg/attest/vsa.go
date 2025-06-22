@@ -17,17 +17,22 @@ import (
 )
 
 const VsaPredicateType = "https://slsa.dev/verification_summary/v1"
+const VsaVerifierId = "https://github.com/slsa-framework/slsa-source-poc"
 
 func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels, policy string) (string, error) {
+	return createUnsignedSourceVsaAllParams(repoUri, ref, commit, verifiedLevels, policy, VsaVerifierId, "PASSED")
+}
+
+func createUnsignedSourceVsaAllParams(repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels, policy, verifiedId, result string) (string, error) {
 	resourceUri := fmt.Sprintf("git+%s", repoUri)
 	vsaPred := &vpb.VerificationSummary{
 		Verifier: &vpb.VerificationSummary_Verifier{
-			Id: "https://github.com/slsa-framework/slsa-source-poc",
+			Id: verifiedId,
 		},
 		TimeVerified:       timestamppb.Now(),
 		ResourceUri:        resourceUri,
 		Policy:             &vpb.VerificationSummary_Policy{Uri: policy},
-		VerificationResult: "PASSED",
+		VerificationResult: result,
 		VerifiedLevels:     slsa.ControlNamesToStrings(verifiedLevels),
 	}
 
@@ -139,6 +144,21 @@ func getVsaFromReader(reader *BundleReader, commit, ref string) (*spb.Statement,
 		vsaPred, err := getVsaPred(stmt)
 		if err != nil {
 			return nil, nil, err
+		}
+
+		// Is it the verifier ID we expect?
+		if vsaPred.Verifier.Id != VsaVerifierId {
+			Debugf("we do not accept Verifier.Id %s", vsaPred.Verifier.Id)
+			continue
+		}
+
+		// Does repo match?
+		// TODO!
+
+		// Is the result PASSED?
+		if vsaPred.VerificationResult != "PASSED" {
+			Debugf("verificationResult is %s but must be PASSED", vsaPred.VerificationResult)
+			continue
 		}
 
 		return stmt, vsaPred, nil
