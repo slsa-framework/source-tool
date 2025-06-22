@@ -29,17 +29,11 @@ func (impl *defaultToolImplementation) GetActiveControls(opts *Options) (slsa.Co
 		return nil, err
 	}
 
-	if err := opts.EnsureCommit(); err != nil {
-		return nil, err
-	}
-
 	// Get the active controls
-	activeControls, err := ghc.GetBranchControlsAtCommit(ctx, opts.Commit, ghcontrol.BranchToFullRef(opts.Branch))
+	activeControls, err := ghc.GetBranchControls(ctx, ghcontrol.BranchToFullRef(opts.Branch))
 	if err != nil {
 		return nil, fmt.Errorf("checking status: %w", err)
 	}
-
-	ret := activeControls.Controls
 
 	// We need to manually check for PROVENANCE_AVAILABLE which is not
 	// handled by ghcontrol
@@ -53,10 +47,10 @@ func (impl *defaultToolImplementation) GetActiveControls(opts *Options) (slsa.Co
 		return nil, fmt.Errorf("attempting to read provenance from commit: %w", err)
 	}
 	if attestation != nil {
-		ret.AddControl(&slsa.Control{
+		activeControls.AddControl(&slsa.Control{
 			Name: slsa.ProvenanceAvailable,
 		})
 	}
 
-	return ret, nil
+	return *activeControls, nil
 }
