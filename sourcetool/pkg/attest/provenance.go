@@ -148,7 +148,7 @@ func addPredToStatement(provPred any, predicateType, commit string) (*spb.Statem
 
 // Create provenance for the current commit without any context from the previous provenance (if any).
 func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit, ref string) (*spb.Statement, error) {
-	controlStatus, err := pa.gh_connection.GetBranchControls(ctx, commit, ref)
+	controlStatus, err := pa.gh_connection.GetBranchControlsAtCommit(ctx, commit, ref)
 	if err != nil {
 		return nil, err
 	}

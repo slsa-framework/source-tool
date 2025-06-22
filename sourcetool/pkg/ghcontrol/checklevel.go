@@ -232,9 +232,60 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 	return oldestActive, nil
 }
 
-// Determines the controls that are in place for a branch at a specific commit using GitHub's APIs
-// This is necessarily only as good as GitHub's controls and existing APIs.
-func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
+// GetBranchControls returns a list of the controls enabled at present for a branch.
+// This function does not take into account a commit date, it just returns those controls
+// that are active when called.
+func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, ref string) (*slsa.Controls, error) {
+	branch := GetBranchFromRef(ref)
+	if branch == "" {
+		return nil, fmt.Errorf("ref %s is not a branch", ref)
+	}
+
+	controls := &slsa.Controls{}
+
+	// Do the branch specific stuff.
+	branchRules, _, err := ghc.Client().Repositories.GetRulesForBranch(ctx, ghc.Owner(), ghc.Repo(), branch)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute the controls enforced.
+	continuityControl, err := ghc.computeContinuityControl(ctx, branchRules)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate ContinuityControl: %w", err)
+	}
+	controls.AddControl(continuityControl)
+
+	reviewControl, err := ghc.computeReviewControl(ctx, branchRules.PullRequest)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate ReviewControl: %w", err)
+	}
+	controls.AddControl(reviewControl)
+
+	requiredCheckControls, err := ghc.computeRequiredChecks(ctx, branchRules.RequiredStatusChecks)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate RequiredChecks: %w", err)
+	}
+	controls.AddControl(requiredCheckControls...)
+
+	// Check the tag rules.
+	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
+	if err != nil {
+		return nil, err
+	}
+	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, allRulesets)
+	if err != nil {
+		return nil, fmt.Errorf("could not populate TagHygieneControl: %w", err)
+	}
+	controls.AddControl(TagHygieneControl)
+
+	return controls, nil
+}
+
+// GetBranchControlsAtCommit determines the controls that are in place for a branch
+// at a specific commit using GitHub's APIs. This is necessarily only as good as
+// GitHub's controls and existing APIs.
+func (ghc *GitHubConnection) GetBranchControlsAtCommit(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	// We want to know when this commit was pushed to ensure the rules were active _then_.
 	activity, err := ghc.commitActivity(ctx, commit, ref)
 	if err != nil {
@@ -248,44 +299,16 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, commit, ref 
 		Controls:       slsa.Controls{},
 	}
 
-	branch := GetBranchFromRef(ref)
-	if branch == "" {
-		return nil, fmt.Errorf("ref %s is not a branch", ref)
-	}
-	// Do the branch specific stuff.
-	branchRules, _, err := ghc.Client().Repositories.GetRulesForBranch(ctx, ghc.Owner(), ghc.Repo(), branch)
+	activeControls, err := ghc.GetBranchControls(ctx, ref)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading active controls: %w", err)
 	}
-	// Compute the controls enforced.
-	continuityControl, err := ghc.computeContinuityControl(ctx, branchRules)
-	if err != nil {
-		return nil, fmt.Errorf("could not populate ContinuityControl: %w", err)
-	}
-	controlStatus.AddControl(continuityControl)
 
-	reviewControl, err := ghc.computeReviewControl(ctx, branchRules.PullRequest)
-	if err != nil {
-		return nil, fmt.Errorf("could not populate ReviewControl: %w", err)
+	// Add the controls to the control status object. This will
+	// discard any that were not active when the commit merged.
+	for _, c := range *activeControls {
+		controlStatus.AddControl(&c)
 	}
-	controlStatus.AddControl(reviewControl)
-
-	requiredCheckControls, err := ghc.computeRequiredChecks(ctx, branchRules.RequiredStatusChecks)
-	if err != nil {
-		return nil, fmt.Errorf("could not populate RequiredChecks: %w", err)
-	}
-	controlStatus.AddControl(requiredCheckControls...)
-
-	// Check the tag rules.
-	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
-	if err != nil {
-		return nil, err
-	}
-	TagHygieneControl, err := ghc.computeTagHygieneControl(ctx, allRulesets)
-	if err != nil {
-		return nil, fmt.Errorf("could not populate TagHygieneControl: %w", err)
-	}
-	controlStatus.AddControl(TagHygieneControl)
 
 	return &controlStatus, nil
 }
