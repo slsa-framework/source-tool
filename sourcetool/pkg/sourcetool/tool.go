@@ -67,6 +67,10 @@ func (t *Tool) OnboardRepository(funcs ...ooFn) error {
 		return fmt.Errorf("ensuring runtime defaults: %w", err)
 	}
 
+	if err := t.impl.CheckForks(&opts); err != nil {
+		return fmt.Errorf("checking repository forks: %w", err)
+	}
+
 	if err := t.impl.VerifyOptionsForFullOnboard(&opts); err != nil {
 		return fmt.Errorf("verifying options: %w", err)
 	}

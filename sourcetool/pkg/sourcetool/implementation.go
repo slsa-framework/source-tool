@@ -32,7 +32,10 @@ const (
 )
 
 // TODO(puerco): Read this from latest version on the repository
-var workflowData = `name: SLSA Source
+var workflowData = `# SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+# SPDX-License-Identifier: Apache-2.0
+---
+name: SLSA Source
 on:
   push:
     branches: [ "main" ]
@@ -56,6 +59,7 @@ type toolImplementation interface {
 	CreateWorkflowPR(*Options) error
 	CheckPolicyFork(*Options) error
 	CreatePolicyPR(*Options) error
+	CheckForks(*Options) error
 }
 
 type defaultToolImplementation struct{}
@@ -406,4 +410,17 @@ func (impl *defaultToolImplementation) CreatePolicyPR(opts *Options) error {
 
 	// Success!
 	return nil
+}
+
+// CheckForks checks that the user has forks of the required repositories
+func (impl *defaultToolImplementation) CheckForks(opts *Options) error {
+	var errs = []error{}
+	if err := impl.CheckPolicyFork(opts); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := impl.CheckWorkflowFork(opts); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
