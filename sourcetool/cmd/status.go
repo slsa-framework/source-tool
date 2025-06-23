@@ -19,7 +19,10 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool"
 )
 
-var w = color.New(color.FgHiWhite, color.BgBlack).SprintFunc()
+var (
+	w  = color.New(color.FgHiWhite, color.BgBlack).SprintFunc()
+	w2 = color.New(color.Faint, color.FgWhite, color.BgBlack).SprintFunc()
+)
 
 // statusOptions
 type statusOptions struct {

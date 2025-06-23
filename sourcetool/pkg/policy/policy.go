@@ -225,7 +225,7 @@ func CreateLocalPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnec
 	}
 
 	p := RepoPolicy{
-		CanonicalRepo: "TODO fill this in",
+		CanonicalRepo: fmt.Sprintf("https://github.com/%s/%s", ghconnection.Owner(), ghconnection.Repo()),
 		ProtectedBranches: []ProtectedBranch{
 			{
 				Name:                  branch,

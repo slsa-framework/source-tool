@@ -216,6 +216,56 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 	return requiredChecks, nil
 }
 
+// EnableBranchRules adds a ruleset to the repo to enforce delete and push
+// protection if one of them is missing. We check first so if other rules
+// already protect the branch, this function noops.
+func (ghc *GitHubConnection) EnableBranchRules(ctx context.Context) error {
+	branchRules, _, err := ghc.Client().Repositories.GetRulesForBranch(
+		ctx, ghc.Owner(), ghc.Repo(), GetBranchFromRef(ghc.ref),
+	)
+	if err != nil {
+		return fmt.Errorf("fetching branch rules: %w", err)
+	}
+
+	oldestDeletion, err := ghc.getOldestActiveRule(ctx, branchRules.Deletion)
+	if err != nil {
+		return fmt.Errorf("reading branch delete protection status: %w", err)
+	}
+
+	oldestNoFf, err := ghc.getOldestActiveRule(ctx, branchRules.NonFastForward)
+	if err != nil {
+		return fmt.Errorf("reading branch push protection: %w", err)
+	}
+
+	// Check if they are both enabled and noop if they are
+	if oldestDeletion != nil && oldestNoFf != nil {
+		log.Printf("ℹ️ Branch protection already enabled on %s/%s", ghc.Owner(), ghc.Repo())
+		return nil
+	}
+
+	// Create the SLSA ruleset
+	if _, _, err := ghc.Client().Repositories.CreateRuleset(ctx, ghc.Owner(), ghc.Repo(), github.RepositoryRuleset{
+		Name:         "SLSA Branch Controls",
+		Target:       github.Ptr(github.RulesetTargetBranch),
+		Enforcement:  EnforcementActive,
+		BypassActors: []*github.BypassActor{},
+		Conditions: &github.RepositoryRulesetConditions{
+			RefName: &github.RepositoryRulesetRefConditionParameters{
+				Include: []string{ghc.GetFullRef()},
+				Exclude: []string{},
+			},
+		},
+		Rules: &github.RepositoryRulesetRules{
+			Deletion:       &github.EmptyRuleParameters{},
+			NonFastForward: &github.EmptyRuleParameters{},
+		},
+	}); err != nil {
+		return fmt.Errorf("creating reposirory ruleset: %w", err)
+	}
+
+	return nil
+}
+
 func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {

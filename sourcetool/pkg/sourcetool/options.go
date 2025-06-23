@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
 type Options struct {
@@ -13,10 +14,22 @@ type Options struct {
 	Owner  string
 	Branch string
 	Commit string
+
+	// Organization to look for slsa and user forks
+	UserForkOrg string
+	Enforce     bool
+	UseSSH      bool
+	UpdateRepo  bool
+
+	// PolicyRepo is the repository where the policies are stored
+	PolicyRepo string
 }
 
 // DefaultOptions holds the default options the tool initializes with
-var DefaultOptions = Options{}
+var DefaultOptions = Options{
+	PolicyRepo: fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo),
+	UseSSH:     true,
+}
 
 // GetGitHubConnection creates a new github connection to the repository
 // defined in the options set.
@@ -28,7 +41,7 @@ func (o *Options) GetGitHubConnection() (*ghcontrol.GitHubConnection, error) {
 		return nil, errors.New("repository not set")
 	}
 
-	return ghcontrol.NewGhConnection(o.Owner, o.Repo, o.Branch), nil
+	return ghcontrol.NewGhConnection(o.Owner, o.Repo, ghcontrol.BranchToFullRef(o.Branch)), nil
 }
 
 // EnsureCommit checks the options have a commit sha defined. If not, then
@@ -103,6 +116,27 @@ func WithBranch(branch string) ooFn {
 func WithCommit(commit string) ooFn {
 	return func(o *Options) error {
 		o.Commit = commit
+		return nil
+	}
+}
+
+func WithEnforce(enforce bool) ooFn {
+	return func(o *Options) error {
+		o.Enforce = enforce
+		return nil
+	}
+}
+
+func WithUserForkOrg(org string) ooFn {
+	return func(o *Options) error {
+		o.UserForkOrg = org
+		return nil
+	}
+}
+
+func WithPolicyRepo(slug string) ooFn {
+	return func(o *Options) error {
+		o.PolicyRepo = slug
 		return nil
 	}
 }
