@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,23 +30,33 @@ const (
 
 	workflowPath   = ".github/workflows/compute_slsa_source.yaml"
 	workflowSource = "git+https://github.com/slsa-"
+
+	// workflowCommitMessage will be used as the commit message and the PR title
+	workflowCommitMessage = "Add SLSA Source Provenance Workflow"
+
+	// workflowPRBody is the body of the pull request that adds the provenance workflow
+	workflowPRBody = `This pull request adds a new workflow to the repository to generate ` +
+		`[SLSA](https://slsa.dev/) Source provenance data on every push.` + "\n\n" +
+		`Every time a new commit merges to the specified branch, attestations will ` +
+		`be automatically signed and stored in git notes in this repository.` + "\n\n" +
+		`Note: This is an automated PR created using the ` +
+		`[SLSA sourcetool](https://github.com/slsa-framework/slsa-source-poc) utility.` + "\n"
 )
 
 // TODO(puerco): Read this from latest version on the repository
-var workflowData = `# SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
-# SPDX-License-Identifier: Apache-2.0
----
+var workflowData = `---
 name: SLSA Source
 on:
   push:
     branches: [ %q ]
+permissions: {}
 
 jobs:
   # Whenever new source is pushed recompute the slsa source information.
-  check-change:
+  generate-provenance:
     permissions:
       contents: write # needed for storing the vsa in the repo.
-      id-token: write
+      id-token: write # meeded to mint yokens for signing
     uses: slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@main
 `
 
@@ -68,13 +79,17 @@ type defaultToolImplementation struct{}
 func (impl *defaultToolImplementation) GetActiveControls(opts *Options) (slsa.Controls, error) {
 	ctx := context.Background()
 
+	if err := opts.EnsureBranch(); err != nil {
+		return nil, err
+	}
+
+	if err := opts.EnsureCommit(); err != nil {
+		return nil, err
+	}
+
 	ghc, err := opts.GetGitHubConnection()
 	if err != nil {
 		return nil, fmt.Errorf("getting GitHub connection: %w", err)
-	}
-
-	if err := opts.EnsureBranch(); err != nil {
-		return nil, err
 	}
 
 	// Get the active controls
@@ -92,12 +107,14 @@ func (impl *defaultToolImplementation) GetActiveControls(opts *Options) (slsa.Co
 	// Fetch the attestation. If found, then add the control:
 	attestation, _, err := attestor.GetProvenance(ctx, opts.Commit, ghcontrol.BranchToFullRef(opts.Branch))
 	if err != nil {
-		return nil, fmt.Errorf("attempting to read provenance from commit: %w", err)
+		return nil, fmt.Errorf("attempting to read provenance from commit %q: %w", opts.Commit, err)
 	}
 	if attestation != nil {
 		activeControls.AddControl(&slsa.Control{
 			Name: slsa.ProvenanceAvailable,
 		})
+	} else {
+		log.Printf("No provenance attestation found on %s", opts.Commit)
 	}
 
 	return *activeControls, nil
@@ -282,10 +299,8 @@ func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
 		return fmt.Errorf("adding workflow file to staging area: %w", err)
 	}
 
-	commitMessage := "Add SLSA Source attesting workflow"
-
 	// Create the commit
-	if err := repo.UserCommit(commitMessage); err != nil {
+	if err := repo.UserCommit(workflowCommitMessage); err != nil {
 		return fmt.Errorf("committing changes to workflow: %w", err)
 	}
 
@@ -295,14 +310,11 @@ func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
 		return fmt.Errorf("pushing %s to %s/%s: %w", kgithub.UserForkName, userForkOrg, userForkRepo, err)
 	}
 
-	prBody := `This pull request adds a workflow to the repository to attest the
-SLSA Source compliance on every push.
-`
 	// Create the Pull Request
 	pr, err := gh.CreatePullRequest(
 		opts.Owner, opts.Repo, opts.Branch,
 		fmt.Sprintf("%s:%s", userForkOrg, branchname),
-		commitMessage, prBody, false,
+		workflowCommitMessage, workflowPRBody, false,
 	)
 	if err != nil {
 		return fmt.Errorf("creating the pull request in %s: %w", opts.Owner, err)

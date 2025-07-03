@@ -58,9 +58,17 @@ command is intended to help maintainers implementing SLSA controls
 understand the next steps to secure their repos and progress in their
 SLSA journey. 
 `,
-		Use:           "status",
+		Use:           "status [flags] owner/repo@branch",
 		SilenceUsage:  false,
 		SilenceErrors: true,
+		Example: `Check the SLSA tooling status on a repository:
+sourcetool status myorg/myrepo
+
+A branch other than the default can be specified by appending it to
+the repository slug:
+
+sourcetool status myorg/myrepo@mybranch
+`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {
@@ -116,7 +124,10 @@ SLSA journey.
 			// Compute the maximum level possible:
 			toplevel := policy.ComputeEligibleSlsaLevel(controls)
 
-			title := fmt.Sprintf("SLSA Source Status for %s/%s", opts.owner, opts.repository)
+			title := fmt.Sprintf(
+				"SLSA Source Status for %s/%s@%s", opts.owner, opts.repository,
+				ghcontrol.BranchToFullRef(opts.branch),
+			)
 			fmt.Printf("")
 			fmt.Println(w(title))
 			fmt.Println(strings.Repeat("=", len(title)))
