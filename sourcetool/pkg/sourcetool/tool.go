@@ -1,9 +1,12 @@
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
 package sourcetool
 
 import (
 	"fmt"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
 )
 
 type ControlConfiguration string
@@ -19,8 +22,8 @@ var ControlConfigurations = []ControlConfiguration{
 }
 
 // New initializes a new source tool instance.
-func New(funcs ...ooFn) (*Tool, error) {
-	opts := DefaultOptions
+func New(funcs ...options.Fn) (*Tool, error) {
+	opts := options.Default
 	for _, f := range funcs {
 		if err := f(&opts); err != nil {
 			return nil, err
@@ -37,12 +40,12 @@ func New(funcs ...ooFn) (*Tool, error) {
 // public API. Some of the logic is still implemented on the CLI commands but
 // we want to slowly move it to public function under this struct.
 type Tool struct {
-	Options Options
+	Options options.Options
 	impl    toolImplementation
 }
 
 // GetRepoControls returns the controls that are enabled in a repository.
-func (t *Tool) GetRepoControls(funcs ...ooFn) (slsa.Controls, error) {
+func (t *Tool) GetRepoControls(funcs ...options.Fn) (slsa.Controls, error) {
 	opts := t.Options
 	for _, f := range funcs {
 		if err := f(&opts); err != nil {
@@ -55,7 +58,7 @@ func (t *Tool) GetRepoControls(funcs ...ooFn) (slsa.Controls, error) {
 
 // OnboardRepository configures a repository to set up the required controls
 // to meet SLSA Source L3.
-func (t *Tool) OnboardRepository(funcs ...ooFn) error {
+func (t *Tool) OnboardRepository(funcs ...options.Fn) error {
 	opts := t.Options
 	for _, f := range funcs {
 		if err := f(&opts); err != nil {
@@ -91,7 +94,7 @@ func (t *Tool) OnboardRepository(funcs ...ooFn) error {
 }
 
 // ConfigureControls setsup a control in the repo
-func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...ooFn) error {
+func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...options.Fn) error {
 	opts := t.Options
 	for _, f := range funcs {
 		if err := f(&opts); err != nil {
@@ -131,7 +134,7 @@ func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...ooFn) 
 }
 
 // ControlConfigurationDescr
-func (t *Tool) ControlConfigurationDescr(config ControlConfiguration, funcs ...ooFn) string {
+func (t *Tool) ControlConfigurationDescr(config ControlConfiguration, funcs ...options.Fn) string {
 	opts := t.Options
 	for _, f := range funcs {
 		if err := f(&opts); err != nil {

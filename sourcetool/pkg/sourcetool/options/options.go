@@ -1,4 +1,4 @@
-package sourcetool
+package options
 
 import (
 	"context"
@@ -26,7 +26,7 @@ type Options struct {
 }
 
 // DefaultOptions holds the default options the tool initializes with
-var DefaultOptions = Options{
+var Default = Options{
 	PolicyRepo: fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo),
 	UseSSH:     true,
 }
@@ -88,55 +88,4 @@ func (o *Options) EnsureBranch() error {
 	return nil
 }
 
-type ooFn func(*Options) error
-
-func WithRepo(repo string) ooFn {
-	return func(o *Options) error {
-		// TODO(puerco): Validate repo string
-		o.Repo = repo
-		return nil
-	}
-}
-
-func WithOwner(repo string) ooFn {
-	return func(o *Options) error {
-		// TODO(puerco): Validate org string
-		o.Owner = repo
-		return nil
-	}
-}
-
-func WithBranch(branch string) ooFn {
-	return func(o *Options) error {
-		o.Branch = branch
-		return nil
-	}
-}
-
-func WithCommit(commit string) ooFn {
-	return func(o *Options) error {
-		o.Commit = commit
-		return nil
-	}
-}
-
-func WithEnforce(enforce bool) ooFn {
-	return func(o *Options) error {
-		o.Enforce = enforce
-		return nil
-	}
-}
-
-func WithUserForkOrg(org string) ooFn {
-	return func(o *Options) error {
-		o.UserForkOrg = org
-		return nil
-	}
-}
-
-func WithPolicyRepo(slug string) ooFn {
-	return func(o *Options) error {
-		o.PolicyRepo = slug
-		return nil
-	}
-}
+type Fn func(*Options) error

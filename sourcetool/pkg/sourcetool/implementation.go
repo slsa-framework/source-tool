@@ -23,6 +23,7 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
 )
 
 const (
@@ -61,22 +62,24 @@ jobs:
 `
 
 // toolImplementation defines the mockable implementation of source tool
+//
+//counterfeiter:generate . toolImplementation
 type toolImplementation interface {
-	GetActiveControls(*Options) (slsa.Controls, error)
-	EnsureDefaults(opts *Options) error
-	VerifyOptionsForFullOnboard(*Options) error
-	CreateRepoRuleset(*Options) error
-	CheckWorkflowFork(*Options) error
-	CreateWorkflowPR(*Options) error
-	CheckPolicyFork(*Options) error
-	CreatePolicyPR(*Options) error
-	CheckForks(*Options) error
+	GetActiveControls(*options.Options) (slsa.Controls, error)
+	EnsureDefaults(opts *options.Options) error
+	VerifyOptionsForFullOnboard(*options.Options) error
+	CreateRepoRuleset(*options.Options) error
+	CheckWorkflowFork(*options.Options) error
+	CreateWorkflowPR(*options.Options) error
+	CheckPolicyFork(*options.Options) error
+	CreatePolicyPR(*options.Options) error
+	CheckForks(*options.Options) error
 }
 
 type defaultToolImplementation struct{}
 
 // GetActiveControls returns a slsa.Controls with the active controls on a repo
-func (impl *defaultToolImplementation) GetActiveControls(opts *Options) (slsa.Controls, error) {
+func (impl *defaultToolImplementation) GetActiveControls(opts *options.Options) (slsa.Controls, error) {
 	ctx := context.Background()
 
 	if err := opts.EnsureBranch(); err != nil {
@@ -122,7 +125,7 @@ func (impl *defaultToolImplementation) GetActiveControls(opts *Options) (slsa.Co
 
 // EnsureBranch makes sure the manager has a defined branch, looking up the
 // default if it needs to
-func (impl *defaultToolImplementation) EnsureDefaults(opts *Options) error {
+func (impl *defaultToolImplementation) EnsureDefaults(opts *options.Options) error {
 	if t := os.Getenv(tokenVar); t == "" {
 		return fmt.Errorf("$%s environment variable not set", tokenVar)
 	}
@@ -142,7 +145,7 @@ func (impl *defaultToolImplementation) EnsureDefaults(opts *Options) error {
 	return nil
 }
 
-func getUserData(opts *Options) error {
+func getUserData(opts *options.Options) error {
 	if opts.UserForkOrg != "" {
 		return nil
 	}
@@ -184,7 +187,7 @@ func getUserData(opts *Options) error {
 }
 
 // VerifyOptions checks options are in good shape to run
-func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(opts *Options) error {
+func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(opts *options.Options) error {
 	errs := []error{}
 	if opts.Repo == "" {
 		errs = append(errs, errors.New("no repository name defined"))
@@ -217,7 +220,7 @@ func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(opts *Options
 	return errors.Join(errs...)
 }
 
-func (impl *defaultToolImplementation) CreateRepoRuleset(opts *Options) error {
+func (impl *defaultToolImplementation) CreateRepoRuleset(opts *options.Options) error {
 	// Ensure we have branch and defaults
 	if err := opts.EnsureBranch(); err != nil {
 		return err
@@ -240,7 +243,7 @@ func (impl *defaultToolImplementation) CreateRepoRuleset(opts *Options) error {
 
 // CheckWorkflowFork verifies that the user has a fork of the repository
 // we are configuring.
-func (impl *defaultToolImplementation) CheckWorkflowFork(opts *Options) error {
+func (impl *defaultToolImplementation) CheckWorkflowFork(opts *options.Options) error {
 	userForkOrg := opts.UserForkOrg
 	userForkRepo := opts.Repo // For now we only support forks with the same name
 
@@ -257,7 +260,7 @@ func (impl *defaultToolImplementation) CheckWorkflowFork(opts *Options) error {
 
 // CreateWorkflowPR creates the pull request to add the provenance workflow
 // to the repository
-func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
+func (impl *defaultToolImplementation) CreateWorkflowPR(opts *options.Options) error {
 	// Branchname to be created on the user's fork
 	branchname := fmt.Sprintf("slsa-source-workflow-%d", time.Now().Unix())
 
@@ -328,7 +331,7 @@ func (impl *defaultToolImplementation) CreateWorkflowPR(opts *Options) error {
 	return nil
 }
 
-func (impl *defaultToolImplementation) CheckPolicyFork(opts *Options) error {
+func (impl *defaultToolImplementation) CheckPolicyFork(opts *options.Options) error {
 	policyOrg, policyRepo, ok := strings.Cut(opts.PolicyRepo, "/")
 	if !ok || policyRepo == "" {
 		return fmt.Errorf("unable to parse policy repository slug")
@@ -349,7 +352,7 @@ func (impl *defaultToolImplementation) CheckPolicyFork(opts *Options) error {
 }
 
 // CreatePolicyPR creates a pull request to push the policy
-func (impl *defaultToolImplementation) CreatePolicyPR(opts *Options) error {
+func (impl *defaultToolImplementation) CreatePolicyPR(opts *options.Options) error {
 	// Branchname to be created on the user's fork
 	branchname := fmt.Sprintf("slsa-source-policy-%d", time.Now().Unix())
 
@@ -425,7 +428,7 @@ func (impl *defaultToolImplementation) CreatePolicyPR(opts *Options) error {
 }
 
 // CheckForks checks that the user has forks of the required repositories
-func (impl *defaultToolImplementation) CheckForks(opts *Options) error {
+func (impl *defaultToolImplementation) CheckForks(opts *options.Options) error {
 	errs := []error{}
 	if err := impl.CheckPolicyFork(opts); err != nil {
 		errs = append(errs, err)
