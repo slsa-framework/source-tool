@@ -13,9 +13,7 @@ import (
 )
 
 var (
-	githubToken    string
-	expectedIssuer string
-	expectedSan    string
+	githubToken string
 
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
@@ -33,13 +31,13 @@ to quickly create a Cobra application.`,
 	}
 )
 
-func getVerifier() attest.Verifier {
+func getVerifier(vo *verifierOptions) attest.Verifier {
 	options := attest.DefaultVerifierOptions
-	if checkLevelProvArgs.expectedIssuer != "" {
-		options.ExpectedIssuer = checkLevelProvArgs.expectedIssuer
+	if vo.expectedIssuer != "" {
+		options.ExpectedIssuer = vo.expectedIssuer
 	}
-	if checkLevelProvArgs.expectedSan != "" {
-		options.ExpectedSan = checkLevelProvArgs.expectedSan
+	if vo.expectedSan != "" {
+		options.ExpectedSan = vo.expectedSan
 	}
 	return attest.NewBndVerifier(options)
 }
@@ -60,8 +58,8 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
-	rootCmd.PersistentFlags().StringVar(&expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
-	rootCmd.PersistentFlags().StringVar(&expectedSan, "expected_san", "", "The expect san of attestations.")
+	// rootCmd.PersistentFlags().StringVar(&expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
+	// rootCmd.PersistentFlags().StringVar(&expectedSan, "expected_san", "", "The expect san of attestations.")
 
 	addCheckLevel(rootCmd)
 	addVerifyCommit(rootCmd)

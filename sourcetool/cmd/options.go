@@ -167,3 +167,17 @@ func (co *commitOptions) EnsureDefaults() error {
 	}
 	return nil
 }
+
+type verifierOptions struct {
+	expectedIssuer string
+	expectedSan    string
+}
+
+func (vo *verifierOptions) Validate() error {
+	return nil
+}
+
+func (vo *verifierOptions) AddFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVar(&vo.expectedIssuer, "expected_issuer", "", "The expected issuer of the attestation signer certificate")
+	cmd.PersistentFlags().StringVar(&vo.expectedSan, "expected_san", "", "The expected SAN string in the attestation signer certificate")
+}

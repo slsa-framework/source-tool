@@ -55,17 +55,23 @@ func (e *AuditMode) Type() string {
 
 type auditOpts struct {
 	branchOptions
+	verifierOptions
 	auditDepth   int
 	endingCommit string
 	auditMode    AuditMode
 }
 
 func (ao *auditOpts) Validate() error {
-	return ao.branchOptions.Validate()
+	errs := []error{
+		ao.branchOptions.Validate(),
+		ao.verifierOptions.Validate(),
+	}
+	return errors.Join(errs...)
 }
 
 func (ao *auditOpts) AddFlags(cmd *cobra.Command) {
 	ao.branchOptions.AddFlags(cmd)
+	ao.verifierOptions.AddFlags(cmd)
 	cmd.PersistentFlags().IntVar(&ao.auditDepth, "depth", 0, "The max number of revisions to audit (depth <= audit all revisions).")
 	cmd.PersistentFlags().StringVar(&ao.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
 	ao.auditMode = AuditModeBasic
@@ -153,7 +159,7 @@ func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, m
 func doAudit(auditArgs *auditOpts) error {
 	ghc := ghcontrol.NewGhConnection(auditArgs.owner, auditArgs.repository, ghcontrol.BranchToFullRef(auditArgs.branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
-	verifier := getVerifier()
+	verifier := getVerifier(&auditArgs.verifierOptions)
 	pa := attest.NewProvenanceAttestor(ghc, verifier)
 
 	auditor := audit.NewAuditor(ghc, pa, verifier)
