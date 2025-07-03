@@ -58,12 +58,11 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
-	// rootCmd.PersistentFlags().StringVar(&expectedIssuer, "expected_issuer", "", "The expected issuer of attestations.")
-	// rootCmd.PersistentFlags().StringVar(&expectedSan, "expected_san", "", "The expect san of attestations.")
 
 	addCheckLevel(rootCmd)
 	addVerifyCommit(rootCmd)
 	addStatus(rootCmd)
 	addSetup(rootCmd)
 	addAudit(rootCmd)
+	addProv(rootCmd)
 }
