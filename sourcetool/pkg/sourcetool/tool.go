@@ -118,7 +118,7 @@ func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...ooFn) 
 			}
 		case CONFIG_POLICY:
 			if err := t.impl.CheckPolicyFork(&opts); err != nil {
-				return fmt.Errorf("checking policy repo fork")
+				return fmt.Errorf("checking policy repo fork: %w", err)
 			}
 			if err := t.impl.CreatePolicyPR(&opts); err != nil {
 				return fmt.Errorf("opening the policy pull request: %w", err)
