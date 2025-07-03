@@ -67,4 +67,5 @@ func init() {
 	addVerifyCommit(rootCmd)
 	addStatus(rootCmd)
 	addSetup(rootCmd)
+	addAudit(rootCmd)
 }

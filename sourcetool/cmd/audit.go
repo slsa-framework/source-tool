@@ -53,31 +53,33 @@ func (e *AuditMode) Type() string {
 	return "AuditMode"
 }
 
-type AuditArgs struct {
-	owner        string
-	repo         string
-	branch       string
+type auditOpts struct {
+	branchOptions
 	auditDepth   int
 	endingCommit string
 	auditMode    AuditMode
 }
 
-func (aa *AuditArgs) Validate() error {
-	if aa.owner == "" || aa.repo == "" || aa.branch == "" {
-		return errors.New("must set owner, repo, and branch flags")
-	}
-	return nil
+func (ao *auditOpts) Validate() error {
+	return ao.branchOptions.Validate()
 }
 
-var (
-	auditArgs = &AuditArgs{}
+func (ao *auditOpts) AddFlags(cmd *cobra.Command) {
+	ao.branchOptions.AddFlags(cmd)
+	cmd.PersistentFlags().IntVar(&ao.auditDepth, "depth", 0, "The max number of revisions to audit (depth <= audit all revisions).")
+	cmd.PersistentFlags().StringVar(&ao.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
+	ao.auditMode = AuditModeBasic
+	cmd.PersistentFlags().Var(&ao.auditMode, "audit-mode", "'basic' for limited details (default), 'full' for all details")
+}
 
-	auditCmd = &cobra.Command{
+func addAudit(parentCmd *cobra.Command) {
+	opts := &auditOpts{}
+	auditCmd := &cobra.Command{
 		Use:   "audit",
 		Short: "Audits the SLSA properties and controls of a repository",
 		Long: `Checks the revisions on the specified branch within the repository.
 
-Revisions 'pass'and audit if they have:
+Revisions 'pass' an audit if they have:
 1. A corresponding VSA
 2. Corresponding source provenance
 3. The revision (commit) listed in the provenance matches the revision reported by GitHub
@@ -86,11 +88,32 @@ Future:
 * Check the provenance to validate the verifiedLevels in the VSA match expectations
   (i.e. that the VSA was issued correctly)
 `,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				if err := opts.ParseLocator(args[0]); err != nil {
+					return err
+				}
+			}
+
+			if err := opts.repoOptions.Validate(); err != nil {
+				return err
+			}
+
+			if err := opts.EnsureDefaults(); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doAudit(auditArgs)
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			return doAudit(opts)
 		},
 	}
-)
+	opts.AddFlags(auditCmd)
+	parentCmd.AddCommand(auditCmd)
+}
 
 func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, mode AuditMode) {
 	good := ar.IsGood()
@@ -127,13 +150,8 @@ func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, m
 	fmt.Printf("\tlink: https://github.com/%s/%s/commit/%s\n", ghc.Owner(), ghc.Repo(), ar.GhPriorCommit)
 }
 
-func doAudit(auditArgs *AuditArgs) error {
-	err := auditArgs.Validate()
-	if err != nil {
-		return err
-	}
-
-	ghc := ghcontrol.NewGhConnection(auditArgs.owner, auditArgs.repo, ghcontrol.BranchToFullRef(auditArgs.branch)).WithAuthToken(githubToken)
+func doAudit(auditArgs *auditOpts) error {
+	ghc := ghcontrol.NewGhConnection(auditArgs.owner, auditArgs.repository, ghcontrol.BranchToFullRef(auditArgs.branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
 	verifier := getVerifier()
 	pa := attest.NewProvenanceAttestor(ghc, verifier)
@@ -168,16 +186,4 @@ func doAudit(auditArgs *AuditArgs) error {
 	}
 
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(auditCmd)
-
-	auditCmd.Flags().StringVar(&auditArgs.owner, "owner", "", "The GitHub repository owner - required.")
-	auditCmd.Flags().StringVar(&auditArgs.repo, "repo", "", "The GitHub repository name - required.")
-	auditCmd.Flags().StringVar(&auditArgs.branch, "branch", "", "The branch within the repository - required.")
-	auditCmd.Flags().IntVar(&auditArgs.auditDepth, "depth", 0, "The max number of revisions to audit (depth <= audit all revisions).")
-	auditCmd.Flags().StringVar(&auditArgs.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
-	auditArgs.auditMode = AuditModeBasic
-	auditCmd.Flags().Var(&auditArgs.auditMode, "audit-mode", "'basic' for limited details (default), 'full' for all details")
 }
