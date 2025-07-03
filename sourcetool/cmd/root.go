@@ -65,4 +65,5 @@ func init() {
 	addSetup(rootCmd)
 	addAudit(rootCmd)
 	addProv(rootCmd)
+	addCheckTag(rootCmd)
 }

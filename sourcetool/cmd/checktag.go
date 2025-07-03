@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -17,33 +18,53 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
-type CheckTagArgs struct {
+type checkTagOptions struct {
+	repoOptions
+	verifierOptions
 	commit             string
-	owner              string
-	repo               string
 	tagName            string
 	actor              string
 	outputSignedBundle string
 	useLocalPolicy     string
 }
 
-var (
-	checkTagArgs = &CheckTagArgs{}
+func (cto *checkTagOptions) Validate() error {
+	errs := []error{
+		cto.repoOptions.Validate(),
+		cto.verifierOptions.Validate(),
+	}
+	return errors.Join(errs...)
+}
 
-	// checktagCmd represents the checktag command
-	checktagCmd = &cobra.Command{
+func (cto *checkTagOptions) AddFlags(cmd *cobra.Command) {
+	cto.repoOptions.AddFlags(cmd)
+	cto.verifierOptions.AddFlags(cmd)
+	cmd.PersistentFlags().StringVar(&cto.commit, "commit", "", "The commit to check - required.")
+	cmd.PersistentFlags().StringVar(&cto.tagName, "tag_name", "", "The name of the new tag - required.")
+	cmd.PersistentFlags().StringVar(&cto.actor, "actor", "", "The username of the actor that pushed the tag.")
+	cmd.PersistentFlags().StringVar(&cto.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
+	cmd.PersistentFlags().StringVar(&cto.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
+}
+
+func addCheckTag(parentCmd *cobra.Command) {
+	opts := &checkTagOptions{}
+
+	checktagCmd := &cobra.Command{
 		Use:   "checktag",
 		Short: "Checks to see if the tag operation should be allowed and issues a VSA",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doCheckTag(checkTagArgs)
+			return doCheckTag(opts)
 		},
 	}
-)
 
-func doCheckTag(args *CheckTagArgs) error {
-	ghconnection := ghcontrol.NewGhConnection(args.owner, args.repo, ghcontrol.TagToFullRef(args.tagName)).WithAuthToken(githubToken)
+	opts.AddFlags(checktagCmd)
+	parentCmd.AddCommand(checktagCmd)
+}
+
+func doCheckTag(args *checkTagOptions) error {
+	ghconnection := ghcontrol.NewGhConnection(args.owner, args.repository, ghcontrol.TagToFullRef(args.tagName)).WithAuthToken(githubToken)
 	ctx := context.Background()
-	verifier := getVerifier()
+	verifier := getVerifier(&args.verifierOptions)
 
 	// Create tag provenance.
 	pa := attest.NewProvenanceAttestor(ghconnection, verifier)
@@ -97,16 +118,4 @@ func doCheckTag(args *CheckTagArgs) error {
 	}
 	fmt.Print(verifiedLevels)
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(checktagCmd)
-
-	checktagCmd.Flags().StringVar(&checkTagArgs.commit, "commit", "", "The commit to check - required.")
-	checktagCmd.Flags().StringVar(&checkTagArgs.owner, "owner", "", "The GitHub repository owner - required.")
-	checktagCmd.Flags().StringVar(&checkTagArgs.repo, "repo", "", "The GitHub repository name - required.")
-	checktagCmd.Flags().StringVar(&checkTagArgs.tagName, "tag_name", "", "The name of the new tag - required.")
-	checktagCmd.Flags().StringVar(&checkTagArgs.actor, "actor", "", "The username of the actor that pushed the tag.")
-	checktagCmd.Flags().StringVar(&checkTagArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
-	checktagCmd.Flags().StringVar(&checkTagArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
 }
