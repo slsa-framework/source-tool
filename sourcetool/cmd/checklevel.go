@@ -16,40 +16,69 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
-type CheckLevelArgs struct {
-	commit, owner, repo, branch, outputVsa, outputUnsignedVsa, useLocalPolicy string
-	allowMergeCommits                                                         bool
+type checkLevelOpts struct {
+	commitOptions
+	outputVsa, outputUnsignedVsa, useLocalPolicy string
+	allowMergeCommits                            bool
 }
 
-func (cla *CheckLevelArgs) Validate() error {
-	if cla.commit == "" || cla.owner == "" || cla.repo == "" || cla.branch == "" {
-		return errors.New("must set commit, owner, repo, and branch flags")
+func (clo *checkLevelOpts) Validate() error {
+	errs := []error{
+		clo.commitOptions.Validate(),
 	}
-	return nil
+
+	return errors.Join(errs...)
 }
 
-// checklevelCmd represents the checklevel command
-var (
-	checkLevelArgs CheckLevelArgs
+func (clo *checkLevelOpts) AddFlags(cmd *cobra.Command) {
+	clo.commitOptions.AddFlags(cmd)
+	cmd.PersistentFlags().StringVar(&clo.outputVsa, "output_vsa", "", "The path to write a signed VSA with the determined level.")
+	cmd.PersistentFlags().StringVar(&clo.outputUnsignedVsa, "output_unsigned_vsa", "", "The path to write an unsigned vsa with the determined level.")
+	cmd.PersistentFlags().StringVar(&clo.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
+	cmd.PersistentFlags().BoolVar(&clo.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch.")
+}
 
-	checklevelCmd = &cobra.Command{
+func addCheckLevel(parentCmd *cobra.Command) {
+	opts := checkLevelOpts{}
+
+	checklevelCmd := &cobra.Command{
 		Use:   "checklevel",
 		Short: "Determines the SLSA Source Level of the repo",
 		Long: `Determines the SLSA Source Level of the repo.
 
 This is meant to be run within the corresponding GitHub Actions workflow.`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				if err := opts.ParseLocator(args[0]); err != nil {
+					return err
+				}
+			}
+
+			// Validate early the repository options to provide a more
+			// useful message to the user
+			if err := opts.repoOptions.Validate(); err != nil {
+				return err
+			}
+
+			if err := opts.EnsureDefaults(); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doCheckLevel(&checkLevelArgs)
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+
+			return doCheckLevel(&opts)
 		},
 	}
-)
+	opts.AddFlags(checklevelCmd)
+	parentCmd.AddCommand(checklevelCmd)
+}
 
-func doCheckLevel(cla *CheckLevelArgs) error {
-	if err := cla.Validate(); err != nil {
-		return err
-	}
-
-	ghconnection := ghcontrol.NewGhConnection(cla.owner, cla.repo, ghcontrol.BranchToFullRef(cla.branch)).WithAuthToken(githubToken)
+func doCheckLevel(cla *checkLevelOpts) error {
+	ghconnection := ghcontrol.NewGhConnection(cla.owner, cla.repository, ghcontrol.BranchToFullRef(cla.branch)).WithAuthToken(githubToken)
 	ghconnection.Options.AllowMergeCommits = cla.allowMergeCommits
 
 	ctx := context.Background()
@@ -88,18 +117,4 @@ func doCheckLevel(cla *CheckLevelArgs) error {
 	}
 
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(checklevelCmd)
-
-	// Here you will define your flags and configuration settings.
-	checklevelCmd.Flags().StringVar(&checkLevelArgs.commit, "commit", "", "The commit to check.")
-	checklevelCmd.Flags().StringVar(&checkLevelArgs.owner, "owner", "", "The GitHub repository owner - required.")
-	checklevelCmd.Flags().StringVar(&checkLevelArgs.repo, "repo", "", "The GitHub repository name - required.")
-	checklevelCmd.Flags().StringVar(&checkLevelArgs.branch, "branch", "", "The branch within the repository - required.")
-	checklevelCmd.Flags().StringVar(&checkLevelArgs.outputVsa, "output_vsa", "", "The path to write a signed VSA with the determined level.")
-	checklevelCmd.Flags().StringVar(&checkLevelArgs.outputUnsignedVsa, "output_unsigned_vsa", "", "The path to write an unsigned vsa with the determined level.")
-	checklevelCmd.Flags().StringVar(&checkLevelArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
-	checklevelCmd.Flags().BoolVar(&checkLevelArgs.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch.")
 }
