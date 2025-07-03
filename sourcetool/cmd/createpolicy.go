@@ -13,44 +13,47 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
-type CreatePolicyArgs struct {
-	policyRepoPath, owner, repo, branch string
+type createPolicyOptions struct {
+	branchOptions
+	policyRepoPath string
 }
 
-var (
-	createPolicyArgs CreatePolicyArgs
+func (cpo *createPolicyOptions) Validate() error {
+	return cpo.branchOptions.Validate()
+}
 
-	// createpolicyCmd represents the createpolicy command
-	createpolicyCmd = &cobra.Command{
+func (cpo *createPolicyOptions) AddFlags(cmd *cobra.Command) {
+	cpo.branchOptions.AddFlags(cmd)
+	cmd.PersistentFlags().StringVar(&cpo.policyRepoPath, "policy_repo_path", "./", "Path to the directory with a clean clone of github.com/slsa-framework/slsa-source-poc.")
+}
+
+func addCreatePolicy(parentCmd *cobra.Command) {
+	opts := createPolicyOptions{}
+
+	createpolicyCmd := &cobra.Command{
 		Use:   "createpolicy",
 		Short: "Creates a policy in a local copy of slsa-source-poc",
 		Long: `Creates a SLSA source policy in a local copy of slsa-source-poc.
 
 		The created policy should then be sent as a PR to slsa-framework/slsa-source-poc.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doCreatePolicy(createPolicyArgs.policyRepoPath, createPolicyArgs.owner, createPolicyArgs.repo, createPolicyArgs.branch)
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			return doCreatePolicy(&opts)
 		},
 	}
-)
+	opts.AddFlags(createpolicyCmd)
+	parentCmd.AddCommand(createpolicyCmd)
+}
 
-func doCreatePolicy(policyRepoPath, owner, repo, branch string) error {
-	ghconnection := ghcontrol.NewGhConnection(owner, repo, ghcontrol.BranchToFullRef(branch)).WithAuthToken(githubToken)
+func doCreatePolicy(opts *createPolicyOptions) error {
+	ghconnection := ghcontrol.NewGhConnection(opts.owner, opts.repository, ghcontrol.BranchToFullRef(opts.branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
-	outpath, err := policy.CreateLocalPolicy(ctx, ghconnection, policyRepoPath)
+	outpath, err := policy.CreateLocalPolicy(ctx, ghconnection, opts.policyRepoPath)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("Wrote policy to %s\n", outpath)
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(createpolicyCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	createpolicyCmd.Flags().StringVar(&createPolicyArgs.policyRepoPath, "policy_repo_path", "./", "Path to the directory with a clean clone of github.com/slsa-framework/slsa-source-poc.")
-	createpolicyCmd.Flags().StringVar(&createPolicyArgs.owner, "owner", "", "The GitHub repository owner - required.")
-	createpolicyCmd.Flags().StringVar(&createPolicyArgs.repo, "repo", "", "The GitHub repository name - required.")
-	createpolicyCmd.Flags().StringVar(&createPolicyArgs.branch, "branch", "", "The branch within the repository - required.")
 }
