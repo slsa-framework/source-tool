@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -17,36 +18,67 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
-type CheckLevelProvArgs struct {
+type checkLevelProvOpts struct {
+	commitOptions
+	verifierOptions
 	prevBundlePath       string
-	commit               string
 	prevCommit           string
-	owner                string
-	repo                 string
-	branch               string
 	outputUnsignedBundle string
 	outputSignedBundle   string
-	expectedIssuer       string
-	expectedSan          string
 	useLocalPolicy       string
 	allowMergeCommits    bool
 }
 
-// checklevelprovCmd represents the checklevelprov command
-var (
-	checkLevelProvArgs = &CheckLevelProvArgs{}
+func (clp *checkLevelProvOpts) Validate() error {
+	return errors.Join([]error{
+		clp.commitOptions.Validate(),
+		clp.verifierOptions.Validate(),
+	}...)
+}
 
-	checklevelprovCmd = &cobra.Command{
+func (clp *checkLevelProvOpts) AddFlags(cmd *cobra.Command) {
+	clp.commitOptions.AddFlags(cmd)
+	cmd.PersistentFlags().StringVar(&clp.prevBundlePath, "prev_bundle_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
+	cmd.PersistentFlags().StringVar(&clp.prevCommit, "prev_commit", "", "The commit to check.")
+	cmd.PersistentFlags().StringVar(&clp.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
+	cmd.PersistentFlags().StringVar(&clp.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
+	cmd.PersistentFlags().StringVar(&clp.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
+	cmd.PersistentFlags().BoolVar(&clp.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch")
+}
+
+func addCheckLevelProv(parentCmd *cobra.Command) {
+	opts := &checkLevelProvOpts{}
+
+	checklevelprovCmd := &cobra.Command{
 		Use:   "checklevelprov",
 		Short: "Checks the given commit against policy using & creating provenance",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				if err := opts.ParseLocator(args[0]); err != nil {
+					return err
+				}
+			}
+
+			if err := opts.repoOptions.Validate(); err != nil {
+				return err
+			}
+
+			if err := opts.EnsureDefaults(); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doCheckLevelProv(checkLevelProvArgs)
+			return doCheckLevelProv(opts)
 		},
 	}
-)
 
-func doCheckLevelProv(checkLevelProvArgs *CheckLevelProvArgs) error {
-	ghconnection := ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repo, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
+	opts.AddFlags(checklevelprovCmd)
+	parentCmd.AddCommand(checklevelprovCmd)
+}
+
+func doCheckLevelProv(checkLevelProvArgs *checkLevelProvOpts) error {
+	ghconnection := ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repository, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
 	ghconnection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
 	ctx := context.Background()
 
@@ -59,7 +91,7 @@ func doCheckLevelProv(checkLevelProvArgs *CheckLevelProvArgs) error {
 		}
 	}
 
-	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier())
+	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier(&checkLevelProvArgs.verifierOptions))
 	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit, ghconnection.GetFullRef())
 	if err != nil {
 		return err
@@ -122,19 +154,4 @@ func doCheckLevelProv(checkLevelProvArgs *CheckLevelProvArgs) error {
 	}
 	fmt.Print(verifiedLevels)
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(checklevelprovCmd)
-
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.prevBundlePath, "prev_bundle_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.commit, "commit", "", "The commit to check.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.prevCommit, "prev_commit", "", "The commit to check.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.owner, "owner", "", "The GitHub repository owner - required.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.repo, "repo", "", "The GitHub repository name - required.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.branch, "branch", "", "The branch within the repository - required.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
-	checklevelprovCmd.Flags().StringVar(&checkLevelProvArgs.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
-	checklevelprovCmd.Flags().BoolVar(&checkLevelProvArgs.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch")
 }

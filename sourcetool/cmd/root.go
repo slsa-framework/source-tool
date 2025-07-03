@@ -60,6 +60,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
 
 	addCheckLevel(rootCmd)
+	addCheckLevelProv(rootCmd)
 	addVerifyCommit(rootCmd)
 	addStatus(rootCmd)
 	addSetup(rootCmd)
