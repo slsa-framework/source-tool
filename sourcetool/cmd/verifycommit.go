@@ -15,19 +15,22 @@ import (
 )
 
 type verifyCommitOptions struct {
-	tag string
 	commitOptions
+	verifierOptions
+	tag string
 }
 
 func (vco *verifyCommitOptions) Validate() error {
 	errs := []error{
 		vco.commitOptions.Validate(),
+		vco.verifierOptions.Validate(),
 	}
 	return errors.Join(errs...)
 }
 
 func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 	vco.commitOptions.AddFlags(cmd)
+	vco.verifierOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(
 		&vco.tag, "tag", "", "The tag within the repository",
 	)
@@ -61,40 +64,39 @@ func addVerifyCommit(cmd *cobra.Command) {
 			if err := opts.Validate(); err != nil {
 				return fmt.Errorf("validating options: %w", err)
 			}
-			return doVerifyCommit(opts.commit, opts.owner, opts.repository, opts.branch, opts.tag)
+			return doVerifyCommit(&opts)
 		},
 	}
 	opts.AddFlags(cmd)
 	cmd.AddCommand(verifyCommitCmd)
 }
 
-func doVerifyCommit(commit, owner, repo, branch, tag string) error {
-	if commit == "" || owner == "" || repo == "" {
-		return fmt.Errorf("must set commit, owner and repo")
-	}
-
+func doVerifyCommit(opts *verifyCommitOptions) error {
 	var ref string
 	switch {
-	case branch != "":
-		ref = ghcontrol.BranchToFullRef(branch)
-	case tag != "":
-		ref = ghcontrol.TagToFullRef(tag)
+	case opts.branch != "":
+		ref = ghcontrol.BranchToFullRef(opts.branch)
+	case opts.tag != "":
+		ref = ghcontrol.TagToFullRef(opts.tag)
 	default:
 		return fmt.Errorf("must specify either branch or tag")
 	}
 
-	ghconnection := ghcontrol.NewGhConnection(owner, repo, ref).WithAuthToken(githubToken)
+	ghconnection := ghcontrol.NewGhConnection(opts.owner, opts.repository, ref).WithAuthToken(githubToken)
 	ctx := context.Background()
 
-	_, vsaPred, err := attest.GetVsa(ctx, ghconnection, getVerifier(), commit, ghconnection.GetFullRef())
+	_, vsaPred, err := attest.GetVsa(ctx, ghconnection, getVerifier(&opts.verifierOptions), opts.commit, ghconnection.GetFullRef())
 	if err != nil {
 		return err
 	}
 	if vsaPred == nil {
-		fmt.Printf("FAILED: no VSA matching commit '%s' on branch '%s' found in github.com/%s/%s\n", commit, branch, owner, repo)
+		fmt.Printf(
+			"FAILED: no VSA matching commit '%s' on branch '%s' found in github.com/%s/%s\n",
+			opts.commit, opts.branch, opts.owner, opts.repository,
+		)
 		return nil
 	}
 
-	fmt.Printf("SUCCESS: commit %s on %s verified with %v\n", commit, branch, vsaPred.GetVerifiedLevels())
+	fmt.Printf("SUCCESS: commit %s on %s verified with %v\n", opts.commit, opts.branch, vsaPred.GetVerifiedLevels())
 	return nil
 }
