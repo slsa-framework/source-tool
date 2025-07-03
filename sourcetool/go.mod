@@ -10,6 +10,7 @@ require (
 	github.com/go-git/go-git/v5 v5.16.2
 	github.com/google/go-github/v69 v69.2.0
 	github.com/in-toto/attestation v1.1.2
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.2
 	github.com/migueleliasweb/go-github-mock v1.4.0
 	github.com/sigstore/sigstore-go v1.0.0
 	github.com/sirupsen/logrus v1.9.3
@@ -124,6 +125,7 @@ require (
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
+	golang.org/x/tools v0.33.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/grpc v1.72.0 // indirect
