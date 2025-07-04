@@ -161,3 +161,33 @@ func (t *Tool) ControlConfigurationDescr(config ControlConfiguration, funcs ...o
 		return ""
 	}
 }
+
+type PullRequestDetails struct {
+	Owner  string
+	Repo   string
+	Number int
+}
+
+func (t *Tool) FindWorkflowPR(funcs ...options.Fn) (*PullRequestDetails, error) {
+	opts := t.Options
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return nil, err
+		}
+	}
+
+	prNr, err := t.impl.SearchPullRequest(&opts, workflowCommitMessage)
+	if err != nil {
+		return nil, fmt.Errorf("searching pull for pull request: %w", err)
+	}
+
+	if prNr == 0 {
+		return nil, nil
+	}
+
+	return &PullRequestDetails{
+		Owner:  opts.Owner,
+		Repo:   opts.Repo,
+		Number: prNr,
+	}, nil
+}
