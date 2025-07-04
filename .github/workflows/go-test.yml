@@ -21,4 +21,9 @@ jobs:
           check-latest: true
 
       - name: Run Go tests
-        run: go test ./sourcetool/...
+        run: |
+          go test ./sourcetool/...
+
+      - name: Check generated fakes
+        run: |
+          hack/verify-fakes.sh
