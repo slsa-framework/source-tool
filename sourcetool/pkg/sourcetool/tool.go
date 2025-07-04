@@ -4,7 +4,9 @@ package sourcetool
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
 )
@@ -168,6 +170,41 @@ type PullRequestDetails struct {
 	Number int
 }
 
+func (t *Tool) FindPolicyPR(funcs ...options.Fn) (*PullRequestDetails, error) {
+	opts := t.Options
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return nil, err
+		}
+	}
+
+	policyRepoOwner := policy.SourcePolicyRepoOwner
+	policyRepoRepo := policy.SourcePolicyRepo
+	o, r, ok := strings.Cut(opts.PolicyRepo, "/")
+	if ok {
+		policyRepoOwner = o
+		policyRepoRepo = r
+	}
+
+	prNr, err := t.impl.SearchPullRequest(&options.Options{
+		Owner: policyRepoOwner,
+		Repo:  policyRepoRepo,
+	}, fmt.Sprintf("Add %s/%s SLSA Source policy file", opts.Owner, opts.Repo))
+	if err != nil {
+		return nil, fmt.Errorf("searching for policy pull request: %w", err)
+	}
+
+	if prNr == 0 {
+		return nil, nil
+	}
+
+	return &PullRequestDetails{
+		Owner:  policyRepoOwner,
+		Repo:   policyRepoRepo,
+		Number: prNr,
+	}, nil
+}
+
 func (t *Tool) FindWorkflowPR(funcs ...options.Fn) (*PullRequestDetails, error) {
 	opts := t.Options
 	for _, f := range funcs {
@@ -178,7 +215,7 @@ func (t *Tool) FindWorkflowPR(funcs ...options.Fn) (*PullRequestDetails, error) 
 
 	prNr, err := t.impl.SearchPullRequest(&opts, workflowCommitMessage)
 	if err != nil {
-		return nil, fmt.Errorf("searching pull for pull request: %w", err)
+		return nil, fmt.Errorf("searching for provenance workflow pull request: %w", err)
 	}
 
 	if prNr == 0 {
