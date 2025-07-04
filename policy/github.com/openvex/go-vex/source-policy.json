@@ -1,0 +1,13 @@
+{
+  "canonical_repo": "https://github.com/openvex/go-vex",
+  "protected_branches": [
+    {
+      "Name": "main",
+      "Since": "0001-01-01T00:00:00Z",
+      "target_slsa_source_level": "SLSA_SOURCE_LEVEL_1",
+      "require_review": false,
+      "org_status_check_controls": null
+    }
+  ],
+  "protected_tag": null
+}
