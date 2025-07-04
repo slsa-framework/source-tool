@@ -137,6 +137,17 @@ sourcetool status myorg/myrepo@mybranch
 				if slices.Contains(controls.Names(), c) {
 					fmt.Println("✅")
 				} else {
+					if c == "PROVENANCE_AVAILABLE" {
+						prdata, err := srctool.FindWorkflowPR()
+						if err != nil {
+							return err
+						}
+
+						if prdata != nil {
+							fmt.Printf("⏳ (PR %s/%s#%d waiting to merge)\n", prdata.Owner, prdata.Repo, prdata.Number)
+							continue
+						}
+					}
 					fmt.Println("🚫")
 				}
 			}
