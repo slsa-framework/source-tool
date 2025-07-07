@@ -249,6 +249,10 @@ func (impl *defaultToolImplementation) CheckWorkflowFork(opts *options.Options) 
 	userForkOrg := opts.UserForkOrg
 	userForkRepo := opts.Repo // For now we only support forks with the same name
 
+	if userForkOrg == "" {
+		return errors.New("unable to check for for, user org not set")
+	}
+
 	if err := kgithub.VerifyFork(
 		fmt.Sprintf("slsa-source-workflow-%d", time.Now().Unix()), userForkOrg, userForkRepo, opts.Owner, opts.Repo,
 	); err != nil {
@@ -338,8 +342,19 @@ func (impl *defaultToolImplementation) CheckPolicyFork(opts *options.Options) er
 	if !ok || policyRepo == "" {
 		return fmt.Errorf("unable to parse policy repository slug")
 	}
+
+	if opts.UserForkOrg == "" {
+		if err := getUserData(opts); err != nil {
+			return err
+		}
+	}
+
 	userForkOrg := opts.UserForkOrg
 	userForkRepo := policyRepo // For now we only support forks with the same name
+
+	if userForkOrg == "" {
+		return errors.New("unable to check for for, user org not set")
+	}
 
 	// Check the user has a fork of the slsa repo
 	if err := kgithub.VerifyFork(
@@ -455,7 +470,6 @@ func (impl *defaultToolImplementation) SearchPullRequest(opts *options.Options, 
 			State: "open",
 		},
 	)
-
 	if err != nil {
 		return 0, fmt.Errorf("listing pull requests: %w", err)
 	}

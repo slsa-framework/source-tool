@@ -228,3 +228,21 @@ func (t *Tool) FindWorkflowPR(funcs ...options.Fn) (*PullRequestDetails, error) 
 		Number: prNr,
 	}, nil
 }
+
+func (t *Tool) CheckPolicyRepoFork(funcs ...options.Fn) (bool, error) {
+	opts := t.Options
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return false, err
+		}
+	}
+
+	if err := t.impl.CheckPolicyFork(&opts); err != nil {
+		if strings.Contains(err.Error(), "404 Not Found") {
+			return false, nil
+		}
+		return false, err
+	} else {
+		return true, nil
+	}
+}
