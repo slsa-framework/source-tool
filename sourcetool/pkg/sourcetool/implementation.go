@@ -16,6 +16,7 @@ import (
 
 	"github.com/carabiner-dev/github"
 	gogit "github.com/go-git/go-git/v5"
+	gogithub "github.com/google/go-github/v69/github"
 	"github.com/sirupsen/logrus"
 	kgithub "sigs.k8s.io/release-sdk/github"
 
@@ -74,6 +75,7 @@ type toolImplementation interface {
 	CheckPolicyFork(*options.Options) error
 	CreatePolicyPR(*options.Options) error
 	CheckForks(*options.Options) error
+	SearchPullRequest(*options.Options, string) (int, error)
 }
 
 type defaultToolImplementation struct{}
@@ -247,6 +249,10 @@ func (impl *defaultToolImplementation) CheckWorkflowFork(opts *options.Options) 
 	userForkOrg := opts.UserForkOrg
 	userForkRepo := opts.Repo // For now we only support forks with the same name
 
+	if userForkOrg == "" {
+		return errors.New("unable to check for for, user org not set")
+	}
+
 	if err := kgithub.VerifyFork(
 		fmt.Sprintf("slsa-source-workflow-%d", time.Now().Unix()), userForkOrg, userForkRepo, opts.Owner, opts.Repo,
 	); err != nil {
@@ -336,8 +342,19 @@ func (impl *defaultToolImplementation) CheckPolicyFork(opts *options.Options) er
 	if !ok || policyRepo == "" {
 		return fmt.Errorf("unable to parse policy repository slug")
 	}
+
+	if opts.UserForkOrg == "" {
+		if err := getUserData(opts); err != nil {
+			return err
+		}
+	}
+
 	userForkOrg := opts.UserForkOrg
 	userForkRepo := policyRepo // For now we only support forks with the same name
+
+	if userForkOrg == "" {
+		return errors.New("unable to check for for, user org not set")
+	}
 
 	// Check the user has a fork of the slsa repo
 	if err := kgithub.VerifyFork(
@@ -438,4 +455,29 @@ func (impl *defaultToolImplementation) CheckForks(opts *options.Options) error {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
+}
+
+// SearchPullRequest searches the last pull requests on a repo for one whose
+// title matches the query string
+func (impl *defaultToolImplementation) SearchPullRequest(opts *options.Options, query string) (int, error) {
+	gcx, err := opts.GetGitHubConnection()
+	if err != nil {
+		return 0, err
+	}
+
+	prs, _, err := gcx.Client().PullRequests.List(
+		context.Background(), opts.Owner, opts.Repo, &gogithub.PullRequestListOptions{
+			State: "open",
+		},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("listing pull requests: %w", err)
+	}
+
+	for _, pr := range prs {
+		if strings.Contains(pr.GetTitle(), query) {
+			return pr.GetNumber(), nil
+		}
+	}
+	return 0, nil
 }

@@ -99,6 +99,20 @@ type FakeToolImplementation struct {
 		result1 slsa.Controls
 		result2 error
 	}
+	SearchPullRequestStub        func(*options.Options, string) (int, error)
+	searchPullRequestMutex       sync.RWMutex
+	searchPullRequestArgsForCall []struct {
+		arg1 *options.Options
+		arg2 string
+	}
+	searchPullRequestReturns struct {
+		result1 int
+		result2 error
+	}
+	searchPullRequestReturnsOnCall map[int]struct {
+		result1 int
+		result2 error
+	}
 	VerifyOptionsForFullOnboardStub        func(*options.Options) error
 	verifyOptionsForFullOnboardMutex       sync.RWMutex
 	verifyOptionsForFullOnboardArgsForCall []struct {
@@ -605,6 +619,71 @@ func (fake *FakeToolImplementation) GetActiveControlsReturnsOnCall(i int, result
 	}{result1, result2}
 }
 
+func (fake *FakeToolImplementation) SearchPullRequest(arg1 *options.Options, arg2 string) (int, error) {
+	fake.searchPullRequestMutex.Lock()
+	ret, specificReturn := fake.searchPullRequestReturnsOnCall[len(fake.searchPullRequestArgsForCall)]
+	fake.searchPullRequestArgsForCall = append(fake.searchPullRequestArgsForCall, struct {
+		arg1 *options.Options
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.SearchPullRequestStub
+	fakeReturns := fake.searchPullRequestReturns
+	fake.recordInvocation("SearchPullRequest", []interface{}{arg1, arg2})
+	fake.searchPullRequestMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeToolImplementation) SearchPullRequestCallCount() int {
+	fake.searchPullRequestMutex.RLock()
+	defer fake.searchPullRequestMutex.RUnlock()
+	return len(fake.searchPullRequestArgsForCall)
+}
+
+func (fake *FakeToolImplementation) SearchPullRequestCalls(stub func(*options.Options, string) (int, error)) {
+	fake.searchPullRequestMutex.Lock()
+	defer fake.searchPullRequestMutex.Unlock()
+	fake.SearchPullRequestStub = stub
+}
+
+func (fake *FakeToolImplementation) SearchPullRequestArgsForCall(i int) (*options.Options, string) {
+	fake.searchPullRequestMutex.RLock()
+	defer fake.searchPullRequestMutex.RUnlock()
+	argsForCall := fake.searchPullRequestArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeToolImplementation) SearchPullRequestReturns(result1 int, result2 error) {
+	fake.searchPullRequestMutex.Lock()
+	defer fake.searchPullRequestMutex.Unlock()
+	fake.SearchPullRequestStub = nil
+	fake.searchPullRequestReturns = struct {
+		result1 int
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeToolImplementation) SearchPullRequestReturnsOnCall(i int, result1 int, result2 error) {
+	fake.searchPullRequestMutex.Lock()
+	defer fake.searchPullRequestMutex.Unlock()
+	fake.SearchPullRequestStub = nil
+	if fake.searchPullRequestReturnsOnCall == nil {
+		fake.searchPullRequestReturnsOnCall = make(map[int]struct {
+			result1 int
+			result2 error
+		})
+	}
+	fake.searchPullRequestReturnsOnCall[i] = struct {
+		result1 int
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeToolImplementation) VerifyOptionsForFullOnboard(arg1 *options.Options) error {
 	fake.verifyOptionsForFullOnboardMutex.Lock()
 	ret, specificReturn := fake.verifyOptionsForFullOnboardReturnsOnCall[len(fake.verifyOptionsForFullOnboardArgsForCall)]
@@ -685,6 +764,8 @@ func (fake *FakeToolImplementation) Invocations() map[string][][]interface{} {
 	defer fake.ensureDefaultsMutex.RUnlock()
 	fake.getActiveControlsMutex.RLock()
 	defer fake.getActiveControlsMutex.RUnlock()
+	fake.searchPullRequestMutex.RLock()
+	defer fake.searchPullRequestMutex.RUnlock()
 	fake.verifyOptionsForFullOnboardMutex.RLock()
 	defer fake.verifyOptionsForFullOnboardMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
