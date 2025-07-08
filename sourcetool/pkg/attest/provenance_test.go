@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-github/v69/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
@@ -40,9 +41,8 @@ func createTestProv(t *testing.T, repoUri, ref, commit string) string {
 	}
 
 	statementBytes, err := json.Marshal(&stmt)
-	if err != nil {
-		t.Fatalf("failure marshalling statement: %v", err)
-	}
+	require.NoError(t, err, "failure marshalling statement: %v", err)
+
 	return string(statementBytes)
 }
 
@@ -129,7 +129,7 @@ func assertTagProvPredsEqual(t *testing.T, actual, expected *TagProvenancePred) 
 }
 
 func TestReadProvSuccess(t *testing.T) {
-	testProv := createTestProv(t, "https://github.com/owner/repo", "main", "abc123")
+	testProv := createTestProv(t, "https://github.com/owner/repo", "main", "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa")
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		// We just need _some_ rulesets response, we don't care what.
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
@@ -138,7 +138,7 @@ func TestReadProvSuccess(t *testing.T) {
 	verifier := testsupport.NewMockVerifier()
 
 	pa := NewProvenanceAttestor(ghc, verifier)
-	readStmt, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
+	readStmt, readPred, err := pa.GetProvenance(t.Context(), "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa", "main")
 	if err != nil {
 		t.Fatalf("error finding prov: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestReadProvSuccess(t *testing.T) {
 }
 
 func TestReadProvFailure(t *testing.T) {
-	testProv := createTestProv(t, "foo", "main", "abc123")
+	testProv := createTestProv(t, "foo", "main", "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa")
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		// We just need _some_ rulesets response, we don't care what.
 		newTagHygieneRulesetsResponse(456, github.RulesetTargetBranch,
@@ -157,7 +157,7 @@ func TestReadProvFailure(t *testing.T) {
 	verifier := testsupport.NewMockVerifier()
 
 	pa := NewProvenanceAttestor(ghc, verifier)
-	_, readPred, err := pa.GetProvenance(t.Context(), "abc123", "main")
+	_, readPred, err := pa.GetProvenance(t.Context(), "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa", "main")
 	if err != nil {
 		t.Fatalf("error finding prov: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestReadProvFailure(t *testing.T) {
 }
 
 func TestCreateTagProvenance(t *testing.T) {
-	testVsa := createTestVsa(t, "https://github.com/owner/repo", "refs/some/ref", "abc123", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
+	testVsa := createTestVsa(t, "https://github.com/owner/repo", "refs/some/ref", "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
 
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
@@ -177,7 +177,7 @@ func TestCreateTagProvenance(t *testing.T) {
 
 	pa := NewProvenanceAttestor(ghc, verifier)
 
-	stmt, err := pa.CreateTagProvenance(t.Context(), "abc123", "refs/tags/v1", "the-tag-pusher")
+	stmt, err := pa.CreateTagProvenance(t.Context(), "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa", "refs/tags/v1", "the-tag-pusher")
 	if err != nil {
 		t.Fatalf("error creating tag prov %v", err)
 	}
@@ -190,8 +190,8 @@ func TestCreateTagProvenance(t *testing.T) {
 		t.Errorf("statement pred type %v does not match expected %v", stmt.GetPredicateType(), TagProvPredicateType)
 	}
 
-	if !DoesSubjectIncludeCommit(stmt, "abc123") {
-		t.Errorf("statement subject %v does not match expected %v", stmt.GetSubject(), "abc123")
+	if !DoesSubjectIncludeCommit(stmt, "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa") {
+		t.Errorf("statement subject %v does not match expected %v", stmt.GetSubject(), "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa")
 	}
 
 	tagPred, err := GetTagProvPred(stmt)
