@@ -36,6 +36,7 @@ func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 	)
 }
 
+//nolint:dupl
 func addVerifyCommit(cmd *cobra.Command) {
 	opts := verifyCommitOptions{}
 	verifyCommitCmd := &cobra.Command{

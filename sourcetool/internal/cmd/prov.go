@@ -36,13 +36,36 @@ func (po *provOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&po.prevCommit, "prev_commit", "", "The commit prior to 'commit'.")
 }
 
-// provCmd represents the prov command
+//nolint:dupl
 func addProv(parentCmd *cobra.Command) {
 	opts := provOptions{}
 	provCmd := &cobra.Command{
 		Use:   "prov",
 		Short: "Creates provenance for the given commit, but does not check policy.",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				if err := opts.ParseLocator(args[0]); err != nil {
+					return err
+				}
+			}
+
+			// Validate the repo opts here to provide a useful error
+			// when checking defaults
+			if err := opts.repoOptions.Validate(); err != nil {
+				return err
+			}
+
+			// Ensure we operate on the latest commit and the default
+			// branch if not spcified
+			if err := opts.EnsureDefaults(); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return fmt.Errorf("validating options: %w", err)
+			}
 			return doProv(&opts)
 		},
 	}

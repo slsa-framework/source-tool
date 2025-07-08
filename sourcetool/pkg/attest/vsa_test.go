@@ -30,7 +30,7 @@ func createTestVsaWithIdAndResult(t *testing.T, repoUri, ref, commit, id, result
 }
 
 func TestReadVsaSuccess(t *testing.T) {
-	testVsa := createTestVsa(t, "https://github.com/owner/repo", "refs/some/ref", "abc123", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
+	testVsa := createTestVsa(t, "https://github.com/owner/repo", "refs/some/ref", "de9395302d14b24c0a42685cf27315d93c88ff79", slsa.SourceVerifiedLevels{"TEST_LEVEL"})
 	ghc := newTestGhConnection("owner", "repo", "branch",
 		// We just need _some_ rulesets response, we don't care what.
 		newTagHygieneRulesetsResponse(123, github.RulesetTargetTag,
@@ -38,7 +38,7 @@ func TestReadVsaSuccess(t *testing.T) {
 		newNotesContent(testVsa))
 	verifier := testsupport.NewMockVerifier()
 
-	readStmt, readPred, err := GetVsa(t.Context(), ghc, verifier, "abc123", "refs/some/ref")
+	readStmt, readPred, err := GetVsa(t.Context(), ghc, verifier, "de9395302d14b24c0a42685cf27315d93c88ff79", "refs/some/ref")
 	if err != nil {
 		t.Fatalf("error finding vsa: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestReadVsaSuccess(t *testing.T) {
 func TestReadVsaInvalidVsas(t *testing.T) {
 	goodRepo := "https://github.com/org/foo"
 	goodRef := "refs/heads/main"
-	goodCommit := "abc123"
+	goodCommit := "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa"
 
 	// We want to make sure invalid VSAs aren't returned.
 	tests := []struct {
@@ -91,7 +91,7 @@ func TestReadVsaInvalidVsas(t *testing.T) {
 				newNotesContent(tt.vsa))
 			verifier := testsupport.NewMockVerifier()
 
-			_, readPred, err := GetVsa(t.Context(), ghc, verifier, "abc123", "refs/heads/main")
+			_, readPred, err := GetVsa(t.Context(), ghc, verifier, "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa", "refs/heads/main")
 			if err != nil {
 				t.Fatalf("error finding vsa: %v", err)
 			}
