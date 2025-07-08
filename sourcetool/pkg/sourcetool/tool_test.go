@@ -271,3 +271,171 @@ func TestConfigureControls(t *testing.T) {
 		})
 	}
 }
+
+func TestFindPolicyPR(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		mustErr bool
+		expect  *PullRequestDetails
+		prepare func(t *testing.T) toolImplementation
+	}{
+		{
+			"normal", false, nil, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				return &i
+			},
+		},
+		{
+			"search-pr-fails", true, nil, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.SearchPullRequestReturns(0, errors.New("failed"))
+				return &i
+			},
+		},
+		{
+			"pr-is-zero", false, nil, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.SearchPullRequestReturns(0, nil)
+				return &i
+			},
+		},
+		{
+			"pr-is-found", false, &PullRequestDetails{
+				Owner:  "slsa-framework",
+				Repo:   "slsa-source-poc",
+				Number: 10,
+			}, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.SearchPullRequestReturns(10, nil)
+				return &i
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tool := Tool{
+				impl: tc.prepare(t),
+			}
+
+			prd, err := tool.FindPolicyPR()
+			if tc.mustErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, prd)
+		})
+	}
+}
+
+func TestFindWorkflowPR(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		mustErr bool
+		expect  *PullRequestDetails
+		prepare func(t *testing.T) toolImplementation
+	}{
+		{
+			"normal", false, nil, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				return &i
+			},
+		},
+		{
+			"pr-is-zero", false, nil, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.SearchPullRequestReturns(0, nil)
+				return &i
+			},
+		},
+		{
+			"pr-is-found", false, &PullRequestDetails{
+				Owner: "owner", Repo: "repo", Number: 10,
+			}, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.SearchPullRequestReturns(10, nil)
+				return &i
+			},
+		},
+		{
+			"search-pr-fails", true, nil, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.SearchPullRequestReturns(0, errors.New("search failed"))
+				return &i
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tool := Tool{
+				impl: tc.prepare(t),
+			}
+
+			prd, err := tool.FindWorkflowPR(
+				WithOwner("owner"), WithRepo("repo"),
+			)
+			if tc.mustErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, prd)
+		})
+	}
+}
+
+func TestCheckPolicyFork(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		mustErr bool
+		expect  bool
+		prepare func(t *testing.T) toolImplementation
+	}{
+		{
+			"normal", false, true, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				return &i
+			},
+		},
+		{
+			"call-fails", true, true, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.CheckPolicyForkReturns(errors.New("some error"))
+				return &i
+			},
+		},
+		{
+			"not-found", false, false, func(t *testing.T) toolImplementation {
+				t.Helper()
+				i := sourcetoolfakes.FakeToolImplementation{}
+				i.CheckPolicyForkReturns(errors.New("404 Not Found"))
+				return &i
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tool := Tool{impl: tc.prepare(t)}
+			found, err := tool.CheckPolicyRepoFork()
+			if tc.mustErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, found)
+		})
+	}
+}
