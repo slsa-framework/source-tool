@@ -16,6 +16,10 @@ func (ghc *GitHubConnection) GetNotesForCommit(ctx context.Context, commit strin
 	// They'll be in the path <co/mmit> within ref `refs/notes/commits`
 	// where the first two characters of the commit sha are separated from the
 	// rest with a slash, eg e5/73149ab3e574abc2e5a151a04acfaf2a59b453.
+	if len(commit) != 40 {
+		return "", fmt.Errorf("invalid commit string")
+	}
+
 	path := commit[0:2] + "/" + commit[2:]
 	contents, _, resp, err := ghc.Client().Repositories.GetContents(
 		ctx, ghc.Owner(), ghc.Repo(), path, &github.RepositoryContentGetOptions{Ref: "refs/notes/commits"})
