@@ -51,6 +51,7 @@ controls and much more.
 	addProv(rootCmd)
 	addCheckTag(rootCmd)
 	addCreatePolicy(rootCmd)
+	addAuth(rootCmd)
 	return rootCmd
 }
 
