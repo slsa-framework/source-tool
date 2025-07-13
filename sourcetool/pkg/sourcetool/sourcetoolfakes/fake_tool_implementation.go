@@ -2,9 +2,12 @@
 package sourcetoolfakes
 
 import (
+	"context"
 	"sync"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
 )
 
@@ -31,21 +34,26 @@ type FakeToolImplementation struct {
 	checkPolicyForkReturnsOnCall map[int]struct {
 		result1 error
 	}
-	CheckWorkflowForkStub        func(*options.Options) error
-	checkWorkflowForkMutex       sync.RWMutex
-	checkWorkflowForkArgsForCall []struct {
-		arg1 *options.Options
+	ConfigureControlsStub        func(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
+	configureControlsMutex       sync.RWMutex
+	configureControlsArgsForCall []struct {
+		arg1 models.VcsBackend
+		arg2 *models.Repository
+		arg3 []*models.Branch
+		arg4 []models.ControlConfiguration
 	}
-	checkWorkflowForkReturns struct {
+	configureControlsReturns struct {
 		result1 error
 	}
-	checkWorkflowForkReturnsOnCall map[int]struct {
+	configureControlsReturnsOnCall map[int]struct {
 		result1 error
 	}
-	CreatePolicyPRStub        func(*options.Options) error
+	CreatePolicyPRStub        func(options.Options, *models.Repository, []*models.Branch) error
 	createPolicyPRMutex       sync.RWMutex
 	createPolicyPRArgsForCall []struct {
-		arg1 *options.Options
+		arg1 options.Options
+		arg2 *models.Repository
+		arg3 []*models.Branch
 	}
 	createPolicyPRReturns struct {
 		result1 error
@@ -53,57 +61,40 @@ type FakeToolImplementation struct {
 	createPolicyPRReturnsOnCall map[int]struct {
 		result1 error
 	}
-	CreateRepoRulesetStub        func(*options.Options) error
-	createRepoRulesetMutex       sync.RWMutex
-	createRepoRulesetArgsForCall []struct {
-		arg1 *options.Options
+	GetBranchControlsStub        func(context.Context, models.VcsBackend, *models.Branch) (*slsa.Controls, error)
+	getBranchControlsMutex       sync.RWMutex
+	getBranchControlsArgsForCall []struct {
+		arg1 context.Context
+		arg2 models.VcsBackend
+		arg3 *models.Branch
 	}
-	createRepoRulesetReturns struct {
-		result1 error
-	}
-	createRepoRulesetReturnsOnCall map[int]struct {
-		result1 error
-	}
-	CreateWorkflowPRStub        func(*options.Options) error
-	createWorkflowPRMutex       sync.RWMutex
-	createWorkflowPRArgsForCall []struct {
-		arg1 *options.Options
-	}
-	createWorkflowPRReturns struct {
-		result1 error
-	}
-	createWorkflowPRReturnsOnCall map[int]struct {
-		result1 error
-	}
-	EnsureDefaultsStub        func(*options.Options) error
-	ensureDefaultsMutex       sync.RWMutex
-	ensureDefaultsArgsForCall []struct {
-		arg1 *options.Options
-	}
-	ensureDefaultsReturns struct {
-		result1 error
-	}
-	ensureDefaultsReturnsOnCall map[int]struct {
-		result1 error
-	}
-	GetActiveControlsStub        func(*options.Options) (slsa.Controls, error)
-	getActiveControlsMutex       sync.RWMutex
-	getActiveControlsArgsForCall []struct {
-		arg1 *options.Options
-	}
-	getActiveControlsReturns struct {
-		result1 slsa.Controls
+	getBranchControlsReturns struct {
+		result1 *slsa.Controls
 		result2 error
 	}
-	getActiveControlsReturnsOnCall map[int]struct {
-		result1 slsa.Controls
+	getBranchControlsReturnsOnCall map[int]struct {
+		result1 *slsa.Controls
 		result2 error
 	}
-	SearchPullRequestStub        func(*options.Options, string) (int, error)
+	GetVcsBackendStub        func(*models.Repository) (models.VcsBackend, error)
+	getVcsBackendMutex       sync.RWMutex
+	getVcsBackendArgsForCall []struct {
+		arg1 *models.Repository
+	}
+	getVcsBackendReturns struct {
+		result1 models.VcsBackend
+		result2 error
+	}
+	getVcsBackendReturnsOnCall map[int]struct {
+		result1 models.VcsBackend
+		result2 error
+	}
+	SearchPullRequestStub        func(*auth.Authenticator, *models.Repository, string) (int, error)
 	searchPullRequestMutex       sync.RWMutex
 	searchPullRequestArgsForCall []struct {
-		arg1 *options.Options
-		arg2 string
+		arg1 *auth.Authenticator
+		arg2 *models.Repository
+		arg3 string
 	}
 	searchPullRequestReturns struct {
 		result1 int
@@ -250,18 +241,31 @@ func (fake *FakeToolImplementation) CheckPolicyForkReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *FakeToolImplementation) CheckWorkflowFork(arg1 *options.Options) error {
-	fake.checkWorkflowForkMutex.Lock()
-	ret, specificReturn := fake.checkWorkflowForkReturnsOnCall[len(fake.checkWorkflowForkArgsForCall)]
-	fake.checkWorkflowForkArgsForCall = append(fake.checkWorkflowForkArgsForCall, struct {
-		arg1 *options.Options
-	}{arg1})
-	stub := fake.CheckWorkflowForkStub
-	fakeReturns := fake.checkWorkflowForkReturns
-	fake.recordInvocation("CheckWorkflowFork", []interface{}{arg1})
-	fake.checkWorkflowForkMutex.Unlock()
+func (fake *FakeToolImplementation) ConfigureControls(arg1 models.VcsBackend, arg2 *models.Repository, arg3 []*models.Branch, arg4 []models.ControlConfiguration) error {
+	var arg3Copy []*models.Branch
+	if arg3 != nil {
+		arg3Copy = make([]*models.Branch, len(arg3))
+		copy(arg3Copy, arg3)
+	}
+	var arg4Copy []models.ControlConfiguration
+	if arg4 != nil {
+		arg4Copy = make([]models.ControlConfiguration, len(arg4))
+		copy(arg4Copy, arg4)
+	}
+	fake.configureControlsMutex.Lock()
+	ret, specificReturn := fake.configureControlsReturnsOnCall[len(fake.configureControlsArgsForCall)]
+	fake.configureControlsArgsForCall = append(fake.configureControlsArgsForCall, struct {
+		arg1 models.VcsBackend
+		arg2 *models.Repository
+		arg3 []*models.Branch
+		arg4 []models.ControlConfiguration
+	}{arg1, arg2, arg3Copy, arg4Copy})
+	stub := fake.ConfigureControlsStub
+	fakeReturns := fake.configureControlsReturns
+	fake.recordInvocation("ConfigureControls", []interface{}{arg1, arg2, arg3Copy, arg4Copy})
+	fake.configureControlsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1
@@ -269,60 +273,67 @@ func (fake *FakeToolImplementation) CheckWorkflowFork(arg1 *options.Options) err
 	return fakeReturns.result1
 }
 
-func (fake *FakeToolImplementation) CheckWorkflowForkCallCount() int {
-	fake.checkWorkflowForkMutex.RLock()
-	defer fake.checkWorkflowForkMutex.RUnlock()
-	return len(fake.checkWorkflowForkArgsForCall)
+func (fake *FakeToolImplementation) ConfigureControlsCallCount() int {
+	fake.configureControlsMutex.RLock()
+	defer fake.configureControlsMutex.RUnlock()
+	return len(fake.configureControlsArgsForCall)
 }
 
-func (fake *FakeToolImplementation) CheckWorkflowForkCalls(stub func(*options.Options) error) {
-	fake.checkWorkflowForkMutex.Lock()
-	defer fake.checkWorkflowForkMutex.Unlock()
-	fake.CheckWorkflowForkStub = stub
+func (fake *FakeToolImplementation) ConfigureControlsCalls(stub func(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error) {
+	fake.configureControlsMutex.Lock()
+	defer fake.configureControlsMutex.Unlock()
+	fake.ConfigureControlsStub = stub
 }
 
-func (fake *FakeToolImplementation) CheckWorkflowForkArgsForCall(i int) *options.Options {
-	fake.checkWorkflowForkMutex.RLock()
-	defer fake.checkWorkflowForkMutex.RUnlock()
-	argsForCall := fake.checkWorkflowForkArgsForCall[i]
-	return argsForCall.arg1
+func (fake *FakeToolImplementation) ConfigureControlsArgsForCall(i int) (models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) {
+	fake.configureControlsMutex.RLock()
+	defer fake.configureControlsMutex.RUnlock()
+	argsForCall := fake.configureControlsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *FakeToolImplementation) CheckWorkflowForkReturns(result1 error) {
-	fake.checkWorkflowForkMutex.Lock()
-	defer fake.checkWorkflowForkMutex.Unlock()
-	fake.CheckWorkflowForkStub = nil
-	fake.checkWorkflowForkReturns = struct {
+func (fake *FakeToolImplementation) ConfigureControlsReturns(result1 error) {
+	fake.configureControlsMutex.Lock()
+	defer fake.configureControlsMutex.Unlock()
+	fake.ConfigureControlsStub = nil
+	fake.configureControlsReturns = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *FakeToolImplementation) CheckWorkflowForkReturnsOnCall(i int, result1 error) {
-	fake.checkWorkflowForkMutex.Lock()
-	defer fake.checkWorkflowForkMutex.Unlock()
-	fake.CheckWorkflowForkStub = nil
-	if fake.checkWorkflowForkReturnsOnCall == nil {
-		fake.checkWorkflowForkReturnsOnCall = make(map[int]struct {
+func (fake *FakeToolImplementation) ConfigureControlsReturnsOnCall(i int, result1 error) {
+	fake.configureControlsMutex.Lock()
+	defer fake.configureControlsMutex.Unlock()
+	fake.ConfigureControlsStub = nil
+	if fake.configureControlsReturnsOnCall == nil {
+		fake.configureControlsReturnsOnCall = make(map[int]struct {
 			result1 error
 		})
 	}
-	fake.checkWorkflowForkReturnsOnCall[i] = struct {
+	fake.configureControlsReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *FakeToolImplementation) CreatePolicyPR(arg1 *options.Options) error {
+func (fake *FakeToolImplementation) CreatePolicyPR(arg1 options.Options, arg2 *models.Repository, arg3 []*models.Branch) error {
+	var arg3Copy []*models.Branch
+	if arg3 != nil {
+		arg3Copy = make([]*models.Branch, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.createPolicyPRMutex.Lock()
 	ret, specificReturn := fake.createPolicyPRReturnsOnCall[len(fake.createPolicyPRArgsForCall)]
 	fake.createPolicyPRArgsForCall = append(fake.createPolicyPRArgsForCall, struct {
-		arg1 *options.Options
-	}{arg1})
+		arg1 options.Options
+		arg2 *models.Repository
+		arg3 []*models.Branch
+	}{arg1, arg2, arg3Copy})
 	stub := fake.CreatePolicyPRStub
 	fakeReturns := fake.createPolicyPRReturns
-	fake.recordInvocation("CreatePolicyPR", []interface{}{arg1})
+	fake.recordInvocation("CreatePolicyPR", []interface{}{arg1, arg2, arg3Copy})
 	fake.createPolicyPRMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
@@ -336,17 +347,17 @@ func (fake *FakeToolImplementation) CreatePolicyPRCallCount() int {
 	return len(fake.createPolicyPRArgsForCall)
 }
 
-func (fake *FakeToolImplementation) CreatePolicyPRCalls(stub func(*options.Options) error) {
+func (fake *FakeToolImplementation) CreatePolicyPRCalls(stub func(options.Options, *models.Repository, []*models.Branch) error) {
 	fake.createPolicyPRMutex.Lock()
 	defer fake.createPolicyPRMutex.Unlock()
 	fake.CreatePolicyPRStub = stub
 }
 
-func (fake *FakeToolImplementation) CreatePolicyPRArgsForCall(i int) *options.Options {
+func (fake *FakeToolImplementation) CreatePolicyPRArgsForCall(i int) (options.Options, *models.Repository, []*models.Branch) {
 	fake.createPolicyPRMutex.RLock()
 	defer fake.createPolicyPRMutex.RUnlock()
 	argsForCall := fake.createPolicyPRArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeToolImplementation) CreatePolicyPRReturns(result1 error) {
@@ -372,199 +383,82 @@ func (fake *FakeToolImplementation) CreatePolicyPRReturnsOnCall(i int, result1 e
 	}{result1}
 }
 
-func (fake *FakeToolImplementation) CreateRepoRuleset(arg1 *options.Options) error {
-	fake.createRepoRulesetMutex.Lock()
-	ret, specificReturn := fake.createRepoRulesetReturnsOnCall[len(fake.createRepoRulesetArgsForCall)]
-	fake.createRepoRulesetArgsForCall = append(fake.createRepoRulesetArgsForCall, struct {
-		arg1 *options.Options
-	}{arg1})
-	stub := fake.CreateRepoRulesetStub
-	fakeReturns := fake.createRepoRulesetReturns
-	fake.recordInvocation("CreateRepoRuleset", []interface{}{arg1})
-	fake.createRepoRulesetMutex.Unlock()
+func (fake *FakeToolImplementation) GetBranchControls(arg1 context.Context, arg2 models.VcsBackend, arg3 *models.Branch) (*slsa.Controls, error) {
+	fake.getBranchControlsMutex.Lock()
+	ret, specificReturn := fake.getBranchControlsReturnsOnCall[len(fake.getBranchControlsArgsForCall)]
+	fake.getBranchControlsArgsForCall = append(fake.getBranchControlsArgsForCall, struct {
+		arg1 context.Context
+		arg2 models.VcsBackend
+		arg3 *models.Branch
+	}{arg1, arg2, arg3})
+	stub := fake.GetBranchControlsStub
+	fakeReturns := fake.getBranchControlsReturns
+	fake.recordInvocation("GetBranchControls", []interface{}{arg1, arg2, arg3})
+	fake.getBranchControlsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeToolImplementation) CreateRepoRulesetCallCount() int {
-	fake.createRepoRulesetMutex.RLock()
-	defer fake.createRepoRulesetMutex.RUnlock()
-	return len(fake.createRepoRulesetArgsForCall)
+func (fake *FakeToolImplementation) GetBranchControlsCallCount() int {
+	fake.getBranchControlsMutex.RLock()
+	defer fake.getBranchControlsMutex.RUnlock()
+	return len(fake.getBranchControlsArgsForCall)
 }
 
-func (fake *FakeToolImplementation) CreateRepoRulesetCalls(stub func(*options.Options) error) {
-	fake.createRepoRulesetMutex.Lock()
-	defer fake.createRepoRulesetMutex.Unlock()
-	fake.CreateRepoRulesetStub = stub
+func (fake *FakeToolImplementation) GetBranchControlsCalls(stub func(context.Context, models.VcsBackend, *models.Branch) (*slsa.Controls, error)) {
+	fake.getBranchControlsMutex.Lock()
+	defer fake.getBranchControlsMutex.Unlock()
+	fake.GetBranchControlsStub = stub
 }
 
-func (fake *FakeToolImplementation) CreateRepoRulesetArgsForCall(i int) *options.Options {
-	fake.createRepoRulesetMutex.RLock()
-	defer fake.createRepoRulesetMutex.RUnlock()
-	argsForCall := fake.createRepoRulesetArgsForCall[i]
-	return argsForCall.arg1
+func (fake *FakeToolImplementation) GetBranchControlsArgsForCall(i int) (context.Context, models.VcsBackend, *models.Branch) {
+	fake.getBranchControlsMutex.RLock()
+	defer fake.getBranchControlsMutex.RUnlock()
+	argsForCall := fake.getBranchControlsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeToolImplementation) CreateRepoRulesetReturns(result1 error) {
-	fake.createRepoRulesetMutex.Lock()
-	defer fake.createRepoRulesetMutex.Unlock()
-	fake.CreateRepoRulesetStub = nil
-	fake.createRepoRulesetReturns = struct {
-		result1 error
-	}{result1}
+func (fake *FakeToolImplementation) GetBranchControlsReturns(result1 *slsa.Controls, result2 error) {
+	fake.getBranchControlsMutex.Lock()
+	defer fake.getBranchControlsMutex.Unlock()
+	fake.GetBranchControlsStub = nil
+	fake.getBranchControlsReturns = struct {
+		result1 *slsa.Controls
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) CreateRepoRulesetReturnsOnCall(i int, result1 error) {
-	fake.createRepoRulesetMutex.Lock()
-	defer fake.createRepoRulesetMutex.Unlock()
-	fake.CreateRepoRulesetStub = nil
-	if fake.createRepoRulesetReturnsOnCall == nil {
-		fake.createRepoRulesetReturnsOnCall = make(map[int]struct {
-			result1 error
+func (fake *FakeToolImplementation) GetBranchControlsReturnsOnCall(i int, result1 *slsa.Controls, result2 error) {
+	fake.getBranchControlsMutex.Lock()
+	defer fake.getBranchControlsMutex.Unlock()
+	fake.GetBranchControlsStub = nil
+	if fake.getBranchControlsReturnsOnCall == nil {
+		fake.getBranchControlsReturnsOnCall = make(map[int]struct {
+			result1 *slsa.Controls
+			result2 error
 		})
 	}
-	fake.createRepoRulesetReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+	fake.getBranchControlsReturnsOnCall[i] = struct {
+		result1 *slsa.Controls
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) CreateWorkflowPR(arg1 *options.Options) error {
-	fake.createWorkflowPRMutex.Lock()
-	ret, specificReturn := fake.createWorkflowPRReturnsOnCall[len(fake.createWorkflowPRArgsForCall)]
-	fake.createWorkflowPRArgsForCall = append(fake.createWorkflowPRArgsForCall, struct {
-		arg1 *options.Options
+func (fake *FakeToolImplementation) GetVcsBackend(arg1 *models.Repository) (models.VcsBackend, error) {
+	fake.getVcsBackendMutex.Lock()
+	ret, specificReturn := fake.getVcsBackendReturnsOnCall[len(fake.getVcsBackendArgsForCall)]
+	fake.getVcsBackendArgsForCall = append(fake.getVcsBackendArgsForCall, struct {
+		arg1 *models.Repository
 	}{arg1})
-	stub := fake.CreateWorkflowPRStub
-	fakeReturns := fake.createWorkflowPRReturns
-	fake.recordInvocation("CreateWorkflowPR", []interface{}{arg1})
-	fake.createWorkflowPRMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *FakeToolImplementation) CreateWorkflowPRCallCount() int {
-	fake.createWorkflowPRMutex.RLock()
-	defer fake.createWorkflowPRMutex.RUnlock()
-	return len(fake.createWorkflowPRArgsForCall)
-}
-
-func (fake *FakeToolImplementation) CreateWorkflowPRCalls(stub func(*options.Options) error) {
-	fake.createWorkflowPRMutex.Lock()
-	defer fake.createWorkflowPRMutex.Unlock()
-	fake.CreateWorkflowPRStub = stub
-}
-
-func (fake *FakeToolImplementation) CreateWorkflowPRArgsForCall(i int) *options.Options {
-	fake.createWorkflowPRMutex.RLock()
-	defer fake.createWorkflowPRMutex.RUnlock()
-	argsForCall := fake.createWorkflowPRArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeToolImplementation) CreateWorkflowPRReturns(result1 error) {
-	fake.createWorkflowPRMutex.Lock()
-	defer fake.createWorkflowPRMutex.Unlock()
-	fake.CreateWorkflowPRStub = nil
-	fake.createWorkflowPRReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeToolImplementation) CreateWorkflowPRReturnsOnCall(i int, result1 error) {
-	fake.createWorkflowPRMutex.Lock()
-	defer fake.createWorkflowPRMutex.Unlock()
-	fake.CreateWorkflowPRStub = nil
-	if fake.createWorkflowPRReturnsOnCall == nil {
-		fake.createWorkflowPRReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.createWorkflowPRReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeToolImplementation) EnsureDefaults(arg1 *options.Options) error {
-	fake.ensureDefaultsMutex.Lock()
-	ret, specificReturn := fake.ensureDefaultsReturnsOnCall[len(fake.ensureDefaultsArgsForCall)]
-	fake.ensureDefaultsArgsForCall = append(fake.ensureDefaultsArgsForCall, struct {
-		arg1 *options.Options
-	}{arg1})
-	stub := fake.EnsureDefaultsStub
-	fakeReturns := fake.ensureDefaultsReturns
-	fake.recordInvocation("EnsureDefaults", []interface{}{arg1})
-	fake.ensureDefaultsMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *FakeToolImplementation) EnsureDefaultsCallCount() int {
-	fake.ensureDefaultsMutex.RLock()
-	defer fake.ensureDefaultsMutex.RUnlock()
-	return len(fake.ensureDefaultsArgsForCall)
-}
-
-func (fake *FakeToolImplementation) EnsureDefaultsCalls(stub func(*options.Options) error) {
-	fake.ensureDefaultsMutex.Lock()
-	defer fake.ensureDefaultsMutex.Unlock()
-	fake.EnsureDefaultsStub = stub
-}
-
-func (fake *FakeToolImplementation) EnsureDefaultsArgsForCall(i int) *options.Options {
-	fake.ensureDefaultsMutex.RLock()
-	defer fake.ensureDefaultsMutex.RUnlock()
-	argsForCall := fake.ensureDefaultsArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeToolImplementation) EnsureDefaultsReturns(result1 error) {
-	fake.ensureDefaultsMutex.Lock()
-	defer fake.ensureDefaultsMutex.Unlock()
-	fake.EnsureDefaultsStub = nil
-	fake.ensureDefaultsReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeToolImplementation) EnsureDefaultsReturnsOnCall(i int, result1 error) {
-	fake.ensureDefaultsMutex.Lock()
-	defer fake.ensureDefaultsMutex.Unlock()
-	fake.EnsureDefaultsStub = nil
-	if fake.ensureDefaultsReturnsOnCall == nil {
-		fake.ensureDefaultsReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.ensureDefaultsReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeToolImplementation) GetActiveControls(arg1 *options.Options) (slsa.Controls, error) {
-	fake.getActiveControlsMutex.Lock()
-	ret, specificReturn := fake.getActiveControlsReturnsOnCall[len(fake.getActiveControlsArgsForCall)]
-	fake.getActiveControlsArgsForCall = append(fake.getActiveControlsArgsForCall, struct {
-		arg1 *options.Options
-	}{arg1})
-	stub := fake.GetActiveControlsStub
-	fakeReturns := fake.getActiveControlsReturns
-	fake.recordInvocation("GetActiveControls", []interface{}{arg1})
-	fake.getActiveControlsMutex.Unlock()
+	stub := fake.GetVcsBackendStub
+	fakeReturns := fake.getVcsBackendReturns
+	fake.recordInvocation("GetVcsBackend", []interface{}{arg1})
+	fake.getVcsBackendMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
 	}
@@ -574,64 +468,65 @@ func (fake *FakeToolImplementation) GetActiveControls(arg1 *options.Options) (sl
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeToolImplementation) GetActiveControlsCallCount() int {
-	fake.getActiveControlsMutex.RLock()
-	defer fake.getActiveControlsMutex.RUnlock()
-	return len(fake.getActiveControlsArgsForCall)
+func (fake *FakeToolImplementation) GetVcsBackendCallCount() int {
+	fake.getVcsBackendMutex.RLock()
+	defer fake.getVcsBackendMutex.RUnlock()
+	return len(fake.getVcsBackendArgsForCall)
 }
 
-func (fake *FakeToolImplementation) GetActiveControlsCalls(stub func(*options.Options) (slsa.Controls, error)) {
-	fake.getActiveControlsMutex.Lock()
-	defer fake.getActiveControlsMutex.Unlock()
-	fake.GetActiveControlsStub = stub
+func (fake *FakeToolImplementation) GetVcsBackendCalls(stub func(*models.Repository) (models.VcsBackend, error)) {
+	fake.getVcsBackendMutex.Lock()
+	defer fake.getVcsBackendMutex.Unlock()
+	fake.GetVcsBackendStub = stub
 }
 
-func (fake *FakeToolImplementation) GetActiveControlsArgsForCall(i int) *options.Options {
-	fake.getActiveControlsMutex.RLock()
-	defer fake.getActiveControlsMutex.RUnlock()
-	argsForCall := fake.getActiveControlsArgsForCall[i]
+func (fake *FakeToolImplementation) GetVcsBackendArgsForCall(i int) *models.Repository {
+	fake.getVcsBackendMutex.RLock()
+	defer fake.getVcsBackendMutex.RUnlock()
+	argsForCall := fake.getVcsBackendArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeToolImplementation) GetActiveControlsReturns(result1 slsa.Controls, result2 error) {
-	fake.getActiveControlsMutex.Lock()
-	defer fake.getActiveControlsMutex.Unlock()
-	fake.GetActiveControlsStub = nil
-	fake.getActiveControlsReturns = struct {
-		result1 slsa.Controls
+func (fake *FakeToolImplementation) GetVcsBackendReturns(result1 models.VcsBackend, result2 error) {
+	fake.getVcsBackendMutex.Lock()
+	defer fake.getVcsBackendMutex.Unlock()
+	fake.GetVcsBackendStub = nil
+	fake.getVcsBackendReturns = struct {
+		result1 models.VcsBackend
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) GetActiveControlsReturnsOnCall(i int, result1 slsa.Controls, result2 error) {
-	fake.getActiveControlsMutex.Lock()
-	defer fake.getActiveControlsMutex.Unlock()
-	fake.GetActiveControlsStub = nil
-	if fake.getActiveControlsReturnsOnCall == nil {
-		fake.getActiveControlsReturnsOnCall = make(map[int]struct {
-			result1 slsa.Controls
+func (fake *FakeToolImplementation) GetVcsBackendReturnsOnCall(i int, result1 models.VcsBackend, result2 error) {
+	fake.getVcsBackendMutex.Lock()
+	defer fake.getVcsBackendMutex.Unlock()
+	fake.GetVcsBackendStub = nil
+	if fake.getVcsBackendReturnsOnCall == nil {
+		fake.getVcsBackendReturnsOnCall = make(map[int]struct {
+			result1 models.VcsBackend
 			result2 error
 		})
 	}
-	fake.getActiveControlsReturnsOnCall[i] = struct {
-		result1 slsa.Controls
+	fake.getVcsBackendReturnsOnCall[i] = struct {
+		result1 models.VcsBackend
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) SearchPullRequest(arg1 *options.Options, arg2 string) (int, error) {
+func (fake *FakeToolImplementation) SearchPullRequest(arg1 *auth.Authenticator, arg2 *models.Repository, arg3 string) (int, error) {
 	fake.searchPullRequestMutex.Lock()
 	ret, specificReturn := fake.searchPullRequestReturnsOnCall[len(fake.searchPullRequestArgsForCall)]
 	fake.searchPullRequestArgsForCall = append(fake.searchPullRequestArgsForCall, struct {
-		arg1 *options.Options
-		arg2 string
-	}{arg1, arg2})
+		arg1 *auth.Authenticator
+		arg2 *models.Repository
+		arg3 string
+	}{arg1, arg2, arg3})
 	stub := fake.SearchPullRequestStub
 	fakeReturns := fake.searchPullRequestReturns
-	fake.recordInvocation("SearchPullRequest", []interface{}{arg1, arg2})
+	fake.recordInvocation("SearchPullRequest", []interface{}{arg1, arg2, arg3})
 	fake.searchPullRequestMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -645,17 +540,17 @@ func (fake *FakeToolImplementation) SearchPullRequestCallCount() int {
 	return len(fake.searchPullRequestArgsForCall)
 }
 
-func (fake *FakeToolImplementation) SearchPullRequestCalls(stub func(*options.Options, string) (int, error)) {
+func (fake *FakeToolImplementation) SearchPullRequestCalls(stub func(*auth.Authenticator, *models.Repository, string) (int, error)) {
 	fake.searchPullRequestMutex.Lock()
 	defer fake.searchPullRequestMutex.Unlock()
 	fake.SearchPullRequestStub = stub
 }
 
-func (fake *FakeToolImplementation) SearchPullRequestArgsForCall(i int) (*options.Options, string) {
+func (fake *FakeToolImplementation) SearchPullRequestArgsForCall(i int) (*auth.Authenticator, *models.Repository, string) {
 	fake.searchPullRequestMutex.RLock()
 	defer fake.searchPullRequestMutex.RUnlock()
 	argsForCall := fake.searchPullRequestArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeToolImplementation) SearchPullRequestReturns(result1 int, result2 error) {
