@@ -13,6 +13,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
@@ -96,30 +97,49 @@ sourcetool status myorg/myrepo@mybranch
 
 			cmd.SilenceUsage = true
 
+			authenticator := auth.New()
+			user, err := authenticator.WhoAmI()
+			if err != nil {
+				return fmt.Errorf("checking authentication status: %w", err)
+			}
+
+			if user == nil {
+				fmt.Println()
+				fmt.Println("🚫  " + w("sourcetool is not logged in"))
+				fmt.Println()
+				fmt.Println("Please log into your GitHub account before using sourcetool. To")
+				fmt.Println("log in, run the following command:")
+				fmt.Println()
+				fmt.Println("  sourcetool auth login")
+				fmt.Println()
+				return nil
+			}
+
 			actions := []recommendedAction{}
 
 			ctx := context.Background()
-			ghc := ghcontrol.NewGhConnection(opts.owner, opts.repository, opts.branch)
+			client, err := authenticator.GetGitHubClient()
+			if err != nil {
+				return err
+			}
+			ghc := ghcontrol.NewGhConnectionWithClient(opts.owner, opts.repository, opts.branch, client)
 
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
-				sourcetool.WithOwner(opts.owner),
-				sourcetool.WithRepo(opts.repository),
-				sourcetool.WithBranch(opts.branch),
-				sourcetool.WithCommit(opts.commit),
+				sourcetool.WithAuthenticator(authenticator),
 			)
 			if err != nil {
 				return err
 			}
 
 			// Get the active repository controls
-			controls, err := srctool.GetRepoControls()
+			controls, err := srctool.GetBranchControls(opts.GetBranch())
 			if err != nil {
 				return fmt.Errorf("fetching active controls: %w", err)
 			}
 
 			// Check if the user has a fork of the policy repo:
-			policyForkFound, err := srctool.CheckPolicyRepoFork()
+			policyForkFound, err := srctool.CheckPolicyRepoFork(opts.GetBranch().Repository)
 			if err != nil {
 				return fmt.Errorf("checking for a fork of the policy repo: %w", err)
 			}
@@ -133,7 +153,7 @@ sourcetool status myorg/myrepo@mybranch
 			}
 
 			// Compute the maximum level possible:
-			toplevel := policy.ComputeEligibleSlsaLevel(controls)
+			toplevel := policy.ComputeEligibleSlsaLevel(*controls)
 
 			title := fmt.Sprintf(
 				"\nSLSA Source Status for %s/%s@%s", opts.owner, opts.repository,
@@ -151,18 +171,20 @@ sourcetool status myorg/myrepo@mybranch
 					//nolint:exhaustive // We don't display all labels here
 					switch c {
 					case slsa.ProvenanceAvailable:
-						prdata, err := srctool.FindWorkflowPR()
-						if err != nil {
-							return err
-						}
+						// This will be replaced by a check on the lifecycle
 
-						if prdata != nil {
-							fmt.Printf("⏳ (PR %s/%s#%d waiting to merge)\n", prdata.Owner, prdata.Repo, prdata.Number)
-							actions = append(actions, recommendedAction{
-								Text: "Merge provenance workflow pull request",
-							})
-							continue
-						}
+						// prdata, err := srctool.FindWorkflowPR()
+						// if err != nil {
+						// 	return err
+						// }
+
+						// if prdata != nil {
+						// 	fmt.Printf("⏳ (PR %s/%s#%d waiting to merge)\n", prdata.Owner, prdata.Repo, prdata.Number)
+						// 	actions = append(actions, recommendedAction{
+						// 		Text: "Merge provenance workflow pull request",
+						// 	})
+						// 	continue
+						// }
 
 						actions = append(actions, recommendedAction{
 							Text:    fmt.Sprintf("Start generating provenance on %s/%s", opts.owner, opts.repository),
@@ -181,7 +203,7 @@ sourcetool status myorg/myrepo@mybranch
 			fmt.Println("")
 			fmt.Printf("%-35s  ", "Repo policy found:")
 			if pcy == nil {
-				prdata, err := srctool.FindPolicyPR()
+				prdata, err := srctool.FindPolicyPR(opts.GetBranch().Repository)
 				if err != nil {
 					return fmt.Errorf("looking for policy PR: %w", err)
 				}

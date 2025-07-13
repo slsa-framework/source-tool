@@ -10,6 +10,7 @@ import (
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
 
 type setupOpts struct {
@@ -125,11 +126,14 @@ to configure the branch rules.
 			// At this point options are valid, no help needed.
 			cmd.SilenceUsage = true
 
+			// FIXME: Check thje authentication
+
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
-				sourcetool.WithOwner(opts.owner),
-				sourcetool.WithRepo(opts.repository),
-				sourcetool.WithBranch(opts.branch),
+				// FIXME: Add the authenticator here
+				sourcetool.WithEnforce(opts.enforce),
+				sourcetool.WithUserForkOrg(opts.userForkOrg),
+				sourcetool.WithPolicyRepo(opts.policyRepo),
 			)
 			if err != nil {
 				return err
@@ -144,9 +148,9 @@ sourcetool is about to perform the following actions on your behalf:
   - %s.
 
 `,
-					srctool.ControlConfigurationDescr(sourcetool.CONFIG_POLICY),
-					srctool.ControlConfigurationDescr(sourcetool.CONFIG_PROVENANCE_WORKFLOW),
-					srctool.ControlConfigurationDescr(sourcetool.CONFIG_BRANCH_RULES),
+					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_POLICY),
+					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_GEN_PROVENANCE),
+					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_BRANCH_RULES),
 				)
 
 				_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
@@ -161,9 +165,7 @@ sourcetool is about to perform the following actions on your behalf:
 			}
 
 			err = srctool.OnboardRepository(
-				sourcetool.WithEnforce(opts.enforce),
-				sourcetool.WithUserForkOrg(opts.userForkOrg),
-				sourcetool.WithPolicyRepo(opts.policyRepo),
+				opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()},
 			)
 			if err != nil {
 				return fmt.Errorf("onboarding repo: %w", err)
@@ -195,7 +197,7 @@ func (so *setupCtlOpts) Validate() error {
 		so.setupOpts.Validate(),
 	}
 	for _, c := range so.configs {
-		if !slices.Contains(sourcetool.ControlConfigurations, sourcetool.ControlConfiguration(c)) {
+		if !slices.Contains(sourcetool.ControlConfigurations, models.ControlConfiguration(c)) {
 			errs = append(errs, fmt.Errorf("unknown configuration: %q", c))
 		}
 	}
@@ -272,23 +274,21 @@ a fork of the repository you want to protect.
 
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
-				sourcetool.WithOwner(opts.owner),
-				sourcetool.WithRepo(opts.repository),
-				sourcetool.WithBranch(opts.branch),
 				sourcetool.WithPolicyRepo(opts.policyRepo),
 				sourcetool.WithUserForkOrg(opts.userForkOrg),
+				sourcetool.WithEnforce(opts.enforce),
 			)
 			if err != nil {
 				return err
 			}
-			cs := []sourcetool.ControlConfiguration{}
+			cs := []models.ControlConfiguration{}
 			if opts.interactive {
 				fmt.Println("\nsourcetool is about to perform the following actions on your behalf:")
 				fmt.Println("")
 
 				for _, c := range opts.configs {
-					cs = append(cs, sourcetool.ControlConfiguration(c))
-					fmt.Printf("  - %s.\n", srctool.ControlConfigurationDescr(sourcetool.ControlConfiguration(c)))
+					cs = append(cs, models.ControlConfiguration(c))
+					fmt.Printf("  - %s.\n", srctool.ControlConfigurationDescr(opts.GetBranch(), models.ControlConfiguration(c)))
 				}
 				fmt.Println("")
 
@@ -303,11 +303,11 @@ a fork of the repository you want to protect.
 				}
 			} else {
 				for _, c := range opts.configs {
-					cs = append(cs, sourcetool.ControlConfiguration(c))
+					cs = append(cs, models.ControlConfiguration(c))
 				}
 			}
 			err = srctool.ConfigureControls(
-				cs, sourcetool.WithEnforce(opts.enforce),
+				opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cs,
 			)
 			if err != nil {
 				return fmt.Errorf("configuring controls: %w", err)
