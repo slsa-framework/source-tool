@@ -3,165 +3,125 @@
 package sourcetool
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"strings"
+	"time"
 
+	kgithub "sigs.k8s.io/release-sdk/github"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
 )
 
-type ControlConfiguration string
-
-const (
-	CONFIG_POLICY              ControlConfiguration = "CONFIG_POLICY"
-	CONFIG_PROVENANCE_WORKFLOW ControlConfiguration = "CONFIG_PROVENANCE_WORKFLOW"
-	CONFIG_BRANCH_RULES        ControlConfiguration = "CONFIG_BRANCH_RULES"
-)
-
-var ControlConfigurations = []ControlConfiguration{
-	CONFIG_POLICY, CONFIG_PROVENANCE_WORKFLOW, CONFIG_BRANCH_RULES,
+var ControlConfigurations = []models.ControlConfiguration{
+	models.CONFIG_POLICY, models.CONFIG_GEN_PROVENANCE, models.CONFIG_BRANCH_RULES,
 }
 
 // New initializes a new source tool instance.
-func New(funcs ...options.Fn) (*Tool, error) {
-	opts := options.Default
+func New(funcs ...ConfigFn) (*Tool, error) {
+	t := &Tool{
+		Options: options.Default,
+		impl:    &defaultToolImplementation{},
+	}
+
 	for _, f := range funcs {
-		if err := f(&opts); err != nil {
+		if err := f(t); err != nil {
 			return nil, err
 		}
 	}
 
-	return &Tool{
-		Options: opts,
-		impl:    &defaultToolImplementation{},
-	}, nil
+	return t, nil
 }
 
 // Tool is the main object intended to expose sourcetool's functionality as a
 // public API. Some of the logic is still implemented on the CLI commands but
 // we want to slowly move it to public function under this struct.
 type Tool struct {
-	Options options.Options
-	impl    toolImplementation
+	Authenticator *auth.Authenticator
+	Options       options.Options
+	impl          toolImplementation
 }
 
-// GetRepoControls returns the controls that are enabled in a repository.
-func (t *Tool) GetRepoControls(funcs ...options.Fn) (slsa.Controls, error) {
-	opts := t.Options
-	for _, f := range funcs {
-		if err := f(&opts); err != nil {
-			return nil, err
-		}
+// GetRepoControls returns the controls that are enabled in a repository branch.
+func (t *Tool) GetBranchControls(branch *models.Branch) (*slsa.Controls, error) {
+	backend, err := t.impl.GetVcsBackend(branch.Repository)
+	if err != nil {
+		return nil, fmt.Errorf("getting VCS backend: %w", err)
 	}
 
-	return t.impl.GetActiveControls(&opts)
+	controls, err := t.impl.GetBranchControls(context.Background(), backend, branch)
+	if err != nil {
+		return nil, fmt.Errorf("getting branch controls: %w", err)
+	}
+
+	return controls, err
 }
 
 // OnboardRepository configures a repository to set up the required controls
 // to meet SLSA Source L3.
-func (t *Tool) OnboardRepository(funcs ...options.Fn) error {
-	opts := t.Options
-	for _, f := range funcs {
-		if err := f(&opts); err != nil {
-			return err
-		}
+func (t *Tool) OnboardRepository(repo *models.Repository, branches []*models.Branch) error {
+	backend, err := t.impl.GetVcsBackend(repo)
+	if err != nil {
+		return fmt.Errorf("getting VCS backend: %w", err)
 	}
 
-	if err := t.impl.EnsureDefaults(&opts); err != nil {
-		return fmt.Errorf("ensuring runtime defaults: %w", err)
-	}
-
-	if err := t.impl.CheckForks(&opts); err != nil {
+	if err := t.impl.CheckForks(&t.Options); err != nil {
 		return fmt.Errorf("checking repository forks: %w", err)
 	}
 
-	if err := t.impl.VerifyOptionsForFullOnboard(&opts); err != nil {
+	if err := t.impl.VerifyOptionsForFullOnboard(&t.Options); err != nil {
 		return fmt.Errorf("verifying options: %w", err)
 	}
 
-	if err := t.impl.CreateRepoRuleset(&opts); err != nil {
-		return fmt.Errorf("creating rules in the repository: %w", err)
+	if err = backend.ConfigureControls(
+		repo, branches, []models.ControlConfiguration{
+			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE,
+		},
+	); err != nil {
+		return fmt.Errorf("configuring controls: %w", err)
 	}
 
-	if err := t.impl.CreateWorkflowPR(&opts); err != nil {
-		return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
-	}
-
-	if err := t.impl.CreatePolicyPR(&opts); err != nil {
+	if err := t.impl.CreatePolicyPR(t.Options, repo, nil); err != nil {
 		return fmt.Errorf("opening the policy pull request: %w", err)
 	}
 
 	return nil
 }
 
-// ConfigureControls setsup a control in the repo
-func (t *Tool) ConfigureControls(configs []ControlConfiguration, funcs ...options.Fn) error {
-	opts := t.Options
-	for _, f := range funcs {
-		if err := f(&opts); err != nil {
-			return err
+// ConfigureControls sets up a control in the repo
+func (t *Tool) ConfigureControls(repo *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
+	backend, err := t.impl.GetVcsBackend(repo)
+	if err != nil {
+		return fmt.Errorf("getting VCS backend: %w", err)
+	}
+
+	// The policy configuration is not handled by the backend
+	if slices.Contains(configs, models.CONFIG_POLICY) {
+		if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
+			return fmt.Errorf("checking policy repo fork: %w", err)
+		}
+		if err := t.impl.CreatePolicyPR(t.Options, repo, branches); err != nil {
+			return fmt.Errorf("opening the policy pull request: %w", err)
 		}
 	}
 
-	if err := t.impl.EnsureDefaults(&opts); err != nil {
-		return fmt.Errorf("ensuring default option values: %w", err)
-	}
-
-	for _, config := range configs {
-		switch config {
-		case CONFIG_BRANCH_RULES:
-			if err := t.impl.CreateRepoRuleset(&opts); err != nil {
-				return fmt.Errorf("creating rules in the repository: %w", err)
-			}
-		case CONFIG_PROVENANCE_WORKFLOW:
-			if err := t.impl.CheckWorkflowFork(&opts); err != nil {
-				return fmt.Errorf("checking repository fork: %w", err)
-			}
-			if err := t.impl.CreateWorkflowPR(&opts); err != nil {
-				return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
-			}
-		case CONFIG_POLICY:
-			if err := t.impl.CheckPolicyFork(&opts); err != nil {
-				return fmt.Errorf("checking policy repo fork: %w", err)
-			}
-			if err := t.impl.CreatePolicyPR(&opts); err != nil {
-				return fmt.Errorf("opening the policy pull request: %w", err)
-			}
-		default:
-			return fmt.Errorf("unknown configuration flag: %q", config)
-		}
-	}
-	return nil
+	return t.impl.ConfigureControls(backend, repo, branches, configs)
 }
 
-// ControlConfigurationDescr
-func (t *Tool) ControlConfigurationDescr(config ControlConfiguration, funcs ...options.Fn) string {
-	opts := t.Options
-	for _, f := range funcs {
-		if err := f(&opts); err != nil {
-			return ""
-		}
-	}
-	switch config {
-	case CONFIG_BRANCH_RULES:
-		return fmt.Sprintf(
-			"Enable push and delete protection on branch %q of %s/%s",
-			opts.Branch, opts.Owner, opts.Repo,
-		)
-	case CONFIG_PROVENANCE_WORKFLOW:
-		return fmt.Sprintf(
-			"Open a pull request on %s/%s to add the provenance generation workflow",
-			opts.Owner, opts.Repo,
-		)
-	case CONFIG_POLICY:
-		return fmt.Sprintf(
-			"Open a pull request on %s to check-in the %s/%s SLSA source policy",
-			opts.PolicyRepo, opts.Owner, opts.Repo,
-		)
-	default:
+// ControlConfigurationDescr returns a description of the controls
+func (t *Tool) ControlConfigurationDescr(branch *models.Branch, config models.ControlConfiguration) string {
+	backend, err := t.impl.GetVcsBackend(branch.Repository)
+	if err != nil {
 		return ""
 	}
+
+	return backend.ControlConfigurationDescr(branch, config)
 }
 
 type PullRequestDetails struct {
@@ -170,26 +130,19 @@ type PullRequestDetails struct {
 	Number int
 }
 
-func (t *Tool) FindPolicyPR(funcs ...options.Fn) (*PullRequestDetails, error) {
-	opts := t.Options
-	for _, f := range funcs {
-		if err := f(&opts); err != nil {
-			return nil, err
-		}
-	}
-
+func (t *Tool) FindPolicyPR(repo *models.Repository) (*PullRequestDetails, error) {
 	policyRepoOwner := policy.SourcePolicyRepoOwner
 	policyRepoRepo := policy.SourcePolicyRepo
-	o, r, ok := strings.Cut(opts.PolicyRepo, "/")
+	o, r, ok := strings.Cut(t.Options.PolicyRepo, "/")
 	if ok {
 		policyRepoOwner = o
 		policyRepoRepo = r
 	}
 
-	prNr, err := t.impl.SearchPullRequest(&options.Options{
-		Owner: policyRepoOwner,
-		Repo:  policyRepoRepo,
-	}, fmt.Sprintf("Add %s/%s SLSA Source policy file", opts.Owner, opts.Repo))
+	prNr, err := t.impl.SearchPullRequest(t.Authenticator, &models.Repository{
+		Hostname: "github.com",
+		Path:     fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoRepo),
+	}, fmt.Sprintf("Add %s SLSA Source policy file", repo.Path))
 	if err != nil {
 		return nil, fmt.Errorf("searching for policy pull request: %w", err)
 	}
@@ -205,39 +158,8 @@ func (t *Tool) FindPolicyPR(funcs ...options.Fn) (*PullRequestDetails, error) {
 	}, nil
 }
 
-func (t *Tool) FindWorkflowPR(funcs ...options.Fn) (*PullRequestDetails, error) {
-	opts := t.Options
-	for _, f := range funcs {
-		if err := f(&opts); err != nil {
-			return nil, err
-		}
-	}
-
-	prNr, err := t.impl.SearchPullRequest(&opts, workflowCommitMessage)
-	if err != nil {
-		return nil, fmt.Errorf("searching for provenance workflow pull request: %w", err)
-	}
-
-	if prNr == 0 {
-		return nil, nil
-	}
-
-	return &PullRequestDetails{
-		Owner:  opts.Owner,
-		Repo:   opts.Repo,
-		Number: prNr,
-	}, nil
-}
-
-func (t *Tool) CheckPolicyRepoFork(funcs ...options.Fn) (bool, error) {
-	opts := t.Options
-	for _, f := range funcs {
-		if err := f(&opts); err != nil {
-			return false, err
-		}
-	}
-
-	if err := t.impl.CheckPolicyFork(&opts); err != nil {
+func (t *Tool) CheckPolicyRepoFork(repo *models.Repository) (bool, error) {
+	if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
 		if strings.Contains(err.Error(), "404 Not Found") {
 			return false, nil
 		}
@@ -245,4 +167,37 @@ func (t *Tool) CheckPolicyRepoFork(funcs ...options.Fn) (bool, error) {
 	} else {
 		return true, nil
 	}
+}
+
+func (t *Tool) CheckPolicyFork(opts *options.Options) error {
+	policyOrg, policyRepo, ok := strings.Cut(opts.PolicyRepo, "/")
+	if !ok || policyRepo == "" {
+		return fmt.Errorf("unable to parse policy repository slug")
+	}
+
+	if opts.UserForkOrg == "" {
+		user, err := t.Authenticator.WhoAmI()
+		if err != nil {
+			return err
+		}
+		opts.UserForkOrg = user.GetLogin()
+	}
+
+	userForkOrg := opts.UserForkOrg
+	userForkRepo := policyRepo // For now we only support forks with the same name
+
+	if userForkOrg == "" {
+		return errors.New("unable to check for for, user org not set")
+	}
+
+	// Check the user has a fork of the slsa repo
+	if err := kgithub.VerifyFork(
+		fmt.Sprintf("slsa-source-policy-%d", time.Now().Unix()), userForkOrg, userForkRepo, policyOrg, policyRepo,
+	); err != nil {
+		return fmt.Errorf(
+			"while checking fork of %s/%s in %s: %w ",
+			policyOrg, policyRepo, userForkOrg, err,
+		)
+	}
+	return nil
 }
