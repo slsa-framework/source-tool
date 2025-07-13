@@ -4,12 +4,15 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/google/go-github/v69/github"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
 
 const (
@@ -32,7 +35,8 @@ var oauthScopes = []string{
 }
 
 type Authenticator struct {
-	impl authenticatorImplementation
+	impl    authenticatorImplementation
+	idCache map[string]*models.Actor
 }
 
 // DeviceCodeResponse models the github device code response
@@ -56,7 +60,8 @@ type TokenResponse struct {
 // NewGitHubApp creates a new GitHub OAuth application for device flow
 func New() *Authenticator {
 	return &Authenticator{
-		impl: &defaultImplementation{},
+		impl:    &defaultImplementation{},
+		idCache: map[string]*models.Actor{},
 	}
 }
 
@@ -128,10 +133,15 @@ func (a *Authenticator) GetGitHubClient() (*github.Client, error) {
 }
 
 // WhoAmI returns the user authenticated with the token
-func (a *Authenticator) WhoAmI() (*github.User, error) {
+func (a *Authenticator) WhoAmI() (*models.Actor, error) {
 	token, err := a.impl.readToken()
 	if err != nil {
 		return nil, fmt.Errorf("reading token: %w", err)
+	}
+
+	// Check the cache to avoid requesting again
+	if user, ok := a.idCache[fmt.Sprintf("%x", sha256.Sum256([]byte(token)))]; ok {
+		return user, nil
 	}
 
 	// If no token is set, then no error, only nil
@@ -144,10 +154,13 @@ func (a *Authenticator) WhoAmI() (*github.User, error) {
 		return nil, err
 	}
 
+	// Get the user from the GitHub API
 	user, _, err := client.Users.Get(context.Background(), "")
 	if err != nil {
 		return nil, fmt.Errorf("fetching user data: %w", err)
 	}
 
-	return user, nil
+	return &models.Actor{
+		Login: user.GetLogin(),
+	}, nil
 }
