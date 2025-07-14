@@ -50,6 +50,13 @@ func (ro *repoOptions) ParseSlug(lString string) error {
 	return nil
 }
 
+func (ro *repoOptions) GetRepository() *models.Repository {
+	return &models.Repository{
+		Hostname: "github.com",
+		Path:     fmt.Sprintf("%s/%s", ro.owner, ro.repository),
+	}
+}
+
 func (bo *branchOptions) Validate() error {
 	errs := []error{}
 	errs = append(errs, bo.repoOptions.Validate())
