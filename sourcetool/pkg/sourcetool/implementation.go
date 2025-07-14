@@ -1,23 +1,22 @@
 package sourcetool
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
-	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v69/github"
-	"github.com/sirupsen/logrus"
-	kgithub "sigs.k8s.io/release-sdk/github"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo"
+	roptions "github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo/options"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/backends/attestation/notes"
 	ghbackend "github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/backends/vcs/github"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
@@ -33,10 +32,11 @@ const (
 type toolImplementation interface {
 	VerifyOptionsForFullOnboard(*options.Options) error
 	CheckPolicyFork(*options.Options) error
-	CreatePolicyPR(options.Options, *models.Repository, []*models.Branch) error
+	CreatePolicyPR(*auth.Authenticator, *options.Options, *models.Repository, *policy.RepoPolicy) (*models.PullRequest, error)
 	CheckForks(*options.Options) error
 	SearchPullRequest(*auth.Authenticator, *models.Repository, string) (int, error)
 	GetVcsBackend(*models.Repository) (models.VcsBackend, error)
+	GetAttestationReader(*models.Repository) (models.AttestationStorageReader, error)
 	GetBranchControls(context.Context, models.VcsBackend, *models.Branch) (*slsa.Controls, error)
 	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
 }
@@ -54,6 +54,12 @@ func (impl *defaultToolImplementation) GetBranchControls(
 	ctx context.Context, backend models.VcsBackend, branch *models.Branch,
 ) (*slsa.Controls, error) {
 	return backend.GetBranchControls(context.Background(), branch)
+}
+
+// GetAttestationReader returns the att reader object
+func (impl *defaultToolImplementation) GetAttestationReader(_ *models.Repository) (models.AttestationStorageReader, error) {
+	// We only have the notes backend for now
+	return notes.New(), nil
 }
 
 // GetVcsBackend returns the VCS backend to handle the repository defined in the options
@@ -80,87 +86,50 @@ func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(opts *options
 	return errors.Join(errs...)
 }
 
-// FIXME: Port this to pullreq manager
 // CreatePolicyPR creates a pull request to push the policy
-func (impl *defaultToolImplementation) CreatePolicyPR(opts options.Options, r *models.Repository, branches []*models.Branch) error {
-	// Branchname to be created on the user's fork
-	branchname := fmt.Sprintf("slsa-source-policy-%d", time.Now().Unix())
-
-	owner, repoName, err := r.PathAsGitHubOwnerName()
+func (impl *defaultToolImplementation) CreatePolicyPR(a *auth.Authenticator, opts *options.Options, r *models.Repository, p *policy.RepoPolicy) (*models.PullRequest, error) {
+	if p == nil {
+		return nil, fmt.Errorf("policy is nil")
+	}
+	repoOwner, repoName, err := r.PathAsGitHubOwnerName()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	gh := kgithub.New()
-	policyOrg, policyRepo, ok := strings.Cut(opts.PolicyRepo, "/")
-	if !ok || policyRepo == "" {
-		return fmt.Errorf("unable to parse policy repository slug")
+	// Check the repository clone in the user's account is ready to push
+	if err := impl.CheckPolicyFork(opts); err != nil {
+		return nil, fmt.Errorf("checking policy repository fork: %w", err)
 	}
 
-	userForkOrg := opts.UserForkOrg
-	userForkRepo := policyRepo // For now we only support forks with the same name
+	// MArshal the policy json
+	policyJson, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshaling policy data: %w", err)
+	}
 
-	// Clone the slsa repo
-	gitCloneOpts := &gogit.CloneOptions{Depth: 1}
-	gitRepo, err := kgithub.PrepareFork(
-		branchname, policyOrg, policyRepo,
-		userForkOrg, userForkRepo,
-		opts.UseSSH, opts.UpdateRepo, gitCloneOpts,
+	// Create a pull request manager
+	prManager := repo.NewPullRequestManager(repo.WithAuthenticator(a))
+
+	// TODO(puerco): Honor forks settings, etc
+
+	// Open the pull request
+	pr, err := prManager.PullRequestFileList(
+		r,
+		&roptions.PullRequestFileListOptions{
+			Title: fmt.Sprintf("Add %s/%s SLSA Source policy file", repoOwner, repoName),
+			Body:  fmt.Sprintf(`This pull request adds the SLSA source policy for github.com/%s/%s`, repoOwner, repoName),
+		},
+		[]*repo.PullRequestFileEntry{
+			{
+				Path:   fmt.Sprintf("policy/github.com/%s/%s/source-policy.json", repoOwner, repoName),
+				Reader: bytes.NewReader(policyJson),
+			},
+		},
 	)
 	if err != nil {
-		return fmt.Errorf("while preparing Slsa Source fork: %w", err)
+		return nil, fmt.Errorf("creating policy pull request: %w", err)
 	}
-
-	defer func() {
-		gitRepo.Cleanup() //nolint:errcheck,gosec
-	}()
-
-	// Create the policy in the local clone
-	// FIXME: this needs fixing, the policy needs to handle all branches
-	ghc := ghcontrol.NewGhConnection(owner, repoName, branches[0].Name).WithAuthToken(os.Getenv(tokenVar))
-	outpath, err := policy.CreateLocalPolicy(context.Background(), ghc, gitRepo.Dir())
-	if err != nil {
-		return fmt.Errorf("creating local policy: %w", err)
-	}
-
-	// add the modified manifest to staging
-	logrus.Debugf("Adding %s to staging area", outpath)
-	if err := gitRepo.Add(strings.TrimPrefix(strings.TrimPrefix(outpath, gitRepo.Dir()), "/")); err != nil {
-		return fmt.Errorf("adding new policy file to staging area: %w", err)
-	}
-
-	commitMessage := fmt.Sprintf("Add %s/%s SLSA Source policy file", owner, repoName)
-
-	// Commit files
-	if err := gitRepo.UserCommit(commitMessage); err != nil {
-		return fmt.Errorf("creating commit in %s/%s: %w", policyOrg, policyRepo, err)
-	}
-
-	// Push to fork
-	logrus.Infof("Pushing policy commit to %s/%s", userForkOrg, userForkRepo)
-	if err := gitRepo.PushToRemote(kgithub.UserForkName, branchname); err != nil {
-		return fmt.Errorf("pushing %s to %s/%s: %w", kgithub.UserForkName, userForkOrg, userForkRepo, err)
-	}
-
-	prBody := fmt.Sprintf(`This pull request adds the SLSA source policy for github.com/%s/%s`, owner, repoName)
-
-	// Create the Pull Request
-	pr, err := gh.CreatePullRequest(
-		policyOrg, policyRepo, "main",
-		fmt.Sprintf("%s:%s", userForkOrg, branchname),
-		commitMessage, prBody, false,
-	)
-	if err != nil {
-		logrus.Infof("%+v", err)
-		return fmt.Errorf("creating the policy PR in %s/%s: %w", policyOrg, policyRepo, err)
-	}
-	logrus.Infof(
-		"Successfully created PR: %s%s/%s/pull/%d",
-		kgithub.GitHubURL, policyOrg, policyRepo, pr.GetNumber(),
-	)
-
-	// Success!
-	return nil
+	return pr, nil
 }
 
 // CheckForks checks that the user has forks of the required repositories

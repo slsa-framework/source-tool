@@ -4,13 +4,10 @@ package sourcetool
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
-
-	kgithub "sigs.k8s.io/release-sdk/github"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
@@ -87,7 +84,9 @@ func (t *Tool) OnboardRepository(repo *models.Repository, branches []*models.Bra
 		return fmt.Errorf("configuring controls: %w", err)
 	}
 
-	if err := t.impl.CreatePolicyPR(t.Options, repo, nil); err != nil {
+	// FIXME: Compute the policy here
+	_, err = t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, nil)
+	if err != nil {
 		return fmt.Errorf("opening the policy pull request: %w", err)
 	}
 
@@ -106,7 +105,8 @@ func (t *Tool) ConfigureControls(repo *models.Repository, branches []*models.Bra
 		if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
 			return fmt.Errorf("checking policy repo fork: %w", err)
 		}
-		if err := t.impl.CreatePolicyPR(t.Options, repo, branches); err != nil {
+		// FIXME: Generate the policy heer
+		if _, err := t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, nil); err != nil {
 			return fmt.Errorf("opening the policy pull request: %w", err)
 		}
 	}
@@ -169,35 +169,63 @@ func (t *Tool) CheckPolicyRepoFork(repo *models.Repository) (bool, error) {
 	}
 }
 
-func (t *Tool) CheckPolicyFork(opts *options.Options) error {
-	policyOrg, policyRepo, ok := strings.Cut(opts.PolicyRepo, "/")
-	if !ok || policyRepo == "" {
-		return fmt.Errorf("unable to parse policy repository slug")
+// CreateBranchPolicy creates a repository policy
+func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, branch *models.Branch) (*policy.RepoPolicy, error) {
+	backend, err := t.impl.GetVcsBackend(r)
+	if err != nil {
+		return nil, fmt.Errorf("getting backend: %w", err)
 	}
 
-	if opts.UserForkOrg == "" {
-		user, err := t.Authenticator.WhoAmI()
+	// Get the branch latest commit from the backend
+	latestCommit, err := backend.GetLatestCommit(ctx, r, branch)
+	if err != nil {
+		return nil, fmt.Errorf("could not get latest commit: %w", err)
+	}
+
+	reader, err := t.impl.GetAttestationReader(nil)
+	if err != nil {
+		return nil, fmt.Errorf("getting attestation reader")
+	}
+
+	// Get the latest commit provenance attestation
+	_, predicate, err := reader.GetCommitProvenance(ctx, branch, latestCommit)
+	if err != nil {
+		return nil, fmt.Errorf("could not get provenance for latest commit: %w", err)
+	}
+
+	var controls *slsa.Controls
+	if predicate != nil {
+		controls = &predicate.Controls
+	}
+
+	return t.createPolicy(r, branch, latestCommit, controls)
+}
+
+// This function should probably live in the policy package
+func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, commit *models.Commit, controls *slsa.Controls) (*policy.RepoPolicy, error) {
+	// Default to SLSA1 since unset date
+	eligibleSince := &time.Time{}
+	eligibleLevel := slsa.SlsaSourceLevel1
+	var err error
+	// Unless there is previous provenance metadata, then we can compute
+	// a higher level
+	if controls != nil {
+		eligibleLevel = policy.ComputeEligibleSlsaLevel(*controls)
+		eligibleSince, err = policy.ComputeEligibleSince(*controls, eligibleLevel)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("could not compute eligible_since: %w", err)
 		}
-		opts.UserForkOrg = user.GetLogin()
 	}
 
-	userForkOrg := opts.UserForkOrg
-	userForkRepo := policyRepo // For now we only support forks with the same name
-
-	if userForkOrg == "" {
-		return errors.New("unable to check for for, user org not set")
+	p := &policy.RepoPolicy{
+		CanonicalRepo: r.GetHttpURL(),
+		ProtectedBranches: []policy.ProtectedBranch{
+			{
+				Name:                  branch.FullRef(),
+				Since:                 *eligibleSince,
+				TargetSlsaSourceLevel: eligibleLevel,
+			},
+		},
 	}
-
-	// Check the user has a fork of the slsa repo
-	if err := kgithub.VerifyFork(
-		fmt.Sprintf("slsa-source-policy-%d", time.Now().Unix()), userForkOrg, userForkRepo, policyOrg, policyRepo,
-	); err != nil {
-		return fmt.Errorf(
-			"while checking fork of %s/%s in %s: %w ",
-			policyOrg, policyRepo, userForkOrg, err,
-		)
-	}
-	return nil
+	return p, nil
 }

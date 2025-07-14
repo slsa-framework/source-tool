@@ -135,3 +135,18 @@ func (b *Backend) ControlConfigurationDescr(branch *models.Branch, config models
 		return ""
 	}
 }
+
+// GetLatestCommit returns the latest commit from a branch
+func (b *Backend) GetLatestCommit(ctx context.Context, r *models.Repository, branch *models.Branch) (*models.Commit, error) {
+	gcx, err := b.getGitHubConnection(r, branch.FullRef())
+	if err != nil {
+		return nil, fmt.Errorf("building GitHub connector: %w", err)
+	}
+
+	sha, err := gcx.GetLatestCommit(ctx, branch.FullRef())
+	if err != nil {
+		return nil, fmt.Errorf("reading latest commit: %w", err)
+	}
+
+	return &models.Commit{SHA: sha}, nil
+}

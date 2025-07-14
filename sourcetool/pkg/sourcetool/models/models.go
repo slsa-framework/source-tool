@@ -6,16 +6,20 @@ import (
 	"strings"
 	"time"
 
+	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
+	attestation "github.com/in-toto/attestation/go/v1"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
-// AttestationStorage abstracts an attestation storage system where
+// AttestationStorageReader abstracts an attestation storage system where
 // sourcetool can read VSAs and provenance attestations.
 // For now we only have retrieval functions but this may expand to
 // store statements as well if we need to.
-type AttestationStorage interface {
-	GetCommitVsa(context.Context, *Commit)
-	GetCommitProvenance(context.Context, *Commit)
+type AttestationStorageReader interface {
+	GetCommitVsa(context.Context, *Branch, *Commit) (*attestation.Statement, *vpb.VerificationSummary, error)
+	GetCommitProvenance(context.Context, *Branch, *Commit) (*attestation.Statement, *attest.SourceProvenancePred, error)
 }
 
 // VcsBackend abstracts a VCS or VCS hosting system that sourcetool
@@ -26,6 +30,7 @@ type VcsBackend interface {
 	GetTagControls(context.Context, *Tag) (*slsa.Controls, error)
 	ControlConfigurationDescr(*Branch, ControlConfiguration) string
 	ConfigureControls(*Repository, []*Branch, []ControlConfiguration) error
+	GetLatestCommit(context.Context, *Repository, *Branch) (*Commit, error)
 }
 
 type ControlConfiguration string
