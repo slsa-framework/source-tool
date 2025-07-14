@@ -46,13 +46,13 @@ type Tool struct {
 }
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
-func (t *Tool) GetBranchControls(branch *models.Branch) (*slsa.Controls, error) {
-	backend, err := t.impl.GetVcsBackend(branch.Repository)
+func (t *Tool) GetBranchControls(r *models.Repository, branch *models.Branch) (*slsa.ControlStatus, error) {
+	backend, err := t.impl.GetVcsBackend(r)
 	if err != nil {
 		return nil, fmt.Errorf("getting VCS backend: %w", err)
 	}
 
-	controls, err := t.impl.GetBranchControls(context.Background(), backend, branch)
+	controls, err := t.impl.GetBranchControls(context.Background(), backend, r, branch)
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}

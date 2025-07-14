@@ -47,7 +47,7 @@ func (b *Backend) getGitHubConnection(repository *models.Repository, ref string)
 	return ghcontrol.NewGhConnectionWithClient(owner, name, ref, client), nil
 }
 
-func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.Controls, error) {
+func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlStatus, error) {
 	// get latest commit
 	ghc, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
 	if err != nil {
@@ -60,11 +60,11 @@ func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) 
 		return nil, fmt.Errorf("fetching latest commit from %q: %w", branch.FullRef(), err)
 	}
 
-	return b.GetBranchControlsAtCommit(ctx, branch, &models.Commit{SHA: commit})
+	return b.GetBranchControlsAtCommit(ctx, r, branch, &models.Commit{SHA: commit})
 }
 
 // GetBranchControlsAtCommit
-func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.Controls, error) {
+func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repository, branch *models.Branch, commit *models.Commit) (*slsa.ControlStatus, error) {
 	if commit == nil {
 		return nil, errors.New("commit is not set")
 	}
@@ -98,7 +98,47 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		log.Printf("No provenance attestation found on %s", commit.SHA)
 	}
 
-	return activeControls, nil
+	status := slsa.NewControlStatus()
+	for i, ctrl := range status.Controls {
+		if c := activeControls.GetControl(ctrl.Name); c != nil {
+			status.Controls[i].Since = &c.Since
+			status.Controls[i].State = slsa.StateActive
+			status.Controls[i].Message = b.controlImplementationMessage(c.Name)
+		}
+	}
+
+	// The only control which can be in in_progress state in GitHub is
+	// provenance generation when the PR is open but not merged. We check
+	// here and report back the status
+	if c := activeControls.GetControl(slsa.ProvenanceAvailable); c == nil {
+		pr, err := b.FindWorkflowPR(r)
+		if err != nil {
+			return nil, fmt.Errorf("looking for provenance workflow pull request: %w", err)
+		}
+		// PR found, check is in progress
+		if pr != nil {
+
+		}
+	}
+
+	return status, nil
+}
+
+// controlImplementationMessage returns an implementation message to populate the
+// status message when controls are active.
+func (b *Backend) controlImplementationMessage(ctrlName slsa.ControlName) string {
+	switch ctrlName {
+	case slsa.ProvenanceAvailable:
+		return "Signed provenance metadata is being published on every commit"
+	case slsa.TagHygiene:
+		return "Tag protections are configured in the repository"
+	case slsa.ReviewEnforced:
+		return "Code review is enforced in the repository"
+	case slsa.ContinuityEnforced:
+		return "Push and delete protection is enabled on the branch"
+	default:
+		return ""
+	}
 }
 
 func (b *Backend) GetTagControls(context.Context, *models.Tag) (*slsa.Controls, error) {

@@ -37,7 +37,7 @@ type toolImplementation interface {
 	SearchPullRequest(*auth.Authenticator, *models.Repository, string) (int, error)
 	GetVcsBackend(*models.Repository) (models.VcsBackend, error)
 	GetAttestationReader(*models.Repository) (models.AttestationStorageReader, error)
-	GetBranchControls(context.Context, models.VcsBackend, *models.Branch) (*slsa.Controls, error)
+	GetBranchControls(context.Context, models.VcsBackend, *models.Repository, *models.Branch) (*slsa.ControlStatus, error)
 	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
 }
 
@@ -51,9 +51,9 @@ func (impl *defaultToolImplementation) ConfigureControls(
 }
 
 func (impl *defaultToolImplementation) GetBranchControls(
-	ctx context.Context, backend models.VcsBackend, branch *models.Branch,
-) (*slsa.Controls, error) {
-	return backend.GetBranchControls(context.Background(), branch)
+	ctx context.Context, backend models.VcsBackend, r *models.Repository, branch *models.Branch,
+) (*slsa.ControlStatus, error) {
+	return backend.GetBranchControls(context.Background(), r, branch)
 }
 
 // GetAttestationReader returns the att reader object
