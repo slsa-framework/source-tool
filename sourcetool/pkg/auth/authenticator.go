@@ -62,10 +62,8 @@ func New() *Authenticator {
 
 // Authenticate performs the complete device flow authentication in the
 // user's terminal and web browser
-func (a *Authenticator) Authenticate() error {
+func (a *Authenticator) Authenticate(ctx context.Context) error {
 	fmt.Println("Starting authentication flow...")
-
-	ctx := context.Background()
 
 	// Get a device code
 	deviceResp, err := a.impl.requestDeviceCode(ctx)
@@ -79,11 +77,13 @@ func (a *Authenticator) Authenticate() error {
 
 	// Try to open browser automatically
 	if err := a.impl.openBrowser(deviceResp.VerificationURI); err != nil {
-		fmt.Printf("Failed to open browser, please manually visit the URL above.\n\n")
-	} else {
-		fmt.Println("Please complete the authentication flow by pasting the above code in\nthe page displayed on your browser")
+		fmt.Println("Failed to open browser, please manually visit the URL above.")
 		fmt.Println()
+	} else {
+		fmt.Println("Please complete the authentication flow by pasting the above code in")
+		fmt.Println("the page displayed on your browser.")
 	}
+	fmt.Println()
 
 	fmt.Println("⏳ Waiting for authentication...")
 

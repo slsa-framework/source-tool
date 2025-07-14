@@ -4,7 +4,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -12,18 +14,7 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 )
 
-var o = color.New(color.FgHiRed).SprintFunc()
-
-// statusOptions
-type authOptions struct{}
-
-// Validate checks the options
-func (ao *authOptions) Validate() error {
-	return nil
-}
-
-// AddFlags adds the subcommands flags
-func (ao *authOptions) AddFlags(cmd *cobra.Command) {}
+var colorHiRed = color.New(color.FgHiRed).SprintFunc()
 
 func addAuth(parentCmd *cobra.Command) {
 	authCmd := &cobra.Command{
@@ -38,31 +29,29 @@ func addAuth(parentCmd *cobra.Command) {
 }
 
 func addLogin(parentCmd *cobra.Command) {
-	opts := &authOptions{}
 	authCmd := &cobra.Command{
 		Short:         "Log the SLSA sourcetool into GitHub",
 		Use:           "login",
 		SilenceUsage:  false,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.Validate(); err != nil {
-				return fmt.Errorf("validating options: %w", err)
-			}
-
 			fmt.Println()
 			for _, l := range logo {
-				fmt.Println("       " + o(l))
+				fmt.Println("       " + colorHiRed(l))
 			}
 			fmt.Println()
 
 			authn := auth.New()
-			if err := authn.Authenticate(); err != nil {
+
+			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+			defer cancel()
+
+			if err := authn.Authenticate(ctx); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	opts.AddFlags(authCmd)
 	parentCmd.AddCommand(authCmd)
 }
 
@@ -89,24 +78,7 @@ func addWhoAmI(parentCmd *cobra.Command) {
 			}
 
 			fmt.Printf("        👤 logged in as %s\n\n", me.GetLogin())
-
-			// token, err := auth.ReadToken()
-			// if err != nil {
-			// 	return err
-			// }
-			// _, err = git.PlainClone("/tmp/clone", &git.CloneOptions{
-			// 	// The intended use of a GitHub personal access token is in replace of your password
-			// 	// because access tokens can easily be revoked.
-			// 	// https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
-			// 	Auth: &http.BasicAuth{
-			// 		Username: "abc123", // yes, this can be anything except an empty string
-			// 		Password: token,
-			// 	},
-			// 	URL:      "https://github.com/puerco/hades.git",
-			// 	Progress: os.Stdout,
-			// })
-
-			return err
+			return nil
 		},
 	}
 	parentCmd.AddCommand(authCmd)

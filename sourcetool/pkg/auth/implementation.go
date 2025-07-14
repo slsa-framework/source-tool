@@ -65,7 +65,7 @@ func (di *defaultImplementation) checkTokenStatus(ctx context.Context, deviceCod
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to check token status: %w", err)
@@ -83,7 +83,7 @@ func (di *defaultImplementation) checkTokenStatus(ctx context.Context, deviceCod
 	}
 
 	if tokenResp.Error != "" {
-		return "", fmt.Errorf("%s", tokenResp.Error)
+		return "", fmt.Errorf("got an API error checking token :%s", tokenResp.Error)
 	}
 
 	if tokenResp.AccessToken == "" {
@@ -174,7 +174,7 @@ func (di *defaultImplementation) readToken() (string, error) {
 		return "", fmt.Errorf("getting user config dir: %w", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(dir, "slsa", "sourcetool.github.token"))
+	data, err := os.ReadFile(filepath.Join(dir, configDirName, githubTokenFileName))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", nil
