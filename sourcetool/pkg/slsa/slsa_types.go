@@ -7,6 +7,7 @@ import (
 
 type (
 	ControlName     string
+	ControlState    string
 	SlsaSourceLevel ControlName
 )
 
@@ -22,6 +23,11 @@ const (
 	SourceBranchesAnnotation                 = "source_branches"
 	SourceRefsAnnotation                     = "source_refs"
 	AllowedOrgPropPrefix                     = "ORG_SOURCE_"
+
+	// Control lifecycle states
+	StateNotEnabled ControlState = "not_enabled"
+	StateInProgress ControlState = "in_progress"
+	StateActive     ControlState = "active"
 )
 
 // AllLevelControls lists all the SLSA controls managed by sourcetool
@@ -141,4 +147,60 @@ func StringsToControlNames(strs []string) []ControlName {
 		controlNames[i] = ControlName(strs[i])
 	}
 	return controlNames
+}
+
+// NewControlStatus returns a new control status object with the
+func NewControlStatus() *ControlStatus {
+	status := &ControlStatus{
+		Time:     time.Now(),
+		Controls: []Status{},
+	}
+
+	for _, c := range AllLevelControls {
+		status.Controls = append(status.Controls, Status{
+			Name:  c,
+			State: StateNotEnabled,
+		})
+	}
+
+	return status
+}
+
+// ControlStatus is a snapshot of the status of SLSA controls in a branch at
+// a point in time.
+type ControlStatus struct {
+	RepoUri  string
+	Branch   string
+	Time     time.Time
+	Controls []Status
+}
+
+// Status captures the status of a control as seen from a VCS system
+type Status struct {
+	Name    ControlName
+	State   ControlState `json:"control_state"`
+	Since   *time.Time   `json:"since,omitempty"`
+	Message string
+}
+
+func (cs *ControlStatus) GetActiveControls() *Controls {
+	ret := Controls{}
+	for _, c := range cs.Controls {
+		if c.State == StateActive {
+			ret.AddControl(&Control{
+				Name: c.Name, Since: *c.Since,
+			})
+		}
+	}
+	return &ret
+}
+
+// SetControlState sets the state of a control
+func (cs *ControlStatus) SetControlState(ctrlName ControlName, state ControlState) {
+	for i := range cs.Controls {
+		if cs.Controls[i].Name == ctrlName {
+			cs.Controls[i].State = state
+			return
+		}
+	}
 }
