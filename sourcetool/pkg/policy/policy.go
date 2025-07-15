@@ -277,8 +277,6 @@ func ComputeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
 }
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
-//
-//nolint:unparam
 func ComputeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*time.Time, error) {
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
 	var newestTime time.Time

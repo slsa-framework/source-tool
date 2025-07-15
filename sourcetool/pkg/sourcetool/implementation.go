@@ -36,7 +36,7 @@ type toolImplementation interface {
 	CheckPolicyFork(*options.Options) error
 	CreatePolicyPR(*auth.Authenticator, *options.Options, *models.Repository, *policy.RepoPolicy) (*models.PullRequest, error)
 	CheckForks(*options.Options) error
-	SearchPullRequest(*auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
+	SearchPullRequest(context.Context, *auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
 	GetVcsBackend(*models.Repository) (models.VcsBackend, error)
 	GetAttestationReader(*models.Repository) (models.AttestationStorageReader, error)
 	GetBranchControls(context.Context, models.VcsBackend, *models.Repository, *models.Branch) (*slsa.ControlSetStatus, error)
@@ -55,7 +55,7 @@ func (impl *defaultToolImplementation) ConfigureControls(
 func (impl *defaultToolImplementation) GetBranchControls(
 	ctx context.Context, backend models.VcsBackend, r *models.Repository, branch *models.Branch,
 ) (*slsa.ControlSetStatus, error) {
-	return backend.GetBranchControls(context.Background(), r, branch)
+	return backend.GetBranchControls(ctx, r, branch)
 }
 
 // GetAttestationReader returns the att reader object
@@ -71,16 +71,9 @@ func (impl *defaultToolImplementation) GetVcsBackend(*models.Repository) (models
 }
 
 // VerifyOptions checks options are in good shape to run
+// TODO(puerco): To be completed
 func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(opts *options.Options) error {
 	errs := []error{}
-	// if opts.Repo == "" {
-	// 	errs = append(errs, errors.New("no repository name defined"))
-	// }
-
-	// if opts.Owner == "" {
-	// 	errs = append(errs, errors.New("no repository owner defined"))
-	// }
-
 	if t := os.Getenv(tokenVar); t == "" {
 		errs = append(errs, fmt.Errorf("$%s environment variable not set", tokenVar))
 	}
@@ -158,7 +151,7 @@ func (impl *defaultToolImplementation) CheckPolicyFork(opts *options.Options) er
 
 // SearchPullRequest searches the last pull requests on a repo for one whose
 // title matches the query string
-func (impl *defaultToolImplementation) SearchPullRequest(a *auth.Authenticator, r *models.Repository, query string) (*models.PullRequest, error) {
+func (impl *defaultToolImplementation) SearchPullRequest(ctx context.Context, a *auth.Authenticator, r *models.Repository, query string) (*models.PullRequest, error) {
 	owner, repoName, err := r.PathAsGitHubOwnerName()
 	if err != nil {
 		return nil, err
@@ -170,7 +163,7 @@ func (impl *defaultToolImplementation) SearchPullRequest(a *auth.Authenticator, 
 	}
 
 	prs, _, err := client.PullRequests.List(
-		context.Background(), owner, repoName, &github.PullRequestListOptions{
+		ctx, owner, repoName, &github.PullRequestListOptions{
 			State: "open",
 			// Only search the first 100
 			ListOptions: github.ListOptions{
@@ -241,7 +234,7 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 	if host == "" {
 		host = "github.com"
 	}
-	prNr, err := impl.SearchPullRequest(a, &models.Repository{
+	prNr, err := impl.SearchPullRequest(ctx, a, &models.Repository{
 		Hostname: host,
 		Path:     fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoRepo),
 	}, fmt.Sprintf("Add %s SLSA Source policy file", r.Path))

@@ -86,7 +86,7 @@ func (t *Tool) OnboardRepository(repo *models.Repository, branches []*models.Bra
 		return fmt.Errorf("configuring controls: %w", err)
 	}
 
-	// FIXME: Compute the policy here
+	// TODO(puerco): Compute the policy here
 	_, err = t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, nil)
 	if err != nil {
 		return fmt.Errorf("opening the policy pull request: %w", err)
@@ -107,7 +107,7 @@ func (t *Tool) ConfigureControls(repo *models.Repository, branches []*models.Bra
 		if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
 			return fmt.Errorf("checking policy repo fork: %w", err)
 		}
-		// FIXME: Generate the policy heer
+
 		if _, err := t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, nil); err != nil {
 			return fmt.Errorf("opening the policy pull request: %w", err)
 		}
@@ -135,7 +135,7 @@ func (t *Tool) FindPolicyPR(repo *models.Repository) (*models.PullRequest, error
 		policyRepoRepo = r
 	}
 
-	pr, err := t.impl.SearchPullRequest(t.Authenticator, &models.Repository{
+	pr, err := t.impl.SearchPullRequest(context.Background(), t.Authenticator, &models.Repository{
 		Hostname: "github.com",
 		Path:     fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoRepo),
 	}, fmt.Sprintf("Add %s SLSA Source policy file", repo.Path))
@@ -186,11 +186,11 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 		controls = &predicate.Controls
 	}
 
-	return t.createPolicy(r, branch, latestCommit, controls)
+	return t.createPolicy(r, branch, controls)
 }
 
 // This function should probably live in the policy package
-func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, commit *models.Commit, controls *slsa.Controls) (*policy.RepoPolicy, error) {
+func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.Controls) (*policy.RepoPolicy, error) {
 	// Default to SLSA1 since unset date
 	eligibleSince := &time.Time{}
 	eligibleLevel := slsa.SlsaSourceLevel1

@@ -107,12 +107,13 @@ type FakeToolImplementation struct {
 		result1 models.VcsBackend
 		result2 error
 	}
-	SearchPullRequestStub        func(*auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
+	SearchPullRequestStub        func(context.Context, *auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
 	searchPullRequestMutex       sync.RWMutex
 	searchPullRequestArgsForCall []struct {
-		arg1 *auth.Authenticator
-		arg2 *models.Repository
-		arg3 string
+		arg1 context.Context
+		arg2 *auth.Authenticator
+		arg3 *models.Repository
+		arg4 string
 	}
 	searchPullRequestReturns struct {
 		result1 *models.PullRequest
@@ -595,20 +596,21 @@ func (fake *FakeToolImplementation) GetVcsBackendReturnsOnCall(i int, result1 mo
 	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) SearchPullRequest(arg1 *auth.Authenticator, arg2 *models.Repository, arg3 string) (*models.PullRequest, error) {
+func (fake *FakeToolImplementation) SearchPullRequest(arg1 context.Context, arg2 *auth.Authenticator, arg3 *models.Repository, arg4 string) (*models.PullRequest, error) {
 	fake.searchPullRequestMutex.Lock()
 	ret, specificReturn := fake.searchPullRequestReturnsOnCall[len(fake.searchPullRequestArgsForCall)]
 	fake.searchPullRequestArgsForCall = append(fake.searchPullRequestArgsForCall, struct {
-		arg1 *auth.Authenticator
-		arg2 *models.Repository
-		arg3 string
-	}{arg1, arg2, arg3})
+		arg1 context.Context
+		arg2 *auth.Authenticator
+		arg3 *models.Repository
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.SearchPullRequestStub
 	fakeReturns := fake.searchPullRequestReturns
-	fake.recordInvocation("SearchPullRequest", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("SearchPullRequest", []interface{}{arg1, arg2, arg3, arg4})
 	fake.searchPullRequestMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -622,17 +624,17 @@ func (fake *FakeToolImplementation) SearchPullRequestCallCount() int {
 	return len(fake.searchPullRequestArgsForCall)
 }
 
-func (fake *FakeToolImplementation) SearchPullRequestCalls(stub func(*auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)) {
+func (fake *FakeToolImplementation) SearchPullRequestCalls(stub func(context.Context, *auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)) {
 	fake.searchPullRequestMutex.Lock()
 	defer fake.searchPullRequestMutex.Unlock()
 	fake.SearchPullRequestStub = stub
 }
 
-func (fake *FakeToolImplementation) SearchPullRequestArgsForCall(i int) (*auth.Authenticator, *models.Repository, string) {
+func (fake *FakeToolImplementation) SearchPullRequestArgsForCall(i int) (context.Context, *auth.Authenticator, *models.Repository, string) {
 	fake.searchPullRequestMutex.RLock()
 	defer fake.searchPullRequestMutex.RUnlock()
 	argsForCall := fake.searchPullRequestArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *FakeToolImplementation) SearchPullRequestReturns(result1 *models.PullRequest, result2 error) {

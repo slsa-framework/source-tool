@@ -99,7 +99,7 @@ func (b *Backend) CheckWorkflowFork(r *models.Repository) error {
 
 // searchPullRequestsByTitlet searches the last pull requests on a repo for one whose
 // title matches the query string
-func (b *Backend) searchPullRequestsByTitle(r *models.Repository, query string) (*github.PullRequest, error) {
+func (b *Backend) searchPullRequestsByTitle(ctx context.Context, r *models.Repository, query string) (*github.PullRequest, error) {
 	owner, repoName, err := r.PathAsGitHubOwnerName()
 	if err != nil {
 		return nil, err
@@ -110,8 +110,13 @@ func (b *Backend) searchPullRequestsByTitle(r *models.Repository, query string) 
 	}
 
 	prs, _, err := client.PullRequests.List(
-		context.Background(), owner, repoName, &github.PullRequestListOptions{
+		ctx, owner, repoName, &github.PullRequestListOptions{
 			State: "open",
+			// Search only the last 100
+			ListOptions: github.ListOptions{
+				Page:    0,
+				PerPage: 100,
+			},
 		},
 	)
 	if err != nil {
@@ -126,8 +131,8 @@ func (b *Backend) searchPullRequestsByTitle(r *models.Repository, query string) 
 	return nil, nil
 }
 
-func (b *Backend) FindWorkflowPR(r *models.Repository) (*models.PullRequest, error) {
-	pr, err := b.searchPullRequestsByTitle(r, workflowCommitMessage)
+func (b *Backend) FindWorkflowPR(ctx context.Context, r *models.Repository) (*models.PullRequest, error) {
+	pr, err := b.searchPullRequestsByTitle(ctx, r, workflowCommitMessage)
 	if err != nil {
 		return nil, fmt.Errorf("searching for provenance workflow pull request: %w", err)
 	}
@@ -149,12 +154,14 @@ func (b *Backend) CreateRepoRuleset(r *models.Repository, branches []*models.Bra
 		return errors.New("unable to create repo ruleset, repository not defined")
 	}
 
-	// TODO: Get default branch. Or not?
 	if branches == nil {
 		return errors.New("unable to create repo ruleset, branch not set")
 	}
 
-	// FIXME: This needs fixin
+	if len(branches) > 0 {
+		return errors.New("protecting more than one branch at a time is not yet supported")
+	}
+
 	ghc, err := b.getGitHubConnection(r, branches[0].FullRef())
 	if err != nil {
 		return err

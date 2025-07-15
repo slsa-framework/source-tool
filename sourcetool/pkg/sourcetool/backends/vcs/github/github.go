@@ -113,7 +113,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 	switchProvCtlToInProgress := false
 	var provenanceMessage string
 	if c := activeControls.GetControl(slsa.ProvenanceAvailable); c == nil {
-		pr, err := b.FindWorkflowPR(r)
+		pr, err := b.FindWorkflowPR(ctx, r)
 		if err != nil {
 			return nil, fmt.Errorf("looking for provenance workflow pull request: %w", err)
 		}
@@ -151,6 +151,8 @@ func (b *Backend) controlImplementationMessage(ctrlName slsa.ControlName) string
 		return "Code review is enforced in the repository"
 	case slsa.ContinuityEnforced:
 		return "Push and delete protection is enabled on the branch"
+	case slsa.PolicyAvailable:
+		return "The repository has published a policy"
 	default:
 		return ""
 	}
@@ -209,6 +211,7 @@ func (b *Backend) GetLatestCommit(ctx context.Context, r *models.Repository, bra
 // GetRecommendedAction returns the recommended action based on the
 // status of a SLSA control
 func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, control slsa.ControlName, state slsa.ControlState) *slsa.ControlRecommendedAction {
+	//nolint:exhaustive // Not all drivers handle all controls
 	switch control {
 	case slsa.ProvenanceAvailable:
 		switch state {
