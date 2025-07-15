@@ -41,6 +41,7 @@ type toolImplementation interface {
 	GetAttestationReader(*models.Repository) (models.AttestationStorageReader, error)
 	GetBranchControls(context.Context, models.VcsBackend, *models.Repository, *models.Branch) (*slsa.ControlSetStatus, error)
 	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
+	GetPolicyStatus(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.ControlStatus, error)
 }
 
 type defaultToolImplementation struct{}
@@ -104,12 +105,29 @@ func (impl *defaultToolImplementation) CreatePolicyPR(a *auth.Authenticator, opt
 
 	// Create a pull request manager
 	prManager := repo.NewPullRequestManager(repo.WithAuthenticator(a))
+	prManager.Options.UseFork = true
 
-	// TODO(puerco): Honor forks settings, etc
+	// Define the policy repo...
+	policyRepoOwner := policy.SourcePolicyRepoOwner
+	policyRepoName := policy.SourcePolicyRepo
+	// ... but honor if there is one in the options
+	if opts.PolicyRepo != "" {
+		var ok bool
+		policyRepoOwner, policyRepoName, ok = strings.Cut(opts.PolicyRepo, "/")
+		if !ok {
+			return nil, fmt.Errorf("invalid policy repository")
+		}
+	}
+
+	policyRepo := &models.Repository{
+		Hostname:      "github.com",
+		Path:          fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoName),
+		DefaultBranch: "main",
+	}
 
 	// Open the pull request
 	pr, err := prManager.PullRequestFileList(
-		r,
+		policyRepo,
 		&roptions.PullRequestFileListOptions{
 			Title: fmt.Sprintf("Add %s/%s SLSA Source policy file", repoOwner, repoName),
 			Body:  fmt.Sprintf(`This pull request adds the SLSA source policy for github.com/%s/%s`, repoOwner, repoName),

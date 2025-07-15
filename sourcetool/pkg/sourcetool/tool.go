@@ -4,6 +4,7 @@ package sourcetool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -47,17 +48,24 @@ type Tool struct {
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
 func (t *Tool) GetBranchControls(r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
+	ctx := context.Background()
 	backend, err := t.impl.GetVcsBackend(r)
 	if err != nil {
 		return nil, fmt.Errorf("getting VCS backend: %w", err)
 	}
 
-	controls, err := t.impl.GetBranchControls(context.Background(), backend, r, branch)
+	controls, err := t.impl.GetBranchControls(ctx, backend, r, branch)
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
 
 	// We also abstract the repository policy as a control to report its status
+	status, err := t.impl.GetPolicyStatus(ctx, t.Authenticator, &t.Options, r)
+	if err != nil {
+		return nil, fmt.Errorf("reading policy status: %w", err)
+	}
+
+	controls.Controls = append(controls.Controls, *status)
 
 	return controls, err
 }
@@ -108,7 +116,13 @@ func (t *Tool) ConfigureControls(repo *models.Repository, branches []*models.Bra
 			return fmt.Errorf("checking policy repo fork: %w", err)
 		}
 
-		if _, err := t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, nil); err != nil {
+		// Build the policy here:
+		pcy, err := t.CreateBranchPolicy(context.Background(), repo, branches)
+		if err != nil {
+			return fmt.Errorf("creating policy for: %w", err)
+		}
+
+		if _, err := t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, pcy); err != nil {
 			return fmt.Errorf("opening the policy pull request: %w", err)
 		}
 	}
@@ -158,14 +172,21 @@ func (t *Tool) CheckPolicyRepoFork(repo *models.Repository) (bool, error) {
 }
 
 // CreateBranchPolicy creates a repository policy
-func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, branch *models.Branch) (*policy.RepoPolicy, error) {
+func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, branches []*models.Branch) (*policy.RepoPolicy, error) {
+	if len(branches) > 1 {
+		// Chanfe this once we support merging policies
+		return nil, fmt.Errorf("only one branch is supported at a time")
+	}
+	if branches == nil {
+		return nil, errors.New("no branches defined")
+	}
 	backend, err := t.impl.GetVcsBackend(r)
 	if err != nil {
 		return nil, fmt.Errorf("getting backend: %w", err)
 	}
 
 	// Get the branch latest commit from the backend
-	latestCommit, err := backend.GetLatestCommit(ctx, r, branch)
+	latestCommit, err := backend.GetLatestCommit(ctx, r, branches[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get latest commit: %w", err)
 	}
@@ -176,7 +197,7 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 	}
 
 	// Get the latest commit provenance attestation
-	_, predicate, err := reader.GetCommitProvenance(ctx, branch, latestCommit)
+	_, predicate, err := reader.GetCommitProvenance(ctx, branches[0], latestCommit)
 	if err != nil {
 		return nil, fmt.Errorf("could not get provenance for latest commit: %w", err)
 	}
@@ -186,17 +207,20 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 		controls = &predicate.Controls
 	}
 
-	return t.createPolicy(r, branch, controls)
+	return t.createPolicy(r, branches[0], controls)
 }
 
-// This function should probably live in the policy package
+// This function will be moved to the policy package once we start integrating
+// it with the global data models (if we do).
 func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.Controls) (*policy.RepoPolicy, error) {
 	// Default to SLSA1 since unset date
 	eligibleSince := &time.Time{}
 	eligibleLevel := slsa.SlsaSourceLevel1
+
 	var err error
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
+
 	if controls != nil {
 		eligibleLevel = policy.ComputeEligibleSlsaLevel(*controls)
 		eligibleSince, err = policy.ComputeEligibleSince(*controls, eligibleLevel)

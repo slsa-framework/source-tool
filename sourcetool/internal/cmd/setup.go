@@ -199,6 +199,9 @@ func (so *setupCtlOpts) Validate() error {
 	errs := []error{
 		so.setupOpts.Validate(),
 	}
+	if len(so.configs) == 0 {
+		errs = append(errs, fmt.Errorf("at least one config value must be set %v", sourcetool.ControlConfigurations))
+	}
 	for _, c := range so.configs {
 		if !slices.Contains(sourcetool.ControlConfigurations, models.ControlConfiguration(c)) {
 			errs = append(errs, fmt.Errorf("unknown configuration: %q", c))

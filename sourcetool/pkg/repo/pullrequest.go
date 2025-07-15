@@ -108,7 +108,7 @@ func (prm *PullRequestManager) PullRequestFileList(
 	}
 
 	if err := prm.impl.PushFeatureBranch(&prm.Options, clone); err != nil {
-		return nil, fmt.Errorf("pushing feature branch to remote")
+		return nil, fmt.Errorf("pushing feature branch to remote: %w", err)
 	}
 
 	// Use the base branch from the options, unless not set we use the default
