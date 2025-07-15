@@ -47,7 +47,7 @@ func (b *Backend) getGitHubConnection(repository *models.Repository, ref string)
 	return ghcontrol.NewGhConnectionWithClient(owner, name, ref, client), nil
 }
 
-func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlStatus, error) {
+func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
 	// get latest commit
 	ghc, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
 	if err != nil {
@@ -64,7 +64,7 @@ func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, b
 }
 
 // GetBranchControlsAtCommit
-func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repository, branch *models.Branch, commit *models.Commit) (*slsa.ControlStatus, error) {
+func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repository, branch *models.Branch, commit *models.Commit) (*slsa.ControlSetStatus, error) {
 	if commit == nil {
 		return nil, errors.New("commit is not set")
 	}
@@ -98,7 +98,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 		log.Printf("No provenance attestation found on %s", commit.SHA)
 	}
 
-	status := slsa.NewControlStatus()
+	status := slsa.NewControlSetStatus()
 	for i, ctrl := range status.Controls {
 		if c := activeControls.GetControl(ctrl.Name); c != nil {
 			status.Controls[i].Since = &c.Since
@@ -109,7 +109,9 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 
 	// The only control which can be in in_progress state in GitHub is
 	// provenance generation when the PR is open but not merged. We check
-	// here and report back the status
+	// here and report back the status.
+	switchProvCtlToInProgress := false
+	var provenanceMessage string
 	if c := activeControls.GetControl(slsa.ProvenanceAvailable); c == nil {
 		pr, err := b.FindWorkflowPR(r)
 		if err != nil {
@@ -117,8 +119,21 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 		}
 		// PR found, check is in progress
 		if pr != nil {
-
+			// ... but do it below to save finding the control
+			switchProvCtlToInProgress = true
+			provenanceMessage = fmt.Sprintf("(PR %s#%d waiting to merge)", pr.Repo.Path, pr.Number)
 		}
+	}
+
+	// Populate the recommended actions
+	for i := range status.Controls {
+		// Piggyback on this loop to switch the provenance status for efficiency
+		if switchProvCtlToInProgress && status.Controls[i].Name == slsa.ProvenanceAvailable {
+			status.Controls[i].State = slsa.StateInProgress
+			status.Controls[i].Message = provenanceMessage
+		}
+		action := b.getRecommendedAction(r, branch, status.Controls[i].Name, status.Controls[i].State)
+		status.Controls[i].RecommendedAction = action
 	}
 
 	return status, nil
@@ -189,4 +204,35 @@ func (b *Backend) GetLatestCommit(ctx context.Context, r *models.Repository, bra
 	}
 
 	return &models.Commit{SHA: sha}, nil
+}
+
+// GetRecommendedAction returns the recommended action based on the
+// status of a SLSA control
+func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, control slsa.ControlName, state slsa.ControlState) *slsa.ControlRecommendedAction {
+	switch control {
+	case slsa.ProvenanceAvailable:
+		switch state {
+		case slsa.StateInProgress:
+			return &slsa.ControlRecommendedAction{
+				Message: "Wait for provenance generator pull request to merge",
+			}
+		case slsa.StateNotEnabled:
+			return &slsa.ControlRecommendedAction{
+				Message: "Start generating provenance",
+				Command: fmt.Sprintf("sourcetool setup controls --config=CONFIG_PROVENANCE_WORKFLOW %s", r.Path),
+			}
+		default:
+			return nil
+		}
+	case slsa.ContinuityEnforced:
+		if state == slsa.StateNotEnabled {
+			return &slsa.ControlRecommendedAction{
+				Message: "Enable branch push/delete protection",
+				Command: fmt.Sprintf("sourcetool setup controls --config=CONFIG_BRANCH_RULES %s", r.Path),
+			}
+		}
+		return nil
+	default:
+		return nil
+	}
 }
