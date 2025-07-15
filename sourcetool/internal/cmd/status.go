@@ -11,7 +11,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
@@ -95,22 +94,9 @@ sourcetool status myorg/myrepo@mybranch
 
 			cmd.SilenceUsage = true
 
-			authenticator := auth.New()
-			user, err := authenticator.WhoAmI()
+			authenticator, err := CheckAuth()
 			if err != nil {
-				return fmt.Errorf("checking authentication status: %w", err)
-			}
-
-			if user == nil {
-				fmt.Println()
-				fmt.Println("🚫  " + w("sourcetool is not logged in"))
-				fmt.Println()
-				fmt.Println("Please log into your GitHub account before using sourcetool. To")
-				fmt.Println("log in, run the following command:")
-				fmt.Println()
-				fmt.Println("  sourcetool auth login")
-				fmt.Println()
-				return nil
+				return err
 			}
 
 			// Create a new sourcetool object

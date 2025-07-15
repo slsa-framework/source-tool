@@ -126,11 +126,14 @@ to configure the branch rules.
 			// At this point options are valid, no help needed.
 			cmd.SilenceUsage = true
 
-			// FIXME: Check thje authentication
+			authenticator, err := CheckAuth()
+			if err != nil {
+				return err
+			}
 
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
-				// FIXME: Add the authenticator here
+				sourcetool.WithAuthenticator(authenticator),
 				sourcetool.WithEnforce(opts.enforce),
 				sourcetool.WithUserForkOrg(opts.userForkOrg),
 				sourcetool.WithPolicyRepo(opts.policyRepo),
@@ -269,11 +272,17 @@ a fork of the repository you want to protect.
 				return err
 			}
 
+			authenticator, err := CheckAuth()
+			if err != nil {
+				return err
+			}
+
 			// At this point options are valid, no help needed.
 			cmd.SilenceUsage = true
 
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
+				sourcetool.WithAuthenticator(authenticator),
 				sourcetool.WithPolicyRepo(opts.policyRepo),
 				sourcetool.WithUserForkOrg(opts.userForkOrg),
 				sourcetool.WithEnforce(opts.enforce),
