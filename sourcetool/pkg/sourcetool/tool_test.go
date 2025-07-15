@@ -8,6 +8,7 @@ import (
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models/modelsfakes"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/sourcetoolfakes"
 )
 
@@ -16,13 +17,25 @@ func TestGetBranchControls(t *testing.T) {
 	t.Run("GetActiveControls-success", func(t *testing.T) {
 		t.Parallel()
 		i := &sourcetoolfakes.FakeToolImplementation{}
-		i.GetBranchControlsReturns(&slsa.Controls{{}}, nil)
+		i.GetPolicyStatusReturns(&slsa.ControlStatus{}, nil)
+		i.GetBranchControlsReturns(&slsa.ControlSetStatus{
+			RepoUri: "github.com/ok/repo",
+			Branch:  "main",
+			Controls: []slsa.ControlStatus{
+				{
+					Name:    slsa.ContinuityEnforced,
+					State:   slsa.StateNotEnabled,
+					Message: "Continuity enforced",
+				},
+			},
+		}, nil)
 		tool := &Tool{
 			impl: i,
 		}
-		res, err := tool.GetBranchControls(&models.Branch{})
+		res, err := tool.GetBranchControls(&models.Repository{}, &models.Branch{})
 		require.NotNil(t, res)
-		require.Len(t, *res, 1)
+		// This always has one more as we add the synyhetic policy check
+		require.Len(t, res.Controls, 2)
 		require.NoError(t, err)
 	})
 	t.Run("GetActiveControls-fails", func(t *testing.T) {
@@ -32,97 +45,10 @@ func TestGetBranchControls(t *testing.T) {
 		tool := &Tool{
 			impl: i,
 		}
-		_, err := tool.GetBranchControls(&models.Branch{})
+		_, err := tool.GetBranchControls(&models.Repository{}, &models.Branch{})
 		require.Error(t, err)
 	})
 }
-
-// func TestOnboardRepository(t *testing.T) {
-// 	t.Parallel()
-// 	syntErr := errors.New("synthetic error")
-// 	for _, tc := range []struct {
-// 		name    string
-// 		prepare func(t *testing.T) toolImplementation
-// 		mustErr bool
-// 	}{
-// 		{
-// 			name: "EnsureDefault-fails", mustErr: true,
-// 			prepare: func(t *testing.T) toolImplementation {
-// 				t.Helper()
-// 				i := &sourcetoolfakes.FakeToolImplementation{}
-// 				i.EnsureDefaultsReturns(syntErr)
-// 				return i
-// 			},
-// 		},
-// 		{
-// 			name: "CheckForks-fails", mustErr: true,
-// 			prepare: func(t *testing.T) toolImplementation {
-// 				t.Helper()
-// 				i := &sourcetoolfakes.FakeToolImplementation{}
-// 				i.CheckForksReturns(syntErr)
-// 				return i
-// 			},
-// 		},
-// 		{
-// 			name: "VerifyOptionsForFullOnboard-fails", mustErr: true,
-// 			prepare: func(t *testing.T) toolImplementation {
-// 				t.Helper()
-// 				i := &sourcetoolfakes.FakeToolImplementation{}
-// 				i.VerifyOptionsForFullOnboardReturns(syntErr)
-// 				return i
-// 			},
-// 		},
-// 		// {
-// 		// 	name: "CreateRepoRuleset-fails", mustErr: true,
-// 		// 	prepare: func(t *testing.T) toolImplementation {
-// 		// 		t.Helper()
-// 		// 		i := &sourcetoolfakes.FakeToolImplementation{}
-// 		// 		i.CreateRepoRulesetReturns(syntErr)
-// 		// 		return i
-// 		// 	},
-// 		// },
-// 		// {
-// 		// 	name: "CheckForksCreateWorkflowPRfails", mustErr: true,
-// 		// 	prepare: func(t *testing.T) toolImplementation {
-// 		// 		t.Helper()
-// 		// 		i := &sourcetoolfakes.FakeToolImplementation{}
-// 		// 		i.CreateWorkflowPRReturns(syntErr)
-// 		// 		return i
-// 		// 	},
-// 		// },
-// 		{
-// 			name: "CreatePolicyPRfails", mustErr: true,
-// 			prepare: func(t *testing.T) toolImplementation {
-// 				t.Helper()
-// 				i := &sourcetoolfakes.FakeToolImplementation{}
-// 				i.CreatePolicyPRReturns(syntErr)
-// 				return i
-// 			},
-// 		},
-// 		{
-// 			name: "all-success", mustErr: false,
-// 			prepare: func(t *testing.T) toolImplementation {
-// 				t.Helper()
-// 				i := &sourcetoolfakes.FakeToolImplementation{}
-// 				return i
-// 			},
-// 		},
-// 	} {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			t.Parallel()
-// 			tool := &Tool{
-// 				Options: options.Options{},
-// 				impl:    tc.prepare(t),
-// 			}
-// 			err := tool.OnboardRepository()
-// 			if tc.mustErr {
-// 				require.Error(t, err)
-// 				return
-// 			}
-// 			require.NoError(t, err)
-// 		})
-// 	}
-// }
 
 func TestConfigureControls(t *testing.T) {
 	t.Parallel()
@@ -168,7 +94,9 @@ func TestConfigureControls(t *testing.T) {
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreatePolicyPRReturns(syntErr)
+				i.GetVcsBackendReturns(&modelsfakes.FakeVcsBackend{}, nil)
+				i.GetAttestationReaderReturns(&modelsfakes.FakeAttestationStorageReader{}, nil)
+				i.CreatePolicyPRReturns(nil, syntErr)
 				return i
 			},
 		},
@@ -205,7 +133,7 @@ func TestFindPolicyPR(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		mustErr bool
-		expect  *PullRequestDetails
+		expect  *models.PullRequest
 		prepare func(t *testing.T) toolImplementation
 	}{
 		{
@@ -219,7 +147,7 @@ func TestFindPolicyPR(t *testing.T) {
 			"search-pr-fails", true, nil, func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(0, errors.New("failed"))
+				i.SearchPullRequestReturns(nil, errors.New("failed"))
 				return &i
 			},
 		},
@@ -227,19 +155,33 @@ func TestFindPolicyPR(t *testing.T) {
 			"pr-is-zero", false, nil, func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(0, nil)
+				i.SearchPullRequestReturns(nil, nil)
 				return &i
 			},
 		},
 		{
-			"pr-is-found", false, &PullRequestDetails{
-				Owner:  "slsa-framework",
-				Repo:   "slsa-source-poc",
+			"pr-is-found", false, &models.PullRequest{
+				Repo: &models.Repository{
+					Hostname:      "github.com",
+					Path:          "slsa-framework/slsa-source-poc",
+					DefaultBranch: "",
+				},
 				Number: 10,
+				Title:  "Pull Request",
+				Body:   "Here",
 			}, func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(10, nil)
+				i.SearchPullRequestReturns(&models.PullRequest{
+					Repo: &models.Repository{
+						Hostname:      "github.com",
+						Path:          "slsa-framework/slsa-source-poc",
+						DefaultBranch: "",
+					},
+					Number: 10,
+					Title:  "Pull Request",
+					Body:   "Here",
+				}, nil)
 				return &i
 			},
 		},

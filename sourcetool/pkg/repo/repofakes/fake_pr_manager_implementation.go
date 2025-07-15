@@ -492,18 +492,6 @@ func (fake *FakePrManagerImplementation) PushFeatureBranchReturnsOnCall(i int, r
 func (fake *FakePrManagerImplementation) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.checkForkMutex.RLock()
-	defer fake.checkForkMutex.RUnlock()
-	fake.cloneRepoMutex.RLock()
-	defer fake.cloneRepoMutex.RUnlock()
-	fake.commitChangesMutex.RLock()
-	defer fake.commitChangesMutex.RUnlock()
-	fake.copyFilesToCloneMutex.RLock()
-	defer fake.copyFilesToCloneMutex.RUnlock()
-	fake.createPullRequestMutex.RLock()
-	defer fake.createPullRequestMutex.RUnlock()
-	fake.pushFeatureBranchMutex.RLock()
-	defer fake.pushFeatureBranchMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

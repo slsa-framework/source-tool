@@ -1,3 +1,4 @@
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 package models
 
 import (
@@ -17,6 +18,8 @@ import (
 // sourcetool can read VSAs and provenance attestations.
 // For now we only have retrieval functions but this may expand to
 // store statements as well if we need to.
+//
+//counterfeiter:generate . AttestationStorageReader
 type AttestationStorageReader interface {
 	GetCommitVsa(context.Context, *Branch, *Commit) (*attestation.Statement, *vpb.VerificationSummary, error)
 	GetCommitProvenance(context.Context, *Branch, *Commit) (*attestation.Statement, *attest.SourceProvenancePred, error)
@@ -24,6 +27,8 @@ type AttestationStorageReader interface {
 
 // VcsBackend abstracts a VCS or VCS hosting system that sourcetool
 // can inspect for SLSA controls.
+//
+//counterfeiter:generate . VcsBackend
 type VcsBackend interface {
 	GetBranchControls(context.Context, *Repository, *Branch) (*slsa.ControlSetStatus, error)
 	GetBranchControlsAtCommit(context.Context, *Repository, *Branch, *Commit) (*slsa.ControlSetStatus, error)
