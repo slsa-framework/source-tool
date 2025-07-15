@@ -46,7 +46,7 @@ type Tool struct {
 }
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
-func (t *Tool) GetBranchControls(r *models.Repository, branch *models.Branch) (*slsa.ControlStatus, error) {
+func (t *Tool) GetBranchControls(r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
 	backend, err := t.impl.GetVcsBackend(r)
 	if err != nil {
 		return nil, fmt.Errorf("getting VCS backend: %w", err)
@@ -56,6 +56,8 @@ func (t *Tool) GetBranchControls(r *models.Repository, branch *models.Branch) (*
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
+
+	// We also abstract the repository policy as a control to report its status
 
 	return controls, err
 }
@@ -124,13 +126,7 @@ func (t *Tool) ControlConfigurationDescr(branch *models.Branch, config models.Co
 	return backend.ControlConfigurationDescr(branch, config)
 }
 
-type PullRequestDetails struct {
-	Owner  string
-	Repo   string
-	Number int
-}
-
-func (t *Tool) FindPolicyPR(repo *models.Repository) (*PullRequestDetails, error) {
+func (t *Tool) FindPolicyPR(repo *models.Repository) (*models.PullRequest, error) {
 	policyRepoOwner := policy.SourcePolicyRepoOwner
 	policyRepoRepo := policy.SourcePolicyRepo
 	o, r, ok := strings.Cut(t.Options.PolicyRepo, "/")
@@ -139,7 +135,7 @@ func (t *Tool) FindPolicyPR(repo *models.Repository) (*PullRequestDetails, error
 		policyRepoRepo = r
 	}
 
-	prNr, err := t.impl.SearchPullRequest(t.Authenticator, &models.Repository{
+	pr, err := t.impl.SearchPullRequest(t.Authenticator, &models.Repository{
 		Hostname: "github.com",
 		Path:     fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoRepo),
 	}, fmt.Sprintf("Add %s SLSA Source policy file", repo.Path))
@@ -147,15 +143,7 @@ func (t *Tool) FindPolicyPR(repo *models.Repository) (*PullRequestDetails, error
 		return nil, fmt.Errorf("searching for policy pull request: %w", err)
 	}
 
-	if prNr == 0 {
-		return nil, nil
-	}
-
-	return &PullRequestDetails{
-		Owner:  policyRepoOwner,
-		Repo:   policyRepoRepo,
-		Number: prNr,
-	}, nil
+	return pr, nil
 }
 
 func (t *Tool) CheckPolicyRepoFork(repo *models.Repository) (bool, error) {

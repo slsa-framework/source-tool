@@ -25,8 +25,8 @@ type AttestationStorageReader interface {
 // VcsBackend abstracts a VCS or VCS hosting system that sourcetool
 // can inspect for SLSA controls.
 type VcsBackend interface {
-	GetBranchControls(context.Context, *Repository, *Branch) (*slsa.ControlStatus, error)
-	GetBranchControlsAtCommit(context.Context, *Repository, *Branch, *Commit) (*slsa.ControlStatus, error)
+	GetBranchControls(context.Context, *Repository, *Branch) (*slsa.ControlSetStatus, error)
+	GetBranchControlsAtCommit(context.Context, *Repository, *Branch, *Commit) (*slsa.ControlSetStatus, error)
 	GetTagControls(context.Context, *Tag) (*slsa.Controls, error)
 	ControlConfigurationDescr(*Branch, ControlConfiguration) string
 	ConfigureControls(*Repository, []*Branch, []ControlConfiguration) error
@@ -104,6 +104,7 @@ type Tag struct {
 type PullRequest struct {
 	Title  string
 	Body   string
+	Time   *time.Time
 	Head   string
 	Base   string // main
 	Number int
