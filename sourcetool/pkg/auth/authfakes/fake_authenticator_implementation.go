@@ -466,18 +466,6 @@ func (fake *FakeAuthenticatorImplementation) RequestDeviceCodeReturnsOnCall(i in
 func (fake *FakeAuthenticatorImplementation) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.checkTokenStatusMutex.RLock()
-	defer fake.checkTokenStatusMutex.RUnlock()
-	fake.openBrowserMutex.RLock()
-	defer fake.openBrowserMutex.RUnlock()
-	fake.persistTokenMutex.RLock()
-	defer fake.persistTokenMutex.RUnlock()
-	fake.pollForTokenMutex.RLock()
-	defer fake.pollForTokenMutex.RUnlock()
-	fake.readTokenMutex.RLock()
-	defer fake.readTokenMutex.RUnlock()
-	fake.requestDeviceCodeMutex.RLock()
-	defer fake.requestDeviceCodeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
