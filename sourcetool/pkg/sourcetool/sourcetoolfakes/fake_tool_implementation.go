@@ -748,26 +748,6 @@ func (fake *FakeToolImplementation) VerifyOptionsForFullOnboardReturnsOnCall(i i
 func (fake *FakeToolImplementation) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.checkForksMutex.RLock()
-	defer fake.checkForksMutex.RUnlock()
-	fake.checkPolicyForkMutex.RLock()
-	defer fake.checkPolicyForkMutex.RUnlock()
-	fake.checkWorkflowForkMutex.RLock()
-	defer fake.checkWorkflowForkMutex.RUnlock()
-	fake.createPolicyPRMutex.RLock()
-	defer fake.createPolicyPRMutex.RUnlock()
-	fake.createRepoRulesetMutex.RLock()
-	defer fake.createRepoRulesetMutex.RUnlock()
-	fake.createWorkflowPRMutex.RLock()
-	defer fake.createWorkflowPRMutex.RUnlock()
-	fake.ensureDefaultsMutex.RLock()
-	defer fake.ensureDefaultsMutex.RUnlock()
-	fake.getActiveControlsMutex.RLock()
-	defer fake.getActiveControlsMutex.RUnlock()
-	fake.searchPullRequestMutex.RLock()
-	defer fake.searchPullRequestMutex.RUnlock()
-	fake.verifyOptionsForFullOnboardMutex.RLock()
-	defer fake.verifyOptionsForFullOnboardMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
