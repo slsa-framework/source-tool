@@ -212,7 +212,7 @@ func (impl *defaultPrmImpl) CommitChanges(opts *options.PullRequestFileListOptio
 		msg = opts.CommitOptions.Message
 	}
 
-	// Create the commit in th fork
+	// Create the commit in the fork
 	err := clone.Commit(&options.CommitOptions{
 		UseGit:  opts.CommitOptions.UseGit,
 		Message: msg,

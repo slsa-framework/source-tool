@@ -41,7 +41,7 @@ func (c *Clone) Cleanup() {
 
 // CreateFeatureBranch creates a branch in the local clone and switches to it.
 func (c *Clone) CreateFeatureBranch() error {
-	// If the breanch is already created, noop
+	// If the branch is already created, noop
 	if c.FeatureBranch != "" {
 		return nil
 	}
@@ -166,7 +166,7 @@ func (c *Clone) gitCliCommit(opts *options.CommitOptions) error {
 	return nil
 }
 
-// puregoCommit creates the commit in the repo using only go code. Thi method
+// puregoCommit creates the commit in the repo using only go code. This method
 // does not support
 func (c *Clone) puregoCommit(opts *options.CommitOptions) error {
 	wtree, err := c.repo.Worktree()

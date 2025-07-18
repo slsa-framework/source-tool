@@ -150,7 +150,8 @@ func StringsToControlNames(strs []string) []ControlName {
 	return controlNames
 }
 
-// NewControlStatus returns a new control status object with the
+// NewControlStatus returns a new control status object initialized with
+// all existing controls in not_enabled state.
 func NewControlSetStatus() *ControlSetStatus {
 	status := &ControlSetStatus{
 		Time:     time.Now(),

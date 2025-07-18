@@ -88,7 +88,7 @@ func (prm *PullRequestManager) PullRequestFileList(
 	if err != nil {
 		return nil, fmt.Errorf("cloning repo: %w", err)
 	}
-	// This should never h appen but makes tests easier
+	// This should never happen but makes tests easier
 	if clone != nil {
 		defer clone.Cleanup()
 	}

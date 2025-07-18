@@ -6,7 +6,7 @@ type PullRequestManagerOptions struct {
 	// commits are done using a pure Go implementation. This methodd, however,
 	// does not support signing. To sign commits, set this to true, and
 	// commits will be done using `git commit -Ssm "Message"`, using the
-	// locall configuration.
+	// local configuration.
 	//
 	// If the pointer is nil, the clone will look for the git binary and use
 	// it if found or revert to pure go if not found.
