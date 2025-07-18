@@ -134,6 +134,8 @@ func (c *Clone) AddAll() error {
 	return nil
 }
 
+// Commit creates a commit in the cloned repository. It expects files
+// to be ready in the staging area.
 func (c *Clone) Commit(opts *options.CommitOptions) error {
 	var usegit bool
 	if opts.UseGit == nil {
@@ -158,8 +160,16 @@ func (c *Clone) gitCliCommit(opts *options.CommitOptions) error {
 		return errors.New("committing using the git cli is only supported when cloning to disk")
 	}
 
+	// Pass the sign flag...
+	signFlag := "-S"
+
+	// .. unless specifically defined not to
+	if opts.Sign != nil && !*opts.Sign {
+		signFlag = "--no-gpg-sign"
+	}
+
 	// Run the git binary to commit as the user would do.
-	cmd := command.NewWithWorkDir(c.TmpDir, "git", "commit", "-S", "-sm", opts.Message)
+	cmd := command.NewWithWorkDir(c.TmpDir, "git", "commit", signFlag, "-sm", opts.Message)
 	if err := cmd.RunSilentSuccess(); err != nil {
 		return fmt.Errorf("git exec: %w", err)
 	}
@@ -169,6 +179,10 @@ func (c *Clone) gitCliCommit(opts *options.CommitOptions) error {
 // puregoCommit creates the commit in the repo using only go code. This method
 // does not support
 func (c *Clone) puregoCommit(opts *options.CommitOptions) error {
+	if opts.Sign != nil && *opts.Sign {
+		return fmt.Errorf("signing commits is not possible on memory clones")
+	}
+
 	wtree, err := c.repo.Worktree()
 	if err != nil {
 		return fmt.Errorf("getting clone worktree: %w", err)

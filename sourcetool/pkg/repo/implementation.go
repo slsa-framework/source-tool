@@ -218,6 +218,7 @@ func (impl *defaultPrmImpl) CommitChanges(opts *options.PullRequestFileListOptio
 		Message: msg,
 		Name:    opts.CommitOptions.Name,
 		Email:   opts.CommitOptions.Email,
+		Sign:    opts.CommitOptions.Sign,
 	})
 	if err != nil {
 		return fmt.Errorf("creating commit: %w", err)

@@ -1,5 +1,7 @@
 package options
 
+import "errors"
+
 // PullRequestManagerOptions captures the pr manager options
 type PullRequestManagerOptions struct {
 	// UseGit controls if commits are done using the git binary. If false,
@@ -29,6 +31,15 @@ type PullRequestManagerOptions struct {
 	RemoteName string
 }
 
+// Validate checks the consistency of the pr manager options
+func (prmo *PullRequestManagerOptions) Validate() error {
+	errs := []error{}
+	if prmo.UseGitToCommit != nil && *prmo.UseGitToCommit && prmo.CloneToMemory {
+		errs = append(errs, errors.New("the git cli can only be used when cloning to disk"))
+	}
+	return errors.Join(errs...)
+}
+
 // PullRequestOptions control how the manager opens a pull request on GitHub
 type PullRequestOptions struct {
 	Title string
@@ -50,4 +61,14 @@ type CommitOptions struct {
 	Email   string
 	Message string
 	UseGit  *bool
+	Sign    *bool
+}
+
+// Validate checks the consistency of the commit options
+func (co *CommitOptions) Validate() error {
+	errs := []error{}
+	if co.Sign != nil && co.UseGit != nil && *co.Sign && !*co.UseGit {
+		errs = append(errs, errors.New("signing commits is only possible when using the git binary"))
+	}
+	return errors.Join(errs...)
 }
