@@ -1359,7 +1359,7 @@ func TestComputeEligibleSince(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTime, err := computeEligibleSince(tt.controls, tt.level)
+			gotTime, err := ComputeEligibleSince(tt.controls, tt.level)
 
 			if tt.expectError {
 				if err == nil {

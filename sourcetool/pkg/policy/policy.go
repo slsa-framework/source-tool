@@ -218,7 +218,7 @@ func CreateLocalPolicy(ctx context.Context, ghconnection *ghcontrol.GitHubConnec
 	// a higher level
 	if provPred != nil {
 		eligibleLevel = ComputeEligibleSlsaLevel(provPred.Controls)
-		eligibleSince, err = computeEligibleSince(provPred.Controls, eligibleLevel)
+		eligibleSince, err = ComputeEligibleSince(provPred.Controls, eligibleLevel)
 		if err != nil {
 			return "", fmt.Errorf("could not compute eligible since: %w", err)
 		}
@@ -277,9 +277,7 @@ func ComputeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
 }
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
-//
-//nolint:unparam
-func computeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*time.Time, error) {
+func ComputeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*time.Time, error) {
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
 	var newestTime time.Time
 	for _, rc := range requiredControls {
@@ -311,7 +309,7 @@ func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls s
 	}
 
 	// Check to see when this branch became eligible for the current target level.
-	eligibleSince, err := computeEligibleSince(controls, branchPolicy.TargetSlsaSourceLevel)
+	eligibleSince, err := ComputeEligibleSince(controls, branchPolicy.TargetSlsaSourceLevel)
 	if err != nil {
 		return []slsa.ControlName{}, fmt.Errorf("could not compute eligible since: %w", err)
 	}

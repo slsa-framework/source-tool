@@ -7,6 +7,7 @@ import (
 
 type (
 	ControlName     string
+	ControlState    string
 	SlsaSourceLevel ControlName
 )
 
@@ -19,9 +20,15 @@ const (
 	ProvenanceAvailable      ControlName     = "PROVENANCE_AVAILABLE"
 	ReviewEnforced           ControlName     = "REVIEW_ENFORCED"
 	TagHygiene               ControlName     = "TAG_HYGIENE"
+	PolicyAvailable          ControlName     = "POLICY_AVAILABLE"
 	SourceBranchesAnnotation                 = "source_branches"
 	SourceRefsAnnotation                     = "source_refs"
 	AllowedOrgPropPrefix                     = "ORG_SOURCE_"
+
+	// Control lifecycle states
+	StateNotEnabled ControlState = "not_enabled"
+	StateInProgress ControlState = "in_progress"
+	StateActive     ControlState = "active"
 )
 
 // AllLevelControls lists all the SLSA controls managed by sourcetool
@@ -141,4 +148,71 @@ func StringsToControlNames(strs []string) []ControlName {
 		controlNames[i] = ControlName(strs[i])
 	}
 	return controlNames
+}
+
+// NewControlStatus returns a new control status object initialized with
+// all existing controls in not_enabled state.
+func NewControlSetStatus() *ControlSetStatus {
+	status := &ControlSetStatus{
+		Time:     time.Now(),
+		Controls: []ControlStatus{},
+	}
+
+	for _, c := range AllLevelControls {
+		status.Controls = append(status.Controls, ControlStatus{
+			Name:  c,
+			State: StateNotEnabled,
+		})
+	}
+
+	return status
+}
+
+// ControlSetStatus is a snapshot of the status of SLSA controls in a branch at
+// a point in time.
+type ControlSetStatus struct {
+	RepoUri  string
+	Branch   string
+	Time     time.Time
+	Controls []ControlStatus
+}
+
+// ControlStatus captures the status of a control as seen from a VCS system
+type ControlStatus struct {
+	Name              ControlName
+	State             ControlState `json:"control_state"`
+	Since             *time.Time   `json:"since,omitempty"`
+	Message           string
+	RecommendedAction *ControlRecommendedAction
+}
+
+// ControlRecommendedAction captures the recommended action to complete
+// a control's implementation.
+type ControlRecommendedAction struct {
+	Message string
+	Command string
+}
+
+// GetActiveControls returns a Controls collection with all the controls
+// which are active in the set.
+func (cs *ControlSetStatus) GetActiveControls() *Controls {
+	ret := Controls{}
+	for _, c := range cs.Controls {
+		if c.State == StateActive {
+			ret.AddControl(&Control{
+				Name: c.Name, Since: *c.Since,
+			})
+		}
+	}
+	return &ret
+}
+
+// SetControlState sets the state of a control in the set by name.
+func (cs *ControlSetStatus) SetControlState(ctrlName ControlName, state ControlState) {
+	for i := range cs.Controls {
+		if cs.Controls[i].Name == ctrlName {
+			cs.Controls[i].State = state
+			return
+		}
+	}
 }

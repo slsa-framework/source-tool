@@ -1,54 +1,40 @@
 package sourcetool
 
-import "github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
+import (
+	"errors"
 
-func WithRepo(repo string) options.Fn {
-	return func(o *options.Options) error {
-		// TODO(puerco): Validate repo string
-		o.Repo = repo
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
+)
+
+type ConfigFn func(*Tool) error
+
+func WithAuthenticator(a *auth.Authenticator) ConfigFn {
+	return func(t *Tool) error {
+		if a == nil {
+			return errors.New("authenticator is nil")
+		}
+		t.Authenticator = a
 		return nil
 	}
 }
 
-func WithOwner(repo string) options.Fn {
-	return func(o *options.Options) error {
-		// TODO(puerco): Validate org string
-		o.Owner = repo
+func WithEnforce(enforce bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.Enforce = enforce
 		return nil
 	}
 }
 
-func WithBranch(branch string) options.Fn {
-	return func(o *options.Options) error {
-		o.Branch = branch
+func WithUserForkOrg(org string) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.UserForkOrg = org
 		return nil
 	}
 }
 
-func WithCommit(commit string) options.Fn {
-	return func(o *options.Options) error {
-		o.Commit = commit
-		return nil
-	}
-}
-
-func WithEnforce(enforce bool) options.Fn {
-	return func(o *options.Options) error {
-		o.Enforce = enforce
-		return nil
-	}
-}
-
-func WithUserForkOrg(org string) options.Fn {
-	return func(o *options.Options) error {
-		o.UserForkOrg = org
-		return nil
-	}
-}
-
-func WithPolicyRepo(slug string) options.Fn {
-	return func(o *options.Options) error {
-		o.PolicyRepo = slug
+func WithPolicyRepo(slug string) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.PolicyRepo = slug
 		return nil
 	}
 }

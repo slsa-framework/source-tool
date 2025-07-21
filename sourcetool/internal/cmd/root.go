@@ -4,12 +4,14 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 )
 
 var githubToken string
@@ -63,4 +65,25 @@ func Execute() {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func CheckAuth() (*auth.Authenticator, error) {
+	authenticator := auth.New()
+	user, err := authenticator.WhoAmI()
+	if err != nil {
+		return nil, fmt.Errorf("checking authentication status: %w", err)
+	}
+
+	if user == nil {
+		fmt.Println()
+		fmt.Println("🚫  " + w("sourcetool is not logged in"))
+		fmt.Println()
+		fmt.Println("Please log into your GitHub account before using sourcetool. To")
+		fmt.Println("log in, run the following command:")
+		fmt.Println()
+		fmt.Println("  sourcetool auth login")
+		fmt.Println()
+		return nil, errors.New("source tool is not logged in")
+	}
+	return authenticator, nil
 }

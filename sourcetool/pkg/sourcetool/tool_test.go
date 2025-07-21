@@ -3,128 +3,51 @@ package sourcetool
 import (
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models/modelsfakes"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/sourcetoolfakes"
 )
 
-func TestGetRepoControls(t *testing.T) {
+func TestGetBranchControls(t *testing.T) {
 	t.Parallel()
 	t.Run("GetActiveControls-success", func(t *testing.T) {
 		t.Parallel()
 		i := &sourcetoolfakes.FakeToolImplementation{}
-		i.GetActiveControlsReturns(slsa.Controls{slsa.Control{
-			Name: "hey", Since: time.Now(),
-		}}, nil)
+		i.GetPolicyStatusReturns(&slsa.ControlStatus{}, nil)
+		i.GetBranchControlsReturns(&slsa.ControlSetStatus{
+			RepoUri: "github.com/ok/repo",
+			Branch:  "main",
+			Controls: []slsa.ControlStatus{
+				{
+					Name:    slsa.ContinuityEnforced,
+					State:   slsa.StateNotEnabled,
+					Message: "Continuity enforced",
+				},
+			},
+		}, nil)
 		tool := &Tool{
 			impl: i,
 		}
-		res, err := tool.GetRepoControls()
+		res, err := tool.GetBranchControls(&models.Repository{}, &models.Branch{})
 		require.NotNil(t, res)
-		require.Len(t, res, 1)
+		// This always has one more as we add the synyhetic policy check
+		require.Len(t, res.Controls, 2)
 		require.NoError(t, err)
 	})
 	t.Run("GetActiveControls-fails", func(t *testing.T) {
 		t.Parallel()
 		i := &sourcetoolfakes.FakeToolImplementation{}
-		i.GetActiveControlsReturns(nil, errors.New("failed badly"))
+		i.GetBranchControlsReturns(nil, errors.New("failed badly"))
 		tool := &Tool{
 			impl: i,
 		}
-		_, err := tool.GetRepoControls()
+		_, err := tool.GetBranchControls(&models.Repository{}, &models.Branch{})
 		require.Error(t, err)
 	})
-}
-
-func TestOnboardRepository(t *testing.T) {
-	t.Parallel()
-	syntErr := errors.New("synthetic error")
-	for _, tc := range []struct {
-		name    string
-		prepare func(t *testing.T) toolImplementation
-		mustErr bool
-	}{
-		{
-			name: "EnsureDefault-fails", mustErr: true,
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.EnsureDefaultsReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "CheckForks-fails", mustErr: true,
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CheckForksReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "VerifyOptionsForFullOnboard-fails", mustErr: true,
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.VerifyOptionsForFullOnboardReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "CreateRepoRuleset-fails", mustErr: true,
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreateRepoRulesetReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "CheckForksCreateWorkflowPRfails", mustErr: true,
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreateWorkflowPRReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "CreatePolicyPRfails", mustErr: true,
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreatePolicyPRReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "all-success", mustErr: false,
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				return i
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			tool := &Tool{
-				Options: options.Options{},
-				impl:    tc.prepare(t),
-			}
-			err := tool.OnboardRepository()
-			if tc.mustErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
 }
 
 func TestConfigureControls(t *testing.T) {
@@ -133,91 +56,31 @@ func TestConfigureControls(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		mustErr  bool
-		controls []ControlConfiguration
+		controls []models.ControlConfiguration
 		prepare  func(t *testing.T) toolImplementation
 	}{
 		{
-			name: "EnsureDefault-fails", mustErr: true,
+			name: "success", mustErr: false,
+			controls: []models.ControlConfiguration{models.CONFIG_BRANCH_RULES},
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.EnsureDefaultsReturns(syntErr)
 				return i
 			},
 		},
 		{
-			name: "CreateRepoRuleset-success", mustErr: false,
-			controls: []ControlConfiguration{CONFIG_BRANCH_RULES},
+			name: "GetVcsBackend-fails", mustErr: true,
+			controls: []models.ControlConfiguration{models.CONFIG_BRANCH_RULES},
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreateRepoRulesetReturns(nil)
-				return i
-			},
-		},
-		{
-			name: "CreateRepoRuleset-fails", mustErr: true,
-			controls: []ControlConfiguration{CONFIG_BRANCH_RULES},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreateRepoRulesetReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "CheckWorkflowFork-success", mustErr: false,
-			controls: []ControlConfiguration{CONFIG_PROVENANCE_WORKFLOW},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CheckWorkflowForkReturns(nil)
-				return i
-			},
-		},
-		{
-			name: "CheckWorkflowFork-fails", mustErr: true,
-			controls: []ControlConfiguration{CONFIG_PROVENANCE_WORKFLOW},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CheckWorkflowForkReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "CreateWorkflowPR-success", mustErr: false,
-			controls: []ControlConfiguration{CONFIG_PROVENANCE_WORKFLOW},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreateWorkflowPRReturns(nil)
-				return i
-			},
-		},
-		{
-			name: "CreateWorkflowPR-fails", mustErr: true,
-			controls: []ControlConfiguration{CONFIG_PROVENANCE_WORKFLOW},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreateWorkflowPRReturns(syntErr)
-				return i
-			},
-		},
-		{
-			name: "CheckPolicyFork-success", mustErr: false,
-			controls: []ControlConfiguration{CONFIG_POLICY},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CheckPolicyForkReturns(nil)
+				i.GetVcsBackendReturns(nil, syntErr)
 				return i
 			},
 		},
 		{
 			name: "CheckPolicyFork-fails", mustErr: true,
-			controls: []ControlConfiguration{CONFIG_POLICY},
+			controls: []models.ControlConfiguration{models.CONFIG_POLICY},
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
@@ -226,31 +89,24 @@ func TestConfigureControls(t *testing.T) {
 			},
 		},
 		{
-			name: "CreatePolicyPR-success", mustErr: false,
-			controls: []ControlConfiguration{CONFIG_POLICY},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreatePolicyPRReturns(nil)
-				return i
-			},
-		},
-		{
 			name: "CreatePolicyPR-fails", mustErr: true,
-			controls: []ControlConfiguration{CONFIG_POLICY},
+			controls: []models.ControlConfiguration{models.CONFIG_POLICY},
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.CreatePolicyPRReturns(syntErr)
+				i.GetVcsBackendReturns(&modelsfakes.FakeVcsBackend{}, nil)
+				i.GetAttestationReaderReturns(&modelsfakes.FakeAttestationStorageReader{}, nil)
+				i.CreatePolicyPRReturns(nil, syntErr)
 				return i
 			},
 		},
 		{
-			name: "unknown-config", mustErr: true,
-			controls: []ControlConfiguration{"unknown-config"},
+			name: "ConfigureControls-fails", mustErr: true,
+			controls: []models.ControlConfiguration{models.CONFIG_GEN_PROVENANCE},
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
+				i.ConfigureControlsReturns(syntErr)
 				return i
 			},
 		},
@@ -261,8 +117,8 @@ func TestConfigureControls(t *testing.T) {
 			tool := Tool{
 				impl: i,
 			}
-			//
-			err := tool.ConfigureControls(tc.controls)
+
+			err := tool.ConfigureControls(&models.Repository{}, []*models.Branch{{}}, tc.controls)
 			if tc.mustErr {
 				require.Error(t, err)
 				return
@@ -277,7 +133,7 @@ func TestFindPolicyPR(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		mustErr bool
-		expect  *PullRequestDetails
+		expect  *models.PullRequest
 		prepare func(t *testing.T) toolImplementation
 	}{
 		{
@@ -291,7 +147,7 @@ func TestFindPolicyPR(t *testing.T) {
 			"search-pr-fails", true, nil, func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(0, errors.New("failed"))
+				i.SearchPullRequestReturns(nil, errors.New("failed"))
 				return &i
 			},
 		},
@@ -299,19 +155,33 @@ func TestFindPolicyPR(t *testing.T) {
 			"pr-is-zero", false, nil, func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(0, nil)
+				i.SearchPullRequestReturns(nil, nil)
 				return &i
 			},
 		},
 		{
-			"pr-is-found", false, &PullRequestDetails{
-				Owner:  "slsa-framework",
-				Repo:   "slsa-source-poc",
+			"pr-is-found", false, &models.PullRequest{
+				Repo: &models.Repository{
+					Hostname:      "github.com",
+					Path:          "slsa-framework/slsa-source-poc",
+					DefaultBranch: "",
+				},
 				Number: 10,
+				Title:  "Pull Request",
+				Body:   "Here",
 			}, func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(10, nil)
+				i.SearchPullRequestReturns(&models.PullRequest{
+					Repo: &models.Repository{
+						Hostname:      "github.com",
+						Path:          "slsa-framework/slsa-source-poc",
+						DefaultBranch: "",
+					},
+					Number: 10,
+					Title:  "Pull Request",
+					Body:   "Here",
+				}, nil)
 				return &i
 			},
 		},
@@ -322,68 +192,7 @@ func TestFindPolicyPR(t *testing.T) {
 				impl: tc.prepare(t),
 			}
 
-			prd, err := tool.FindPolicyPR()
-			if tc.mustErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tc.expect, prd)
-		})
-	}
-}
-
-func TestFindWorkflowPR(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name    string
-		mustErr bool
-		expect  *PullRequestDetails
-		prepare func(t *testing.T) toolImplementation
-	}{
-		{
-			"normal", false, nil, func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := sourcetoolfakes.FakeToolImplementation{}
-				return &i
-			},
-		},
-		{
-			"pr-is-zero", false, nil, func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(0, nil)
-				return &i
-			},
-		},
-		{
-			"pr-is-found", false, &PullRequestDetails{
-				Owner: "owner", Repo: "repo", Number: 10,
-			}, func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(10, nil)
-				return &i
-			},
-		},
-		{
-			"search-pr-fails", true, nil, func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := sourcetoolfakes.FakeToolImplementation{}
-				i.SearchPullRequestReturns(0, errors.New("search failed"))
-				return &i
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			tool := Tool{
-				impl: tc.prepare(t),
-			}
-
-			prd, err := tool.FindWorkflowPR(
-				WithOwner("owner"), WithRepo("repo"),
-			)
+			prd, err := tool.FindPolicyPR(&models.Repository{})
 			if tc.mustErr {
 				require.Error(t, err)
 				return
@@ -429,7 +238,7 @@ func TestCheckPolicyFork(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tool := Tool{impl: tc.prepare(t)}
-			found, err := tool.CheckPolicyRepoFork()
+			found, err := tool.CheckPolicyRepoFork(&models.Repository{})
 			if tc.mustErr {
 				require.Error(t, err)
 				return

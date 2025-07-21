@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
 
 type repoOptions struct {
@@ -49,6 +50,13 @@ func (ro *repoOptions) ParseSlug(lString string) error {
 	return nil
 }
 
+func (ro *repoOptions) GetRepository() *models.Repository {
+	return &models.Repository{
+		Hostname: "github.com",
+		Path:     fmt.Sprintf("%s/%s", ro.owner, ro.repository),
+	}
+}
+
 func (bo *branchOptions) Validate() error {
 	errs := []error{}
 	errs = append(errs, bo.repoOptions.Validate())
@@ -66,6 +74,16 @@ func (bo *branchOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(
 		&bo.branch, "branch", "", "name of the branch",
 	)
+}
+
+func (bo *branchOptions) GetBranch() *models.Branch {
+	return &models.Branch{
+		Name: bo.branch,
+		Repository: &models.Repository{
+			Hostname: "github.com",
+			Path:     fmt.Sprintf("%s/%s", bo.owner, bo.repository),
+		},
+	}
 }
 
 type branchOptions struct {
