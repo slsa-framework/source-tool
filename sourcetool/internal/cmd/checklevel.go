@@ -88,7 +88,7 @@ func doCheckLevel(cla *checkLevelOpts) error {
 	}
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = cla.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, ghconnection, controlStatus)
+	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, cla.GetRepository(), cla.GetBranch(), controlStatus)
 	if err != nil {
 		return err
 	}

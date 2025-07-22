@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 )
 
@@ -48,9 +47,10 @@ func addCreatePolicy(parentCmd *cobra.Command) {
 }
 
 func doCreatePolicy(opts *createPolicyOptions) error {
-	ghconnection := ghcontrol.NewGhConnection(opts.owner, opts.repository, ghcontrol.BranchToFullRef(opts.branch)).WithAuthToken(githubToken)
-	ctx := context.Background()
-	outpath, err := policy.CreateLocalPolicy(ctx, ghconnection, opts.policyRepoPath)
+	evaluator := policy.NewPolicyEvaluator()
+	outpath, err := evaluator.CreateLocalPolicy(
+		context.Background(), opts.GetRepository(), opts.GetBranch(), opts.policyRepoPath,
+	)
 	if err != nil {
 		return err
 	}
