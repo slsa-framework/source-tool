@@ -25,6 +25,13 @@ func WithEnforce(enforce bool) ConfigFn {
 	}
 }
 
+func WithCreatePolicyPR(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.CreatePolicyPR = yesno
+		return nil
+	}
+}
+
 func WithUserForkOrg(org string) ConfigFn {
 	return func(t *Tool) error {
 		t.Options.UserForkOrg = org
