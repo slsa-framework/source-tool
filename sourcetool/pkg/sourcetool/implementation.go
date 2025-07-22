@@ -13,7 +13,6 @@ import (
 	"github.com/google/go-github/v69/github"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo"
 	roptions "github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo/options"
@@ -214,13 +213,8 @@ func (impl *defaultToolImplementation) SearchPullRequest(ctx context.Context, a 
 func (impl *defaultToolImplementation) GetPolicyStatus(
 	ctx context.Context, a *auth.Authenticator, opts *options.Options, r *models.Repository,
 ) (*slsa.ControlStatus, error) {
-	gcx, err := impl.getGitHubConnection(a, r, "")
-	if err != nil {
-		return nil, err
-	}
-
 	// First: Look for the policy. If found then we are done
-	pcy, _, err := policy.NewPolicyEvaluator().GetPolicy(ctx, gcx)
+	pcy, _, err := policy.NewPolicyEvaluator().GetPolicy(ctx, r)
 	if err != nil {
 		return nil, fmt.Errorf("checking if the repository has a policy %w", err)
 	}
@@ -283,27 +277,4 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 			Message: "Wait for the policy pull request to merge",
 		},
 	}, nil
-}
-
-// getGitHubConnection builds a github connector to a repository
-func (impl *defaultToolImplementation) getGitHubConnection(a *auth.Authenticator, repository *models.Repository, ref string) (*ghcontrol.GitHubConnection, error) {
-	if repository == nil {
-		return nil, fmt.Errorf("unable to build GitHub connection, repository is nil")
-	}
-
-	if repository.Path == "" {
-		return nil, errors.New("repository  path not set")
-	}
-
-	owner, name, err := repository.PathAsGitHubOwnerName()
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := a.GetGitHubClient()
-	if err != nil {
-		return nil, err
-	}
-
-	return ghcontrol.NewGhConnectionWithClient(owner, name, ref, client), nil
 }
