@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/testsupport"
 )
@@ -34,8 +35,8 @@ func conditionsForTagImmutability() *github.RepositoryRulesetConditions {
 }
 
 func createTestProv(t *testing.T, repoUri, ref, commit string) string {
-	provPred := SourceProvenancePred{RepoUri: repoUri, Branch: ref, ActivityType: "pr_merge", Actor: "test actor"}
-	stmt, err := addPredToStatement(provPred, SourceProvPredicateType, commit)
+	provPred := provenance.SourceProvenancePred{RepoUri: repoUri, Branch: ref, ActivityType: "pr_merge", Actor: "test actor"}
+	stmt, err := addPredToStatement(provPred, provenance.SourceProvPredicateType, commit)
 	if err != nil {
 		t.Fatalf("failure creating test prov: %v", err)
 	}
@@ -96,7 +97,7 @@ func timesEqualWithinMargin(t1, t2 time.Time, margin time.Duration) bool {
 	return diff <= margin
 }
 
-func assertTagProvPredsEqual(t *testing.T, actual, expected *TagProvenancePred) {
+func assertTagProvPredsEqual(t *testing.T, actual, expected *provenance.TagProvenancePred) {
 	if actual.Actor != expected.Actor {
 		t.Errorf("Actor %v does not match expected value %v", actual.Actor, expected.Actor)
 	}
@@ -186,8 +187,8 @@ func TestCreateTagProvenance(t *testing.T) {
 		t.Fatalf("returned statement is nil")
 	}
 
-	if stmt.GetPredicateType() != TagProvPredicateType {
-		t.Errorf("statement pred type %v does not match expected %v", stmt.GetPredicateType(), TagProvPredicateType)
+	if stmt.GetPredicateType() != provenance.TagProvPredicateType {
+		t.Errorf("statement pred type %v does not match expected %v", stmt.GetPredicateType(), provenance.TagProvPredicateType)
 	}
 
 	if !DoesSubjectIncludeCommit(stmt, "73f0a864c2c9af12e03dae433a6ff5f5e719d7aa") {
@@ -199,7 +200,7 @@ func TestCreateTagProvenance(t *testing.T) {
 		t.Fatalf("error getting tag prov %v", err)
 	}
 
-	expectedPred := TagProvenancePred{
+	expectedPred := provenance.TagProvenancePred{
 		RepoUri:   "https://github.com/owner/repo",
 		Actor:     "the-tag-pusher",
 		Tag:       "refs/tags/v1",
@@ -210,7 +211,7 @@ func TestCreateTagProvenance(t *testing.T) {
 				Since: rulesetOldTime,
 			},
 		},
-		VsaSummaries: []VsaSummary{
+		VsaSummaries: []provenance.VsaSummary{
 			{
 				SourceRefs:     []string{"refs/some/ref"},
 				VerifiedLevels: []slsa.ControlName{"TEST_LEVEL"},

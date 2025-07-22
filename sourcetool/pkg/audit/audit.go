@@ -9,6 +9,7 @@ import (
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 )
 
 type Auditor struct {
@@ -21,7 +22,7 @@ type Auditor struct {
 type AuditCommitResult struct {
 	Commit   string
 	VsaPred  *vpb.VerificationSummary
-	ProvPred *attest.SourceProvenancePred
+	ProvPred *provenance.SourceProvenancePred
 	// The previous commit reported by GH.
 	GhPriorCommit   string
 	GhControlStatus *ghcontrol.GhControlStatus

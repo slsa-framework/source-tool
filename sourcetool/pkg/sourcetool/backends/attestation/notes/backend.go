@@ -13,6 +13,7 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
 
@@ -60,7 +61,7 @@ func (b *Backend) GetCommitVsa(ctx context.Context, branch *models.Branch, commi
 }
 
 // GetCommitProvenance gets the provenance attestation of a commit in a branch
-func (b *Backend) GetCommitProvenance(ctx context.Context, branch *models.Branch, commit *models.Commit) (*attestation.Statement, *attest.SourceProvenancePred, error) {
+func (b *Backend) GetCommitProvenance(ctx context.Context, branch *models.Branch, commit *models.Commit) (*attestation.Statement, *provenance.SourceProvenancePred, error) {
 	gcx, err := b.getGitHubConnection(branch)
 	if err != nil {
 		return nil, nil, err
