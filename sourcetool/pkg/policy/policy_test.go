@@ -20,9 +20,10 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
 
 const (
@@ -122,8 +123,11 @@ func createTempPolicyFile(t *testing.T, policyData interface{}) string {
 func validateMockServerRequestPath(t *testing.T, r *http.Request, expectedPolicyOwner, expectedPolicyRepo, expectedPolicyBranch string) {
 	t.Helper()
 	// This ghConn is only for generating the policy file path segment based on the target repo's details
-	tempGhConn := newTestGhBranchConnection(expectedPolicyOwner, expectedPolicyRepo, expectedPolicyBranch)
-	policyFilePathSegment := getPolicyPath(tempGhConn) // getPolicyPath is an existing function in the policy package
+	policyFilePathSegment := getPolicyPath(&models.Repository{
+		Hostname:      "github.com",
+		Path:          expectedPolicyOwner + "/" + expectedPolicyRepo,
+		DefaultBranch: expectedPolicyBranch,
+	}) // getPolicyPath is an existing function in the policy package
 
 	// Construct the full expected API path suffix for the GetContents call
 	// sourcePolicyRepoOwner and sourcePolicyRepo are constants defined in policy_test.go (and policy.go)
@@ -145,12 +149,11 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	orgTestControl := slsa.Control{Name: "GH_REQUIRED_CHECK_test", Since: earlierFixedTime}
 
 	// Valid Provenance Predicate (attest.SourceProvenancePred)
-	validProvPredicateL3Controls := attest.SourceProvenancePred{
+	validProvPredicateL3Controls := provenance.SourceProvenancePred{
 		Controls: slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
 	}
 
-	provenanceStatement := createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType)
-
+	provenanceStatement := createStatementForTest(t, validProvPredicateL3Controls, provenance.SourceProvPredicateType)
 	pb := ProtectedBranch{
 		Name:                  "main",
 		TargetSlsaSourceLevel: slsa.SlsaSourceLevel3,
@@ -172,9 +175,10 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	defer os.Remove(expectedPolicyFilePath) //nolint:errcheck
 	pe := &PolicyEvaluator{UseLocalPolicy: expectedPolicyFilePath}
 
-	ghConn := newTestGhBranchConnection("local", "local", "main")
-
-	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(t.Context(), ghConn, provenanceStatement)
+	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(t.Context(), &models.Repository{
+		Hostname: "github.com",
+		Path:     "the-canonical-repo",
+	}, &models.Branch{Name: "main"}, provenanceStatement)
 	if err != nil {
 		t.Errorf("EvaluateSourceProv() error = %v, want nil", err)
 	}
@@ -209,38 +213,38 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 	}
 
 	// Valid Provenance Predicate (attest.SourceProvenancePred)
-	validProvPredicateL3Controls := attest.SourceProvenancePred{
+	validProvPredicateL3Controls := provenance.SourceProvenancePred{
 		Controls: slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
 	}
-	validProvPredicateL2Controls := attest.SourceProvenancePred{
+	validProvPredicateL2Controls := provenance.SourceProvenancePred{
 		Controls: slsa.Controls{continuityEnforcedEarlier, tagHygieneEarlier, reviewEnforcedEarlier}, // Missing provenanceAvailable for L3
 	}
 
 	tests := []struct {
 		name                  string
-		policyContent         interface{} // RepoPolicy or string for malformed policy
+		policyContent         any // RepoPolicy or string for malformed policy
 		provenanceStatement   *spb.Statement
 		ghConnBranch          string
 		expectedErrorContains string
 	}{
 		{
 			name:                  "Valid L2 Prov, Policy L3 -> Error (controls don't meet policy)",
-			policyContent:         policyL3ReviewTagsNow,                                                                   // Expects L3
-			provenanceStatement:   createStatementForTest(t, validProvPredicateL2Controls, attest.SourceProvPredicateType), // Prov only has L2 controls
+			policyContent:         policyL3ReviewTagsNow,                                                                       // Expects L3
+			provenanceStatement:   createStatementForTest(t, validProvPredicateL2Controls, provenance.SourceProvPredicateType), // Prov only has L2 controls
 			ghConnBranch:          "main",
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3 which requires [CONTINUITY_ENFORCED TAG_HYGIENE PROVENANCE_AVAILABLE], but branch is only eligible for SLSA_SOURCE_LEVEL_2 because it only has [CONTINUITY_ENFORCED TAG_HYGIENE REVIEW_ENFORCED]",
 		},
 		{
 			name:                  "Malformed Policy JSON -> Error",
 			policyContent:         "not valid policy json",
-			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType),
+			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, provenance.SourceProvPredicateType),
 			ghConnBranch:          "main",
 			expectedErrorContains: "invalid character 'o' in literal null (expecting 'u')", // Error from GetPolicy via getLocalPolicy
 		},
 		{
 			name:                  "Non-existent Policy File -> Error",
 			policyContent:         nil, // Signal to not create a temp file for this test
-			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, attest.SourceProvPredicateType),
+			provenanceStatement:   createStatementForTest(t, validProvPredicateL3Controls, provenance.SourceProvPredicateType),
 			ghConnBranch:          "main",
 			expectedErrorContains: "no such file or directory", // Error from os.ReadFile in getLocalPolicy
 		},
@@ -271,7 +275,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 			provenanceStatement: &spb.Statement{ // Predicate is nil
 				Type:          spb.StatementTypeUri,
 				Subject:       []*spb.ResourceDescriptor{{Name: "_"}},
-				PredicateType: attest.SourceProvPredicateType,
+				PredicateType: provenance.SourceProvPredicateType,
 				Predicate:     nil, // Explicitly nil predicate
 			},
 			ghConnBranch:          "main",
@@ -283,7 +287,6 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
 			pe := &PolicyEvaluator{}
-			var ghConn *ghcontrol.GitHubConnection
 
 			if tt.name == "Non-existent Policy File -> Error" {
 				pe.UseLocalPolicy = "/path/to/nonexistent/test/policy.json" // Specific path for this test
@@ -292,9 +295,13 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 				defer os.Remove(policyFilePath) //nolint:errcheck
 				pe.UseLocalPolicy = policyFilePath
 			}
-			ghConn = newTestGhBranchConnection("local", "local", tt.ghConnBranch)
 
-			_, _, err := pe.EvaluateSourceProv(ctx, ghConn, tt.provenanceStatement)
+			_, _, err := pe.EvaluateSourceProv(ctx, &models.Repository{
+				Hostname: "github.com",
+				Path:     "local/local",
+			}, &models.Branch{
+				Name: tt.ghConnBranch,
+			}, tt.provenanceStatement)
 
 			if err == nil {
 				t.Errorf("EvaluateSourceProv() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
@@ -305,8 +312,8 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 	}
 }
 
-func createVsaSummary(ref string, verifiedLevels []slsa.ControlName) attest.VsaSummary {
-	return attest.VsaSummary{
+func createVsaSummary(ref string, verifiedLevels []slsa.ControlName) provenance.VsaSummary {
+	return provenance.VsaSummary{
 		SourceRefs:     []string{ref},
 		VerifiedLevels: verifiedLevels,
 	}
@@ -325,7 +332,7 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 	tests := []struct {
 		name               string
 		protectedTagPolicy *ProtectedTag
-		vsaSummaries       []attest.VsaSummary
+		vsaSummaries       []provenance.VsaSummary
 		expectedLevels     slsa.SourceVerifiedLevels
 	}{
 		{
@@ -334,7 +341,7 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 				Since:      fixedTime,
 				TagHygiene: true,
 			},
-			vsaSummaries:   []attest.VsaSummary{origL2ReviewedSummary},
+			vsaSummaries:   []provenance.VsaSummary{origL2ReviewedSummary},
 			expectedLevels: slsa.SourceVerifiedLevels{slsa.ReviewEnforced, slsa.ControlName(slsa.SlsaSourceLevel2)},
 		},
 		{
@@ -343,7 +350,7 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 				Since:      fixedTime,
 				TagHygiene: true,
 			},
-			vsaSummaries: []attest.VsaSummary{origL2ReviewedSummary, mainL3Summary},
+			vsaSummaries: []provenance.VsaSummary{origL2ReviewedSummary, mainL3Summary},
 			// The spec says we MUST NOT return multiple levels per track in a VSA...
 			expectedLevels: slsa.SourceVerifiedLevels{
 				slsa.ReviewEnforced, slsa.ControlName(slsa.SlsaSourceLevel3),
@@ -355,7 +362,7 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 				Since:      fixedTime,
 				TagHygiene: false,
 			},
-			vsaSummaries:   []attest.VsaSummary{origL2ReviewedSummary},
+			vsaSummaries:   []provenance.VsaSummary{origL2ReviewedSummary},
 			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
 		},
 		{
@@ -364,13 +371,13 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 				Since:      earlierFixedTime,
 				TagHygiene: false,
 			},
-			vsaSummaries:   []attest.VsaSummary{origL2ReviewedSummary},
+			vsaSummaries:   []provenance.VsaSummary{origL2ReviewedSummary},
 			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
 		},
 		{
 			name:               "Policy has no protected_tag setting",
 			protectedTagPolicy: nil,
-			vsaSummaries:       []attest.VsaSummary{origL2ReviewedSummary},
+			vsaSummaries:       []provenance.VsaSummary{origL2ReviewedSummary},
 			expectedLevels:     slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
 		},
 	}
@@ -378,12 +385,12 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Valid Provenance Predicate (attest.SourceProvenancePred)
-			tagProvPred := attest.TagProvenancePred{
+			tagProvPred := provenance.TagProvenancePred{
 				Controls:     slsa.Controls{tagHygieneEarlier},
 				VsaSummaries: tt.vsaSummaries,
 			}
 
-			provenanceStatement := createStatementForTest(t, tagProvPred, attest.TagProvPredicateType)
+			provenanceStatement := createStatementForTest(t, tagProvPred, provenance.TagProvPredicateType)
 
 			pb := ProtectedBranch{
 				Name:                  "main",
@@ -398,9 +405,11 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 			defer os.Remove(expectedPolicyFilePath) //nolint:errcheck
 			pe := &PolicyEvaluator{UseLocalPolicy: expectedPolicyFilePath}
 
-			ghConn := newTestGhBranchConnection("local", "local", "main")
-
-			verifiedLevels, policyPath, err := pe.EvaluateTagProv(t.Context(), ghConn, provenanceStatement)
+			verifiedLevels, policyPath, err := pe.EvaluateTagProv(t.Context(), &models.Repository{
+				Hostname:      "github.com",
+				Path:          "local/local",
+				DefaultBranch: "main",
+			}, provenanceStatement)
 			if err != nil {
 				t.Errorf("EvaluateTagProv() error = %v, want nil", err)
 			}
@@ -452,7 +461,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		policyContent      interface{} // RepoPolicy or string for malformed
+		policyContent      any // RepoPolicy or string for malformed
 		controlStatus      *ghcontrol.GhControlStatus
 		ghConnBranch       string // Branch for GitHub connection
 		expectedLevels     slsa.SourceVerifiedLevels
@@ -497,7 +506,6 @@ func TestEvaluateControl_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
 			pe := &PolicyEvaluator{}
-			var ghConn *ghcontrol.GitHubConnection
 			actualPolicyPath := tt.expectedPolicyPath // May be overridden for local temp file
 
 			if tt.policyContent != nil {
@@ -508,9 +516,12 @@ func TestEvaluateControl_Success(t *testing.T) {
 					actualPolicyPath = policyFilePath
 				}
 			}
-			ghConn = newTestGhBranchConnection("local", "local", tt.ghConnBranch)
 
-			verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, ghConn, tt.controlStatus)
+			verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, &models.Repository{
+				Hostname: "github.com", Path: "local/local",
+			}, &models.Branch{
+				Name: tt.ghConnBranch,
+			}, tt.controlStatus)
 			if err != nil {
 				t.Errorf("EvaluateControl() error = %v, want nil", err)
 			}
@@ -546,7 +557,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 
 	tests := []struct {
 		name                  string
-		policyContent         interface{} // RepoPolicy or string for malformed
+		policyContent         any // RepoPolicy or string for malformed
 		controlStatus         *ghcontrol.GhControlStatus
 		ghConnBranch          string // Branch for GitHub connection
 		expectedErrorContains string
@@ -577,7 +588,6 @@ func TestEvaluateControl_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
 			pe := &PolicyEvaluator{}
-			var ghConn *ghcontrol.GitHubConnection
 			policyFilePath := "" // Default to empty, will be set if policyContent is not nil
 
 			if tt.policyContent != nil {
@@ -596,9 +606,14 @@ func TestEvaluateControl_Failure(t *testing.T) {
 				pe.UseLocalPolicy = policyFilePath
 			}
 
-			ghConn = newTestGhBranchConnection("local", "local", tt.ghConnBranch)
-
-			_, _, err := pe.EvaluateControl(ctx, ghConn, tt.controlStatus)
+			_, _, err := pe.EvaluateControl(
+				ctx, &models.Repository{
+					Hostname: "github.com", Path: "local/local",
+				},
+				&models.Branch{
+					Name: tt.ghConnBranch,
+				}, tt.controlStatus,
+			)
 
 			if err == nil {
 				t.Errorf("EvaluateControl() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
@@ -1389,7 +1404,10 @@ func TestComputeEligibleSince(t *testing.T) {
 }
 
 func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *ghcontrol.GitHubConnection, pe *PolicyEvaluator, expectedPolicy *RepoPolicy, expectedBranchPolicy *ProtectedBranch, expectedPath string) {
-	rp, gotPath, err := pe.GetPolicy(ctx, ghConn)
+	rp, gotPath, err := pe.GetPolicy(ctx, &models.Repository{
+		Hostname: "github.com",
+		Path:     ghConn.Owner() + "/" + ghConn.Repo(),
+	})
 	if err != nil {
 		t.Fatalf("GetPolicy() error = %v, want nil", err)
 	}
@@ -1500,7 +1518,6 @@ func TestGetPolicy_Local_ErrorCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
-			ghConn := newTestGhBranchConnection("any", "any", tt.branchName)
 			pe := &PolicyEvaluator{}
 			var policyFilePath string
 
@@ -1515,7 +1532,10 @@ func TestGetPolicy_Local_ErrorCases(t *testing.T) {
 				pe.UseLocalPolicy = tt.useLocalPolicyPath // For non-existent file
 			}
 
-			gotRp, gotPath, err := pe.GetPolicy(ctx, ghConn)
+			gotRp, gotPath, err := pe.GetPolicy(ctx, &models.Repository{
+				Hostname: "github.com",
+				Path:     "any/any",
+			})
 
 			if err == nil {
 				t.Errorf("GetPolicy() error = nil, want non-nil error")
@@ -1564,6 +1584,7 @@ func TestGetPolicy_Remote_SpecificFound(t *testing.T) {
 	})
 
 	ghConn, mockServer := setupMockGitHubTestEnv(t, targetOwner, targetRepo, targetBranch, handler)
+	pe.client = ghConn.Client()
 	defer mockServer.Close()
 
 	assertPolicyResultEquals(t, ctx, ghConn, pe, &expectedPolicy, &pb, mockPolicyPath)
@@ -1645,6 +1666,7 @@ func TestGetPolicy_Remote_NotFoundCases(t *testing.T) {
 			})
 
 			ghConn, mockServer := setupMockGitHubTestEnv(t, targetOwner, targetRepo, tt.targetBranch, handler)
+			pe.client = ghConn.Client()
 			defer mockServer.Close()
 
 			assertPolicyResultEquals(t, ctx, ghConn, pe, tt.mockPolicyContent, nil, tt.expectedPolicyPath)
@@ -1666,10 +1688,15 @@ func TestGetPolicy_Remote_ServerError(t *testing.T) {
 	ghConn, mockServer := setupMockGitHubTestEnv(t, targetOwner, targetRepo, targetBranch, handler)
 	defer mockServer.Close()
 
-	pe := PolicyEvaluator{UseLocalPolicy: ""}
+	pe := PolicyEvaluator{UseLocalPolicy: "", client: ghConn.Client()}
+
 	// ghConn is now returned by setupMockGitHubTestEnv
 
-	gotPolicy, gotPath, err := pe.GetPolicy(ctx, ghConn)
+	gotPolicy, gotPath, err := pe.GetPolicy(ctx, &models.Repository{
+		Hostname:      "github.com",
+		Path:          fmt.Sprintf("%s/%s", targetOwner, targetRepo),
+		DefaultBranch: targetBranch,
+	})
 	if err == nil {
 		t.Errorf("Expected an error for server-side issues, got nil")
 	}
@@ -1733,9 +1760,13 @@ func TestGetPolicy_Remote_MalformedJSON(t *testing.T) {
 			ghConn, mockServer := setupMockGitHubTestEnv(t, targetOwner, targetRepo, targetBranch, handler)
 			defer mockServer.Close()
 
-			pe := PolicyEvaluator{UseLocalPolicy: ""}
+			pe := PolicyEvaluator{UseLocalPolicy: "", client: ghConn.Client()}
 
-			gotPolicy, gotPath, err := pe.GetPolicy(ctx, ghConn)
+			gotPolicy, gotPath, err := pe.GetPolicy(ctx, &models.Repository{
+				Hostname:      "github.com",
+				Path:          fmt.Sprintf("%s/%s", targetOwner, targetRepo),
+				DefaultBranch: "",
+			})
 			if err == nil {
 				t.Errorf("Expected an error for malformed JSON, got nil")
 			}
