@@ -7,12 +7,12 @@ import (
 
 	v1a "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	v1 "github.com/in-toto/attestation/go/v1"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
 
 type FakeAttestationStorageReader struct {
-	GetCommitProvenanceStub        func(context.Context, *models.Branch, *models.Commit) (*v1.Statement, *attest.SourceProvenancePred, error)
+	GetCommitProvenanceStub        func(context.Context, *models.Branch, *models.Commit) (*v1.Statement, *provenance.SourceProvenancePred, error)
 	getCommitProvenanceMutex       sync.RWMutex
 	getCommitProvenanceArgsForCall []struct {
 		arg1 context.Context
@@ -21,12 +21,12 @@ type FakeAttestationStorageReader struct {
 	}
 	getCommitProvenanceReturns struct {
 		result1 *v1.Statement
-		result2 *attest.SourceProvenancePred
+		result2 *provenance.SourceProvenancePred
 		result3 error
 	}
 	getCommitProvenanceReturnsOnCall map[int]struct {
 		result1 *v1.Statement
-		result2 *attest.SourceProvenancePred
+		result2 *provenance.SourceProvenancePred
 		result3 error
 	}
 	GetCommitVsaStub        func(context.Context, *models.Branch, *models.Commit) (*v1.Statement, *v1a.VerificationSummary, error)
@@ -50,7 +50,7 @@ type FakeAttestationStorageReader struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeAttestationStorageReader) GetCommitProvenance(arg1 context.Context, arg2 *models.Branch, arg3 *models.Commit) (*v1.Statement, *attest.SourceProvenancePred, error) {
+func (fake *FakeAttestationStorageReader) GetCommitProvenance(arg1 context.Context, arg2 *models.Branch, arg3 *models.Commit) (*v1.Statement, *provenance.SourceProvenancePred, error) {
 	fake.getCommitProvenanceMutex.Lock()
 	ret, specificReturn := fake.getCommitProvenanceReturnsOnCall[len(fake.getCommitProvenanceArgsForCall)]
 	fake.getCommitProvenanceArgsForCall = append(fake.getCommitProvenanceArgsForCall, struct {
@@ -77,7 +77,7 @@ func (fake *FakeAttestationStorageReader) GetCommitProvenanceCallCount() int {
 	return len(fake.getCommitProvenanceArgsForCall)
 }
 
-func (fake *FakeAttestationStorageReader) GetCommitProvenanceCalls(stub func(context.Context, *models.Branch, *models.Commit) (*v1.Statement, *attest.SourceProvenancePred, error)) {
+func (fake *FakeAttestationStorageReader) GetCommitProvenanceCalls(stub func(context.Context, *models.Branch, *models.Commit) (*v1.Statement, *provenance.SourceProvenancePred, error)) {
 	fake.getCommitProvenanceMutex.Lock()
 	defer fake.getCommitProvenanceMutex.Unlock()
 	fake.GetCommitProvenanceStub = stub
@@ -90,31 +90,31 @@ func (fake *FakeAttestationStorageReader) GetCommitProvenanceArgsForCall(i int) 
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeAttestationStorageReader) GetCommitProvenanceReturns(result1 *v1.Statement, result2 *attest.SourceProvenancePred, result3 error) {
+func (fake *FakeAttestationStorageReader) GetCommitProvenanceReturns(result1 *v1.Statement, result2 *provenance.SourceProvenancePred, result3 error) {
 	fake.getCommitProvenanceMutex.Lock()
 	defer fake.getCommitProvenanceMutex.Unlock()
 	fake.GetCommitProvenanceStub = nil
 	fake.getCommitProvenanceReturns = struct {
 		result1 *v1.Statement
-		result2 *attest.SourceProvenancePred
+		result2 *provenance.SourceProvenancePred
 		result3 error
 	}{result1, result2, result3}
 }
 
-func (fake *FakeAttestationStorageReader) GetCommitProvenanceReturnsOnCall(i int, result1 *v1.Statement, result2 *attest.SourceProvenancePred, result3 error) {
+func (fake *FakeAttestationStorageReader) GetCommitProvenanceReturnsOnCall(i int, result1 *v1.Statement, result2 *provenance.SourceProvenancePred, result3 error) {
 	fake.getCommitProvenanceMutex.Lock()
 	defer fake.getCommitProvenanceMutex.Unlock()
 	fake.GetCommitProvenanceStub = nil
 	if fake.getCommitProvenanceReturnsOnCall == nil {
 		fake.getCommitProvenanceReturnsOnCall = make(map[int]struct {
 			result1 *v1.Statement
-			result2 *attest.SourceProvenancePred
+			result2 *provenance.SourceProvenancePred
 			result3 error
 		})
 	}
 	fake.getCommitProvenanceReturnsOnCall[i] = struct {
 		result1 *v1.Statement
-		result2 *attest.SourceProvenancePred
+		result2 *provenance.SourceProvenancePred
 		result3 error
 	}{result1, result2, result3}
 }

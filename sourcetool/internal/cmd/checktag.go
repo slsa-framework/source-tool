@@ -76,7 +76,7 @@ func doCheckTag(args *checkTagOptions) error {
 	// check p against policy
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = args.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateTagProv(ctx, ghconnection, prov)
+	verifiedLevels, policyPath, err := pe.EvaluateTagProv(ctx, args.GetRepository(), prov)
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,7 @@ import (
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	attestation "github.com/in-toto/attestation/go/v1"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
 
@@ -22,7 +22,7 @@ import (
 //counterfeiter:generate . AttestationStorageReader
 type AttestationStorageReader interface {
 	GetCommitVsa(context.Context, *Branch, *Commit) (*attestation.Statement, *vpb.VerificationSummary, error)
-	GetCommitProvenance(context.Context, *Branch, *Commit) (*attestation.Statement, *attest.SourceProvenancePred, error)
+	GetCommitProvenance(context.Context, *Branch, *Commit) (*attestation.Statement, *provenance.SourceProvenancePred, error)
 }
 
 // VcsBackend abstracts a VCS or VCS hosting system that sourcetool
@@ -47,9 +47,10 @@ const (
 )
 
 type Commit struct {
-	SHA    string
-	Author string
-	Time   *time.Time
+	SHA     string
+	Author  string
+	Time    *time.Time
+	Message string
 }
 
 type Branch struct {

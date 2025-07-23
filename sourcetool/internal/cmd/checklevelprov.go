@@ -100,7 +100,7 @@ func doCheckLevelProv(checkLevelProvArgs *checkLevelProvOpts) error {
 	// check p against policy
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, ghconnection, prov)
+	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, checkLevelProvArgs.GetRepository(), checkLevelProvArgs.GetBranch(), prov)
 	if err != nil {
 		return err
 	}
