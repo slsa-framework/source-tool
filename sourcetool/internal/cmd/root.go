@@ -54,6 +54,7 @@ controls and much more.
 	addCheckTag(rootCmd)
 	addCreatePolicy(rootCmd)
 	addAuth(rootCmd)
+	addPolicy(rootCmd)
 	return rootCmd
 }
 

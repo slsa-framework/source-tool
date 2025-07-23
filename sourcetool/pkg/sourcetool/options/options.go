@@ -13,12 +13,15 @@ type Options struct {
 	UseSSH      bool
 	UpdateRepo  bool
 
+	CreatePolicyPR bool
+
 	// PolicyRepo is the repository where the policies are stored
 	PolicyRepo string
 }
 
 // DefaultOptions holds the default options the tool initializes with
 var Default = Options{
-	PolicyRepo: fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo),
-	UseSSH:     true,
+	PolicyRepo:     fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo),
+	UseSSH:         true,
+	CreatePolicyPR: true,
 }

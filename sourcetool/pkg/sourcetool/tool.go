@@ -174,7 +174,7 @@ func (t *Tool) CheckPolicyRepoFork(repo *models.Repository) (bool, error) {
 // CreateBranchPolicy creates a repository policy
 func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, branches []*models.Branch) (*policy.RepoPolicy, error) {
 	if len(branches) > 1 {
-		// Chanfe this once we support merging policies
+		// Change this once we support merging policies
 		return nil, fmt.Errorf("only one branch is supported at a time")
 	}
 	if branches == nil {
@@ -240,4 +240,34 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 		},
 	}
 	return p, nil
+}
+
+// GetRepositoryPolicy retrieves the policy of repo from the community
+func (t *Tool) GetRepositoryPolicy(ctx context.Context, r *models.Repository) (*policy.RepoPolicy, error) {
+	pe := policy.NewPolicyEvaluator()
+	p, _, err := pe.GetPolicy(ctx, r)
+	if err != nil {
+		return nil, fmt.Errorf("getting repository policy: %w", err)
+	}
+
+	return p, nil
+}
+
+// CreateRepositoryPolicy creates a policy for a repository
+func (t *Tool) CreateRepositoryPolicy(ctx context.Context, r *models.Repository, branches []*models.Branch) (*policy.RepoPolicy, *models.PullRequest, error) {
+	pcy, err := t.CreateBranchPolicy(ctx, r, branches)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating policy for: %w", err)
+	}
+
+	var pr *models.PullRequest
+
+	// If the option is set, open the pull request
+	if t.Options.CreatePolicyPR {
+		pr, err = t.impl.CreatePolicyPR(t.Authenticator, &t.Options, r, pcy)
+		if err != nil {
+			return nil, nil, fmt.Errorf("opening the policy pull request: %w", err)
+		}
+	}
+	return pcy, pr, nil
 }
