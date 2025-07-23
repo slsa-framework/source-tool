@@ -1,0 +1,48 @@
+---
+project_name: sourcetool
+version: 2
+
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=0
+
+before:
+  hooks:
+    - /bin/bash -c 'cd sourcetool && go mod tidy'
+    - /bin/bash -c 'if [ -n "$(git --no-pager diff --exit-code go.mod go.sum)" ]; then exit 1; fi'
+
+gomod:
+  proxy: false
+
+builds:
+  - id: release
+    no_unique_dist_dir: true
+    binary: sourcetool-{{ .Tag }}-{{ .Os }}-{{ .Arch }}
+    main: ./sourcetool/
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: amd64
+    flags:
+      - -trimpath
+
+archives:
+  - formats: binary
+    name_template: sourcetool-{{ .Tag }}-{{ .Os }}-{{ .Arch }}
+    allow_different_binary_count: true
+checksum:
+  disable: true
+  
+release:
+  prerelease: auto
+
+changelog:
+  disable: false
