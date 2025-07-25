@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/release-utils/util"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
@@ -30,9 +29,10 @@ func (so *setupOpts) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(
 		&so.userForkOrg, "user-fork", "", "GitHub organization to look for forks of repos (for pull requests)",
 	)
-	cmd.PersistentFlags().StringVar(
-		&so.policyRepo, "policy-repo", fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo), "repository to store the SLSA source policy",
-	)
+	// Uncomment when we support custom policy repos
+	// cmd.PersistentFlags().StringVar(
+	// 	&so.policyRepo, "policy-repo", fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo), "repository to store the SLSA source policy",
+	// )
 
 	cmd.PersistentFlags().BoolVar(
 		&so.interactive, "interactive", true, "confirm before performing changes",
