@@ -91,8 +91,10 @@ type branchOptions struct {
 	branch string
 }
 
+// ParseLocator parses an SPDX locator string and assigns its components
+// to the branch options fields.
 func (bo *branchOptions) ParseLocator(lString string) error {
-	components, err := vcslocator.Locator(lString).Parse()
+	components, err := vcslocator.Locator(lString).Parse(vcslocator.WithRefAsBranch(true))
 	if err != nil {
 		return fmt.Errorf("parsing repository slug: %w", err)
 	}
