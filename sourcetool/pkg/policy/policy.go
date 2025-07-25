@@ -16,6 +16,8 @@ import (
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/google/go-github/v69/github" // Use v69
 	spb "github.com/in-toto/attestation/go/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
@@ -29,52 +31,14 @@ import (
 const (
 	SourcePolicyUri       = "github.com/slsa-framework/slsa-source-poc"
 	SourcePolicyRepoOwner = "slsa-framework"
-	SourcePolicyRepo      = "slsa-source-poc"
+	SourcePolicyRepo      = "source-policies"
 )
-
-// Used by orgs to require that specific 'checks' are run on protected
-// branches and to associate those checks with a control name to include
-// in provenance and VSAs.
-// https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-status-checks-to-pass-before-merging
-type OrgStatusCheckControl struct {
-	// The property to record in the VSA if the conditions are met.
-	// MUST start with `ORG_SOURCE_`.
-	PropertyName slsa.ControlName `json:"property_name"`
-	// These controls have their own start time to enable orgs to enable
-	// new ones without violating continuity on other controls.
-	Since time.Time `json:"Since"`
-	// The name of the 'Status Check' as reported in the GitHub UI & API.
-	CheckName string `json:"check_name"`
-}
-
-// When a branch requires multiple controls, they must all be enabled
-// at or before 'Since'.
-type ProtectedBranch struct {
-	Name                  string                  `json:"Name"`
-	Since                 time.Time               `json:"Since"`
-	TargetSlsaSourceLevel slsa.SlsaSourceLevel    `json:"target_slsa_source_level"`
-	RequireReview         bool                    `json:"require_review"`
-	RequiredStatusChecks  []OrgStatusCheckControl `json:"org_status_check_controls"`
-}
-
-// The controls required for protected tags.
-type ProtectedTag struct {
-	Since      time.Time `json:"Since"`
-	TagHygiene bool      `json:"tag_hygiene"`
-}
-
-type RepoPolicy struct {
-	// TODO: I'm actually not sure we need this.  Consider removing?
-	CanonicalRepo     string            `json:"canonical_repo"`
-	ProtectedBranches []ProtectedBranch `json:"protected_branches"`
-	ProtectedTag      *ProtectedTag     `json:"protected_tag"`
-}
 
 // Returns the policy for the branch or nil if the branch doesn't have one.
 func (rp *RepoPolicy) getBranchPolicy(branch string) *ProtectedBranch {
-	for _, pb := range rp.ProtectedBranches {
-		if pb.Name == branch {
-			return &pb
+	for _, pb := range rp.GetProtectedBranches() {
+		if pb.GetName() == branch {
+			return pb
 		}
 	}
 	return nil
@@ -83,8 +47,8 @@ func (rp *RepoPolicy) getBranchPolicy(branch string) *ProtectedBranch {
 func createDefaultBranchPolicy(branch *models.Branch) *ProtectedBranch {
 	return &ProtectedBranch{
 		Name:                  branch.Name,
-		Since:                 time.Now(),
-		TargetSlsaSourceLevel: slsa.SlsaSourceLevel1,
+		Since:                 timestamppb.Now(),
+		TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel1),
 		RequireReview:         false,
 	}
 }
@@ -133,12 +97,15 @@ func (pe *PolicyEvaluator) getRemotePolicy(ctx context.Context, repo *models.Rep
 	if err != nil {
 		return nil, "", err
 	}
-	var p RepoPolicy
-	err = json.Unmarshal([]byte(content), &p)
+
+	p := &RepoPolicy{}
+	err = protojson.UnmarshalOptions{
+		DiscardUnknown: false,
+	}.Unmarshal([]byte(content), p)
 	if err != nil {
 		return nil, "", fmt.Errorf("unmarshaling policy code: %w", err)
 	}
-	return &p, *policyContents.HTMLURL, nil
+	return p, *policyContents.HTMLURL, nil
 }
 
 func getLocalPolicy(path string) (*RepoPolicy, string, error) {
@@ -148,9 +115,9 @@ func getLocalPolicy(path string) (*RepoPolicy, string, error) {
 	}
 
 	var p RepoPolicy
-	err = json.Unmarshal(contents, &p)
+	err = protojson.Unmarshal(contents, &p)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("unmarshaling json: %w", err)
 	}
 	return &p, path, nil
 }
@@ -296,16 +263,16 @@ func (pe *PolicyEvaluator) CreateLocalPolicy(ctx context.Context, repo *models.R
 
 	p := RepoPolicy{
 		CanonicalRepo: fmt.Sprintf("https://github.com/%s/%s", repoOrg, repoName),
-		ProtectedBranches: []ProtectedBranch{
+		ProtectedBranches: []*ProtectedBranch{
 			{
 				Name:                  branch.Name,
-				Since:                 *eligibleSince,
-				TargetSlsaSourceLevel: eligibleLevel,
+				Since:                 timestamppb.New(*eligibleSince),
+				TargetSlsaSourceLevel: string(eligibleLevel),
 				// TODO support filling in other controls too.
 			},
 		},
 	}
-	data, err := json.MarshalIndent(p, "", "  ")
+	data, err := json.MarshalIndent(&p, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -370,32 +337,32 @@ type computePolicyResult func(*ProtectedBranch, *ProtectedTag, slsa.Controls) ([
 func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa.Controls) ([]slsa.ControlName, error) {
 	eligibleLevel := ComputeEligibleSlsaLevel(controls)
 
-	if !slsa.IsLevelHigherOrEqualTo(eligibleLevel, branchPolicy.TargetSlsaSourceLevel) {
+	if !slsa.IsLevelHigherOrEqualTo(eligibleLevel, slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel())) {
 		return []slsa.ControlName{}, fmt.Errorf(
 			"policy sets target level %s which requires %v, but branch is only eligible for %s because it only has %v",
-			branchPolicy.TargetSlsaSourceLevel,
-			slsa.GetRequiredControlsForLevel(branchPolicy.TargetSlsaSourceLevel),
+			branchPolicy.GetTargetSlsaSourceLevel(),
+			slsa.GetRequiredControlsForLevel(slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel())),
 			eligibleLevel, controls.Names())
 	}
 
 	// Check to see when this branch became eligible for the current target level.
-	eligibleSince, err := ComputeEligibleSince(controls, branchPolicy.TargetSlsaSourceLevel)
+	eligibleSince, err := ComputeEligibleSince(controls, slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel()))
 	if err != nil {
 		return []slsa.ControlName{}, fmt.Errorf("could not compute eligible since: %w", err)
 	}
 	if eligibleSince == nil {
-		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s, but cannot compute when controls made it eligible for that level", branchPolicy.TargetSlsaSourceLevel)
+		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s, but cannot compute when controls made it eligible for that level", branchPolicy.GetTargetSlsaSourceLevel())
 	}
 
-	if branchPolicy.Since.Before(*eligibleSince) {
-		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.TargetSlsaSourceLevel, branchPolicy.Since, eligibleSince)
+	if branchPolicy.GetSince().AsTime().Before(*eligibleSince) {
+		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.GetTargetSlsaSourceLevel(), branchPolicy.GetSince(), eligibleSince)
 	}
 
-	return []slsa.ControlName{slsa.ControlName(branchPolicy.TargetSlsaSourceLevel)}, nil
+	return []slsa.ControlName{slsa.ControlName(branchPolicy.GetTargetSlsaSourceLevel())}, nil
 }
 
 func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa.Controls) ([]slsa.ControlName, error) {
-	if !branchPolicy.RequireReview {
+	if !branchPolicy.GetRequireReview() {
 		return []slsa.ControlName{}, nil
 	}
 
@@ -404,8 +371,8 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, contr
 		return []slsa.ControlName{}, fmt.Errorf("policy requires review, but that control is not enabled")
 	}
 
-	if branchPolicy.Since.Before(reviewControl.Since) {
-		return []slsa.ControlName{}, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.Since, reviewControl.Since)
+	if branchPolicy.GetSince().AsTime().Before(reviewControl.Since) {
+		return []slsa.ControlName{}, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.GetSince(), reviewControl.Since)
 	}
 
 	return []slsa.ControlName{slsa.ReviewEnforced}, nil
@@ -417,7 +384,7 @@ func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls sls
 		return []slsa.ControlName{}, nil
 	}
 
-	if !tagPolicy.TagHygiene {
+	if !tagPolicy.GetTagHygiene() {
 		return []slsa.ControlName{}, nil
 	}
 
@@ -426,8 +393,8 @@ func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls sls
 		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene, but that control is not enabled")
 	}
 
-	if tagPolicy.Since.Before(tagHygiene.Since) {
-		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.Since, tagHygiene.Since)
+	if tagPolicy.GetSince().AsTime().Before(tagHygiene.Since) {
+		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.GetSince(), tagHygiene.Since)
 	}
 
 	return []slsa.ControlName{slsa.TagHygiene}, nil
@@ -435,19 +402,19 @@ func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls sls
 
 func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa.Controls) ([]slsa.ControlName, error) {
 	controlNames := []slsa.ControlName{}
-	for _, rc := range branchPolicy.RequiredStatusChecks {
-		if !strings.HasPrefix(string(rc.PropertyName), slsa.AllowedOrgPropPrefix) {
-			return []slsa.ControlName{}, fmt.Errorf("policy specifies an invalid property name %v, custom property names MUST start with %v", rc.PropertyName, slsa.AllowedOrgPropPrefix)
+	for _, rc := range branchPolicy.GetOrgStatusCheckControls() {
+		if !strings.HasPrefix(rc.GetPropertyName(), slsa.AllowedOrgPropPrefix) {
+			return []slsa.ControlName{}, fmt.Errorf("policy specifies an invalid property name %v, custom property names MUST start with %v", rc.GetPropertyName(), slsa.AllowedOrgPropPrefix)
 		}
 
-		control := controls.GetControl(ghcontrol.CheckNameToControlName(rc.CheckName))
+		control := controls.GetControl(ghcontrol.CheckNameToControlName(rc.GetCheckName()))
 		if control != nil {
-			if rc.Since.Before(control.Since) {
-				return []slsa.ControlName{}, fmt.Errorf("policy requires check '%v' since %v, but that control has only been enabled since %v", rc.CheckName, rc.Since, control.Since)
+			if rc.GetSince().AsTime().Before(control.Since) {
+				return []slsa.ControlName{}, fmt.Errorf("policy requires check '%v' since %v, but that control has only been enabled since %v", rc.GetCheckName(), rc.GetSince(), control.Since)
 			}
-			controlNames = append(controlNames, rc.PropertyName)
+			controlNames = append(controlNames, slsa.ControlName(rc.GetPropertyName()))
 		} else {
-			return []slsa.ControlName{}, fmt.Errorf("policy requires check '%v', but that control is not enabled", rc.CheckName)
+			return []slsa.ControlName{}, fmt.Errorf("policy requires check '%v', but that control is not enabled", rc.GetCheckName())
 		}
 	}
 	return controlNames, nil
@@ -554,12 +521,12 @@ func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Rep
 		policyPath = "DEFAULT"
 	}
 
-	if controlStatus.CommitPushTime.Before(branchPolicy.Since) {
+	if controlStatus.CommitPushTime.Before(branchPolicy.GetSince().AsTime()) {
 		// This commit was pushed before they had an explicit policy.
 		return slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)}, policyPath, nil
 	}
 
-	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.ProtectedTag, controlStatus.Controls)
+	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), controlStatus.Controls)
 	if err != nil {
 		return verifiedLevels, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
@@ -570,7 +537,7 @@ func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Rep
 func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.Repository, branch *models.Branch, prov *spb.Statement) (slsa.SourceVerifiedLevels, string, error) {
 	rp, policyPath, err := pe.GetPolicy(ctx, repo)
 	if err != nil || rp == nil {
-		return slsa.SourceVerifiedLevels{}, "", err
+		return slsa.SourceVerifiedLevels{}, "", fmt.Errorf("getting policy: %w", err)
 	}
 
 	provPred, err := attest.GetSourceProvPred(prov)
@@ -584,7 +551,7 @@ func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.
 		policyPath = "DEFAULT"
 	}
 
-	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.ProtectedTag, provPred.Controls)
+	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), provPred.Controls)
 	if err != nil {
 		return slsa.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
@@ -605,7 +572,7 @@ func (pe *PolicyEvaluator) EvaluateTagProv(ctx context.Context, repo *models.Rep
 		return slsa.SourceVerifiedLevels{}, "", err
 	}
 
-	outputVerifiedLevels, err := evaluateTagProv(rp.ProtectedTag, provPred)
+	outputVerifiedLevels, err := evaluateTagProv(rp.GetProtectedTag(), provPred)
 	if err != nil {
 		return slsa.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
@@ -231,11 +233,11 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 
 	p := &policy.RepoPolicy{
 		CanonicalRepo: r.GetHttpURL(),
-		ProtectedBranches: []policy.ProtectedBranch{
+		ProtectedBranches: []*policy.ProtectedBranch{
 			{
 				Name:                  branch.FullRef(),
-				Since:                 *eligibleSince,
-				TargetSlsaSourceLevel: eligibleLevel,
+				Since:                 timestamppb.New(*eligibleSince),
+				TargetSlsaSourceLevel: string(eligibleLevel),
 			},
 		},
 	}

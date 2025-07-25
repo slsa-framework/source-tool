@@ -221,8 +221,8 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 
 	if pcy != nil {
 		t := time.Now()
-		if len(pcy.ProtectedBranches) > 0 {
-			t = pcy.ProtectedBranches[0].Since
+		if len(pcy.GetProtectedBranches()) > 0 {
+			t = pcy.GetProtectedBranches()[0].GetSince().AsTime()
 		}
 		return &slsa.ControlStatus{
 			Name:              slsa.PolicyAvailable,
