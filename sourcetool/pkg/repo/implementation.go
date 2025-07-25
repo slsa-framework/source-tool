@@ -134,6 +134,12 @@ func (impl *defaultPrmImpl) CloneRepo(opts *options.PullRequestManagerOptions, a
 		return nil, fmt.Errorf("adding remote: %w", err)
 	}
 
+	// Create the feature branch
+	if err := clone.CreateFeatureBranch(); err != nil {
+		clone.Cleanup()
+		return nil, fmt.Errorf("creating feature branch locally: %w", err)
+	}
+
 	return clone, nil
 }
 
