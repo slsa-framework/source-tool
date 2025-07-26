@@ -99,8 +99,14 @@ func (c *Clone) AddRemote(name, url string) error {
 
 // PushToRemote pushes the active branch to the specified remote
 func (c *Clone) PushRemote(remoteName string) error {
+	refSpecs := []config.RefSpec{
+		config.RefSpec(fmt.Sprintf(
+			"+refs/heads/%s:refs/heads/%s", c.FeatureBranch, c.FeatureBranch,
+		)),
+	}
 	err := c.repo.Push(&git.PushOptions{
 		RemoteName: remoteName,
+		RefSpecs:   refSpecs,
 	})
 	if err != nil {
 		return fmt.Errorf("pushing to remote: %w", err)

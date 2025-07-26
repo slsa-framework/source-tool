@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/release-utils/util"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool"
@@ -19,12 +20,14 @@ type policyViewOpts struct {
 
 type policyCreateOpts struct {
 	branchOptions
+	interactive     bool
 	openPullRequest bool
 }
 
 func (pco *policyCreateOpts) AddFlags(cmd *cobra.Command) {
 	pco.branchOptions.AddFlags(cmd)
 	cmd.PersistentFlags().BoolVar(&pco.openPullRequest, "pr", true, "Open a pull request to check-in the policy")
+	cmd.PersistentFlags().BoolVar(&pco.interactive, "interactive", true, "confirm before performing changes")
 }
 
 func addPolicy(parentCmd *cobra.Command) {
@@ -125,7 +128,10 @@ func addPolicyCreate(parent *cobra.Command) {
 	policyViewCmd := &cobra.Command{
 		Short: "creates a source policy for a repository",
 		Long: `The create subcommand inspects the controls in place for a repo
-and creates a new policy for it. 
+and creates a new policy for it. By default it will create a pull request
+in the community source policy repository. If you choose not to, it will
+just print the generated policy.
+
 `,
 		Use:           "create owner/repo@branch",
 		SilenceUsage:  false,
@@ -140,6 +146,10 @@ and creates a new policy for it.
 			// Validate early the repository options to provide a more
 			// useful message to the user
 			if err := opts.repoOptions.Validate(); err != nil {
+				return err
+			}
+
+			if err := opts.EnsureDefaults(); err != nil {
 				return err
 			}
 
@@ -161,7 +171,9 @@ and creates a new policy for it.
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				// Uncomment when we want to support custom policy repos
 				// sourcetool.WithPolicyRepo(opts.policyRepo),
+				sourcetool.WithCreatePolicyPR(opts.openPullRequest),
 			)
 			if err != nil {
 				return err
@@ -173,6 +185,31 @@ and creates a new policy for it.
 			}
 			if epcy != nil {
 				return fmt.Errorf("repository already has a policy checked into the community repo")
+			}
+
+			if opts.openPullRequest && opts.interactive {
+				fmt.Printf(`
+
+sourcetool is about to perform the following actions on your behalf:
+
+    >  Open a pull request in %s/%s checking in
+       a SLSA source policy for the current controls enabled
+       in %s/%s.
+
+We will push a branch to your fork of the community repository and 
+open the pull request from there.
+
+`, policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo, opts.owner, opts.repository)
+
+				_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+				if err != nil {
+					return err
+				}
+
+				if !s {
+					fmt.Println("Cancelled.")
+					return nil
+				}
 			}
 
 			// Create the policy, this will open the pull request in the community
