@@ -20,6 +20,12 @@ jobs:
           go-version: "1.24"
           check-latest: true
 
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@a47c93e0b1648d5651a065437926377d060baa99 # v1.50.0
+
+      - name: Setup protoc
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # @v3.0.0
+
       - name: Run Go tests
         run: |
           go test ./sourcetool/...
@@ -27,3 +33,8 @@ jobs:
       - name: Check generated fakes
         run: |
           hack/verify-fakes.sh
+
+      - name: Check protobuf generated codew
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          hack/verify-protos.sh
