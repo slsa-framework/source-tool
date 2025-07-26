@@ -1,0 +1,68 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: read
+  
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write # To sign attestations
+      attestations: write # To push build provenance to attestations store
+      contents: write # To create the release
+      
+    steps:
+      
+      - name: Setup bnd
+        uses: carabiner-dev/actions/install/bnd@HEAD
+
+      - name: Check out code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: sourcetool/go.mod
+          cache: false
+
+      - name: Install tejolote
+        uses: kubernetes-sigs/release-actions/setup-tejolote@a30d93cf2aa029e1e4c8a6c79f766aebf429fddb # v0.3.1
+        with:
+          tejolote-release: "0.4.1"
+
+      - name: Set tag output
+        id: tag
+        run: echo "tag_name=${GITHUB_REF#refs/*/}" >> "$GITHUB_OUTPUT"
+  
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
+        id: goreleaser
+        with:
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Provenance
+        id: tejolote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            mkdir attestations
+            tejolote attest --artifacts github://${{github.repository}}/${{ steps.tag.outputs.tag_name }} github://${{github.repository}}/"${GITHUB_RUN_ID}" --output attestations/provenance.json
+            # Remove this once tejolote attests fine
+            sed -i 's|https://github.com/Attestations/GitHubActionsWorkflow@v1|https://actions.github.io/buildtypes/workflow/v1|' attestations/provenance.json
+            bnd statement attestations/provenance.json -o attestations/sourcetool-${{ steps.tag.outputs.tag_name }}.provenance.json
+            rm attestations/provenance.json
+            bnd pack attestations/ > sourcetool.intoto.jsonl
+            gh release upload ${{ steps.tag.outputs.tag_name }} sourcetool.intoto.jsonl
+            # Remove this once GitHub like the tejolote build predicate
+            # bnd push github ${{github.repository}} attestations/sourcetool-${{ steps.tag.outputs.tag_name }}.provenance.json 
+
