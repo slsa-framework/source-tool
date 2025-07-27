@@ -224,7 +224,7 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 		case slsa.StateNotEnabled:
 			return &slsa.ControlRecommendedAction{
 				Message: "Start generating provenance",
-				Command: fmt.Sprintf("sourcetool setup controls --config=CONFIG_PROVENANCE_WORKFLOW %s", r.Path),
+				Command: fmt.Sprintf("sourcetool setup controls --config=%s %s", models.CONFIG_GEN_PROVENANCE, r.Path),
 			}
 		default:
 			return nil
@@ -233,7 +233,7 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 		if state == slsa.StateNotEnabled {
 			return &slsa.ControlRecommendedAction{
 				Message: "Enable branch push/delete protection",
-				Command: fmt.Sprintf("sourcetool setup controls --config=CONFIG_BRANCH_RULES %s", r.Path),
+				Command: fmt.Sprintf("sourcetool setup controls --config=%s %s", models.CONFIG_BRANCH_RULES, r.Path),
 			}
 		}
 		return nil
