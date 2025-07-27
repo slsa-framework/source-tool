@@ -254,8 +254,8 @@ func (pe *PolicyEvaluator) CreateLocalPolicy(ctx context.Context, repo *models.R
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
 	if provPred != nil {
-		eligibleLevel = ComputeEligibleSlsaLevel(provPred.Controls)
-		eligibleSince, err = ComputeEligibleSince(provPred.Controls, eligibleLevel)
+		eligibleLevel = ComputeEligibleSlsaLevel(provPred.GetControls())
+		eligibleSince, err = ComputeEligibleSince(provPred.GetControls(), eligibleLevel)
 		if err != nil {
 			return "", fmt.Errorf("could not compute eligible since: %w", err)
 		}
@@ -313,6 +313,13 @@ func ComputeEligibleSlsaLevel(controls slsa.Controls) slsa.SlsaSourceLevel {
 	return slsa.SlsaSourceLevel1
 }
 
+func laterTime(time1, time2 time.Time) time.Time {
+	if time1.After(time2) {
+		return time1
+	}
+	return time2
+}
+
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
 func ComputeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*time.Time, error) {
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
@@ -323,9 +330,9 @@ func ComputeEligibleSince(controls slsa.Controls, level slsa.SlsaSourceLevel) (*
 			return nil, nil
 		}
 		if newestTime.Equal(time.Time{}) {
-			newestTime = ac.Since
+			newestTime = ac.GetSince().AsTime()
 		} else {
-			newestTime = slsa.LaterTime(newestTime, ac.Since)
+			newestTime = laterTime(newestTime, ac.GetSince().AsTime())
 		}
 	}
 	return &newestTime, nil
@@ -371,8 +378,8 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, contr
 		return []slsa.ControlName{}, fmt.Errorf("policy requires review, but that control is not enabled")
 	}
 
-	if branchPolicy.GetSince().AsTime().Before(reviewControl.Since) {
-		return []slsa.ControlName{}, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.GetSince(), reviewControl.Since)
+	if branchPolicy.GetSince().AsTime().Before(reviewControl.GetSince().AsTime()) {
+		return []slsa.ControlName{}, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.GetSince(), reviewControl.GetSince())
 	}
 
 	return []slsa.ControlName{slsa.ReviewEnforced}, nil
@@ -393,8 +400,8 @@ func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls sls
 		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene, but that control is not enabled")
 	}
 
-	if tagPolicy.GetSince().AsTime().Before(tagHygiene.Since) {
-		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.GetSince(), tagHygiene.Since)
+	if tagPolicy.GetSince().AsTime().Before(tagHygiene.GetSince().AsTime()) {
+		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.GetSince(), tagHygiene.GetSince())
 	}
 
 	return []slsa.ControlName{slsa.TagHygiene}, nil
@@ -409,8 +416,8 @@ func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls
 
 		control := controls.GetControl(ghcontrol.CheckNameToControlName(rc.GetCheckName()))
 		if control != nil {
-			if rc.GetSince().AsTime().Before(control.Since) {
-				return []slsa.ControlName{}, fmt.Errorf("policy requires check '%v' since %v, but that control has only been enabled since %v", rc.GetCheckName(), rc.GetSince(), control.Since)
+			if rc.GetSince().AsTime().Before(control.GetSince().AsTime()) {
+				return []slsa.ControlName{}, fmt.Errorf("policy requires check '%v' since %v, but that control has only been enabled since %v", rc.GetCheckName(), rc.GetSince(), control.GetSince())
 			}
 			controlNames = append(controlNames, slsa.ControlName(rc.GetPropertyName()))
 		} else {
@@ -444,7 +451,7 @@ func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *provenance.TagProvena
 	// As long as all the controls for tag protection are currently in force then we'll
 	// include the verifiedLevels.
 
-	computedControls, err := computeTagHygiene(nil, tagPolicy, tagProvPred.Controls)
+	computedControls, err := computeTagHygiene(nil, tagPolicy, tagProvPred.GetControls())
 	if err != nil {
 		return slsa.SourceVerifiedLevels{}, fmt.Errorf("error computing tag immutability enforced: %w", err)
 	}
@@ -461,10 +468,10 @@ func evaluateTagProv(tagPolicy *ProtectedTag, tagProvPred *provenance.TagProvena
 	// be used, I don't think it would be very readable.
 	verifiedLevels := slsa.SourceVerifiedLevels{}
 	highestSlsaLevel := slsa.SlsaSourceLevel1
-	for _, summary := range tagProvPred.VsaSummaries {
-		for _, level := range summary.VerifiedLevels {
-			verifiedLevels = append(verifiedLevels, level)
-			if slsa.IsSlsaSourceLevel(level) &&
+	for _, summary := range tagProvPred.GetVsaSummaries() {
+		for _, level := range summary.GetVerifiedLevels() {
+			verifiedLevels = append(verifiedLevels, slsa.ControlName(level))
+			if slsa.IsSlsaSourceLevel(slsa.ControlName(level)) &&
 				slsa.IsLevelHigherOrEqualTo(slsa.SlsaSourceLevel(level), highestSlsaLevel) {
 				highestSlsaLevel = slsa.SlsaSourceLevel(level)
 			}
@@ -551,7 +558,7 @@ func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.
 		policyPath = "DEFAULT"
 	}
 
-	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), provPred.Controls)
+	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), provPred.GetControls())
 	if err != nil {
 		return slsa.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}

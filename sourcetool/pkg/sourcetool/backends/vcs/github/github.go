@@ -9,6 +9,7 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
@@ -91,8 +92,8 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 		return nil, fmt.Errorf("attempting to read provenance from commit %q: %w", commit.SHA, err)
 	}
 	if attestation != nil {
-		activeControls.AddControl(&slsa.Control{
-			Name: slsa.ProvenanceAvailable,
+		activeControls.AddControl(&provenance.Control{
+			Name: slsa.ProvenanceAvailable.String(),
 		})
 	} else {
 		log.Printf("No provenance attestation found on %s", commit.SHA)
@@ -101,9 +102,10 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 	status := slsa.NewControlSetStatus()
 	for i, ctrl := range status.Controls {
 		if c := activeControls.GetControl(ctrl.Name); c != nil {
-			status.Controls[i].Since = &c.Since
+			t := c.GetSince().AsTime()
+			status.Controls[i].Since = &t
 			status.Controls[i].State = slsa.StateActive
-			status.Controls[i].Message = b.controlImplementationMessage(c.Name)
+			status.Controls[i].Message = b.controlImplementationMessage(slsa.ControlName(c.GetName()))
 		}
 	}
 

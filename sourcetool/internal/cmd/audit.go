@@ -140,11 +140,11 @@ func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, m
 	}
 	if ar.ProvPred != nil {
 		fmt.Print("\tprov:\n")
-		fmt.Printf("\t\tcontrols: %v\n", ar.ProvPred.Controls)
-		if ar.ProvPred.PrevCommit == ar.GhPriorCommit {
+		fmt.Printf("\t\tcontrols: %v\n", ar.ProvPred.GetControls())
+		if ar.ProvPred.GetPrevCommit() == ar.GhPriorCommit {
 			fmt.Printf("\t\tPrevCommit matches GH commit: true\n")
 		} else {
-			fmt.Printf("\t\tPrevCommit matches GH commit: false: %s != %s\n", ar.ProvPred.PrevCommit, ar.GhPriorCommit)
+			fmt.Printf("\t\tPrevCommit matches GH commit: false: %s != %s\n", ar.ProvPred.GetPrevCommit(), ar.GhPriorCommit)
 		}
 	} else {
 		fmt.Printf("\tprov: none\n")

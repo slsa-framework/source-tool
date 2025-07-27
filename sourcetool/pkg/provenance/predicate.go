@@ -1,44 +1,64 @@
 package provenance
 
-import (
-	"time"
-
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-)
+import "encoding/json"
 
 const (
 	SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft"
 	TagProvPredicateType    = "https://github.com/slsa-framework/slsa-source-poc/tag-provenance/v1-draft"
 )
 
-// The predicate that encodes source provenance data.
-// The git commit this corresponds to is encoded in the surrounding statement.
-type SourceProvenancePred struct {
-	// The commit preceding 'Commit' in the current context.
-	PrevCommit   string    `json:"prev_commit"`
-	RepoUri      string    `json:"repo_uri"`
-	ActivityType string    `json:"activity_type"`
-	Actor        string    `json:"actor"`
-	Branch       string    `json:"branch"`
-	CreatedOn    time.Time `json:"created_on"`
-	// TODO: get the author of the PR (if this was from a PR).
-
-	// The controls enabled at the time this commit was pushed.
-	Controls slsa.Controls `json:"controls"`
+// GetControl looks for a control by name in the predicate.
+func (pred *SourceProvenancePred) GetControl(name string) *Control {
+	for _, control := range pred.GetControls() {
+		if control.GetName() == name {
+			return control
+		}
+	}
+	return nil
 }
 
-type TagProvenancePred struct {
-	RepoUri   string    `json:"repo_uri"`
-	Actor     string    `json:"actor"`
-	Tag       string    `json:"tag"`
-	CreatedOn time.Time `json:"created_on"`
-	// The tag related controls enabled at the time this tag was created/updated.
-	Controls     slsa.Controls `json:"controls"`
-	VsaSummaries []VsaSummary  `json:"vsa_summaries"`
+// AddControl adds a new control to the predicate.
+func (pred *SourceProvenancePred) AddControl(newControls ...*Control) {
+	for _, c := range newControls {
+		if c == nil {
+			continue
+		}
+		pred.Controls = append(pred.Controls, c)
+	}
 }
 
-// Summary of a summary
-type VsaSummary struct {
-	SourceRefs     []string           `json:"source_refs"`
-	VerifiedLevels []slsa.ControlName `json:"verifiedLevels"`
+func (pred *SourceProvenancePred) MarshalJSON() ([]byte, error) {
+	type Alias SourceProvenancePred
+	var con string
+	if pred.GetCreatedOn() != nil {
+		con = pred.GetCreatedOn().AsTime().Format("2006-01-02T15:04:05.000Z")
+	}
+
+	return json.Marshal(
+		&struct {
+			CreatedOn string `json:"created_on"`
+			*Alias
+		}{
+			CreatedOn: con,
+			Alias:     (*Alias)(pred),
+		},
+	)
+}
+
+func (ctl *Control) MarshalJSON() ([]byte, error) {
+	type Alias Control
+	var since string
+	if ctl.GetSince() != nil {
+		since = ctl.GetSince().AsTime().Format("2006-01-02T15:04:05.000Z")
+	}
+
+	return json.Marshal(
+		&struct {
+			CreatedOn string `json:"since"`
+			*Alias
+		}{
+			CreatedOn: since,
+			Alias:     (*Alias)(ctl),
+		},
+	)
 }

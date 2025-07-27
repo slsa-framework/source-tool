@@ -3,6 +3,10 @@ package slsa
 import (
 	"slices"
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 )
 
 type (
@@ -10,6 +14,10 @@ type (
 	ControlState    string
 	SlsaSourceLevel ControlName
 )
+
+func (c ControlName) String() string {
+	return string(c)
+}
 
 const (
 	SlsaSourceLevel1         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
@@ -53,31 +61,24 @@ func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {
 	return level1 >= level2
 }
 
-type Control struct {
-	// The name of the control
-	Name ControlName `json:"name"`
-	// The time from which this control has been continuously enforced/observed.
-	Since time.Time `json:"since"`
-}
-
-type Controls []Control
+type Controls []*provenance.Control
 
 // Adds the control to the list. Ignores nil controls.
 // Does not check for duplicate controls.
-func (controls *Controls) AddControl(newControls ...*Control) {
+func (controls *Controls) AddControl(newControls ...*provenance.Control) {
 	for _, c := range newControls {
 		if c == nil {
 			continue
 		}
-		*controls = append(*controls, *c)
+		*controls = append(*controls, c)
 	}
 }
 
 // Gets the control with the corresponding name, returns nil if not found.
-func (controls *Controls) GetControl(name ControlName) *Control {
+func (controls *Controls) GetControl(name ControlName) *provenance.Control {
 	for _, control := range *controls {
-		if control.Name == name {
-			return &control
+		if control.GetName() == name.String() {
+			return control
 		}
 	}
 	return nil
@@ -96,7 +97,7 @@ func (controls *Controls) AreControlsAvailable(names []ControlName) bool {
 func (controls *Controls) Names() []ControlName {
 	names := make([]ControlName, len(*controls))
 	for i := range *controls {
-		names[i] = (*controls)[i].Name
+		names[i] = ControlName((*controls)[i].GetName())
 	}
 	return names
 }
@@ -127,27 +128,12 @@ func EarlierTime(time1, time2 time.Time) time.Time {
 	return time2
 }
 
-func LaterTime(time1, time2 time.Time) time.Time {
-	if time1.After(time2) {
-		return time1
-	}
-	return time2
-}
-
 func ControlNamesToStrings(controlNames []ControlName) []string {
 	strs := make([]string, len(controlNames))
 	for i := range controlNames {
 		strs[i] = string(controlNames[i])
 	}
 	return strs
-}
-
-func StringsToControlNames(strs []string) []ControlName {
-	controlNames := make([]ControlName, len(strs))
-	for i := range strs {
-		controlNames[i] = ControlName(strs[i])
-	}
-	return controlNames
 }
 
 // NewControlStatus returns a new control status object initialized with
@@ -199,8 +185,8 @@ func (cs *ControlSetStatus) GetActiveControls() *Controls {
 	ret := Controls{}
 	for _, c := range cs.Controls {
 		if c.State == StateActive {
-			ret.AddControl(&Control{
-				Name: c.Name, Since: *c.Since,
+			ret.AddControl(&provenance.Control{
+				Name: c.Name.String(), Since: timestamppb.New(*c.Since),
 			})
 		}
 	}

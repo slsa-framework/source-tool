@@ -2,13 +2,14 @@ package attest
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/go-github/v69/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
@@ -36,7 +37,7 @@ func conditionsForTagImmutability() *github.RepositoryRulesetConditions {
 
 func createTestProv(t *testing.T, repoUri, ref, commit string) string {
 	provPred := provenance.SourceProvenancePred{RepoUri: repoUri, Branch: ref, ActivityType: "pr_merge", Actor: "test actor"}
-	stmt, err := addPredToStatement(provPred, provenance.SourceProvPredicateType, commit)
+	stmt, err := addPredToStatement(&provPred, provenance.SourceProvPredicateType, commit)
 	if err != nil {
 		t.Fatalf("failure creating test prov: %v", err)
 	}
@@ -98,34 +99,38 @@ func timesEqualWithinMargin(t1, t2 time.Time, margin time.Duration) bool {
 }
 
 func assertTagProvPredsEqual(t *testing.T, actual, expected *provenance.TagProvenancePred) {
-	if actual.Actor != expected.Actor {
-		t.Errorf("Actor %v does not match expected value %v", actual.Actor, expected.Actor)
+	if actual.GetActor() != expected.GetActor() {
+		t.Errorf("Actor %v does not match expected value %v", actual.GetActor(), expected.GetActor())
 	}
 
-	if actual.RepoUri != expected.RepoUri {
-		t.Errorf("RepoUri %v does not match expected value %v", actual.RepoUri, expected.RepoUri)
+	if actual.GetRepoUri() != expected.GetRepoUri() {
+		t.Errorf("RepoUri %v does not match expected value %v", actual.GetRepoUri(), expected.GetRepoUri())
 	}
 
-	if actual.Tag != expected.Tag {
-		t.Errorf("Tag %v does not match expected value %v", actual.Tag, expected.Tag)
+	if actual.GetTag() != expected.GetTag() {
+		t.Errorf("Tag %v does not match expected value %v", actual.GetTag(), expected.GetTag())
 	}
 
-	if timesEqualWithinMargin(actual.CreatedOn, expected.CreatedOn, 5*time.Second) {
-		t.Errorf("CreatedOn %v does not match expected value %v", actual.CreatedOn, expected.CreatedOn)
+	if timesEqualWithinMargin(actual.GetCreatedOn().AsTime(), expected.GetCreatedOn().AsTime(), 5*time.Second) {
+		t.Errorf("CreatedOn %v does not match expected value %v", actual.GetCreatedOn(), expected.GetCreatedOn())
 	}
 
-	if len(actual.Controls) != len(expected.Controls) {
-		t.Errorf("Control %v does not match expected value %v", actual.Controls, expected.Controls)
+	if len(actual.GetControls()) != len(expected.GetControls()) {
+		t.Errorf("Control %v does not match expected value %v", actual.GetControls(), expected.GetControls())
 	} else {
-		for ci := range actual.Controls {
-			if !timesEqualWithinMargin(actual.Controls[ci].Since, expected.Controls[ci].Since, time.Second) {
+		for ci := range actual.GetControls() {
+			if !timesEqualWithinMargin(actual.GetControls()[ci].GetSince().AsTime(), expected.GetControls()[ci].GetSince().AsTime(), time.Second) {
 				t.Errorf("control at [%d]'s time %v does not match expected time %v", ci,
-					actual.Controls[ci].Since, expected.Controls[ci].Since)
+					actual.GetControls()[ci].GetSince(), expected.GetControls()[ci].GetSince())
 			}
 		}
 	}
-	if !reflect.DeepEqual(actual.VsaSummaries, expected.VsaSummaries) {
-		t.Errorf("VsaSummaries %v does not match expected value %v", actual.VsaSummaries, expected.VsaSummaries)
+
+	require.Len(t, actual.GetVsaSummaries(), len(expected.GetVsaSummaries()))
+	for i := range actual.GetVsaSummaries() {
+		if !proto.Equal(actual.GetVsaSummaries()[i], expected.GetVsaSummaries()[i]) {
+			t.Errorf("VsaSummaries %v does not match expected value %v", actual.GetVsaSummaries(), expected.GetVsaSummaries())
+		}
 	}
 }
 
@@ -204,17 +209,17 @@ func TestCreateTagProvenance(t *testing.T) {
 		RepoUri:   "https://github.com/owner/repo",
 		Actor:     "the-tag-pusher",
 		Tag:       "refs/tags/v1",
-		CreatedOn: rulesetOldTime,
-		Controls: []slsa.Control{
+		CreatedOn: timestamppb.New(rulesetOldTime),
+		Controls: []*provenance.Control{
 			{
 				Name:  "TAG_HYGIENE",
-				Since: rulesetOldTime,
+				Since: timestamppb.New(rulesetOldTime),
 			},
 		},
-		VsaSummaries: []provenance.VsaSummary{
+		VsaSummaries: []*provenance.VsaSummary{
 			{
 				SourceRefs:     []string{"refs/some/ref"},
-				VerifiedLevels: []slsa.ControlName{"TEST_LEVEL"},
+				VerifiedLevels: []string{"TEST_LEVEL"},
 			},
 		},
 	}
