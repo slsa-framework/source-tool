@@ -266,8 +266,8 @@ func TestBuiltinBranchControls(t *testing.T) {
 			control := controlStatus.Controls.GetControl(tt.expectedControl)
 			if control == nil {
 				t.Fatalf("expected controls to contain %v, got %+v", tt.expectedControl, controlStatus.Controls)
-			} else if !control.Since.Equal(priorTime) {
-				t.Fatalf("expected control.Since %v, got %v", priorTime, control.Since)
+			} else if !control.GetSince().AsTime().Equal(priorTime) {
+				t.Fatalf("expected control.Since %v, got %v", priorTime, control.GetSince())
 			}
 		})
 	}
@@ -349,9 +349,9 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 
 			controlNames := []slsa.ControlName{}
 			for _, control := range controlStatus.Controls {
-				controlNames = append(controlNames, control.Name)
-				if !control.Since.Equal(priorTime) {
-					t.Errorf("Expected control.Since %v, got %v", priorTime, control.Since)
+				controlNames = append(controlNames, slsa.ControlName(control.GetName()))
+				if !control.GetSince().AsTime().Equal(priorTime) {
+					t.Errorf("Expected control.Since %v, got %v", priorTime, control.GetSince())
 				}
 			}
 
