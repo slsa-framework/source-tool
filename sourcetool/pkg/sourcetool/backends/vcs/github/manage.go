@@ -158,7 +158,7 @@ func (b *Backend) CreateRepoRuleset(r *models.Repository, branches []*models.Bra
 		return errors.New("unable to create repo ruleset, branch not set")
 	}
 
-	if len(branches) > 0 {
+	if len(branches) > 1 {
 		return errors.New("protecting more than one branch at a time is not yet supported")
 	}
 

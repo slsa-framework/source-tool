@@ -247,7 +247,7 @@ repositories. Make sure you have a fork of the SLSA source policy repo and
 a fork of the repository you want to protect.
 
 `, w("sourcetool setup controls"), w2("configure a repository for SLSA source"),
-			w2("CONFIG_BRANCH_RULES"), w2("CONFIG_PROVENANCE_WORKFLOW"), w2("CONFIG_POLICY")),
+			w2(models.CONFIG_BRANCH_RULES), w2(models.CONFIG_GEN_PROVENANCE), w2(models.CONFIG_POLICY)),
 		Use:           "controls owner/repo --config=CONTROL1 --config=CONTROL2",
 		SilenceUsage:  false,
 		SilenceErrors: true,
