@@ -35,7 +35,7 @@ func (ar *AuditCommitResult) IsGood() bool {
 	// Have to have provenance
 	if ar.ProvPred == nil {
 		good = false
-	} else if ar.ProvPred.PrevCommit != ar.GhPriorCommit {
+	} else if ar.ProvPred.GetPrevCommit() != ar.GhPriorCommit {
 		// Commits need to be the same.
 		good = false
 	}

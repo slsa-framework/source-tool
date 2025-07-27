@@ -206,7 +206,9 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 
 	var controls *slsa.Controls
 	if predicate != nil {
-		controls = &predicate.Controls
+		for _, c := range predicate.GetControls() {
+			controls.AddControl(c)
+		}
 	}
 
 	return t.createPolicy(r, branches[0], controls)

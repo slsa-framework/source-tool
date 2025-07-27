@@ -3,7 +3,6 @@ package attest
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -13,7 +12,9 @@ import (
 
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
@@ -46,7 +47,7 @@ func GetSourceProvPred(statement *spb.Statement) (*provenance.SourceProvenancePr
 
 	var predStruct provenance.SourceProvenancePred
 	// Using regular json.Unmarshal because this is just a regular struct.
-	err = json.Unmarshal(predJson, &predStruct)
+	err = protojson.Unmarshal(predJson, &predStruct)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshaling predicate: %w", err)
 	}
@@ -73,7 +74,7 @@ func GetTagProvPred(statement *spb.Statement) (*provenance.TagProvenancePred, er
 
 	var predStruct provenance.TagProvenancePred
 	// Using regular json.Unmarshal because this is just a regular struct.
-	err = json.Unmarshal(predJson, &predStruct)
+	err = protojson.Unmarshal(predJson, &predStruct)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshaling predicate: %w", err)
 	}
@@ -84,10 +85,16 @@ func GetTagProvPred(statement *spb.Statement) (*provenance.TagProvenancePred, er
 }
 
 func addPredToStatement(provPred any, predicateType, commit string) (*spb.Statement, error) {
-	// Using regular json.Marshal because this is just a regular struct and not from a proto.
-	predJson, err := json.Marshal(provPred)
+	msg, ok := provPred.(proto.Message)
+	if !ok {
+		return nil, fmt.Errorf("unable to serialize predicate as proto message")
+	}
+	predJson, err := protojson.MarshalOptions{
+		Multiline: true,
+		Indent:    "  ",
+	}.Marshal(msg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshaling predicate proto: %w", err)
 	}
 
 	sub := []*spb.ResourceDescriptor{{
@@ -125,11 +132,11 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.Actor = controlStatus.ActorLogin
 	curProvPred.ActivityType = controlStatus.ActivityType
 	curProvPred.Branch = ref
-	curProvPred.CreatedOn = curTime
+	curProvPred.CreatedOn = timestamppb.New(curTime)
 	curProvPred.Controls = controlStatus.Controls
 
 	// At the very least provenance is available starting now. :)
-	curProvPred.Controls.AddControl(&slsa.Control{Name: slsa.ProvenanceAvailable, Since: curTime})
+	curProvPred.AddControl(&provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: timestamppb.New(curTime)})
 
 	return addPredToStatement(&curProvPred, provenance.SourceProvPredicateType, commit)
 }
@@ -170,7 +177,7 @@ func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref
 		if err != nil {
 			return nil, nil, err
 		}
-		if pa.gh_connection.GetRepoUri() == provPred.RepoUri && (ref == ghcontrol.AnyReference || provPred.Branch == ref) {
+		if pa.gh_connection.GetRepoUri() == provPred.GetRepoUri() && (ref == ghcontrol.AnyReference || provPred.GetBranch() == ref) {
 			// Should be good!
 			return stmt, provPred, nil
 		} else {
@@ -223,13 +230,13 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 
 	// There was prior provenance, so update the Since field for each property
 	// to the oldest encountered.
-	for i, curControl := range curProvPred.Controls {
-		prevControl := prevProvPred.Controls.GetControl(curControl.Name)
+	for i, curControl := range curProvPred.GetControls() {
+		prevControl := prevProvPred.GetControl(curControl.GetName())
 		// No prior version of this control
 		if prevControl == nil {
 			continue
 		}
-		curControl.Since = slsa.EarlierTime(curControl.Since, prevControl.Since)
+		curControl.Since = timestamppb.New(slsa.EarlierTime(curControl.GetSince().AsTime(), prevControl.GetSince().AsTime()))
 		// Update the value.
 		curProvPred.Controls[i] = curControl
 	}
@@ -259,8 +266,6 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 		return nil, nil
 	}
 
-	curTime := time.Now()
-
 	vsaRefs, err := GetSourceRefsForCommit(vsaStatement, commit)
 	if err != nil {
 		return nil, fmt.Errorf("error getting source refs from vsa %w", err)
@@ -270,12 +275,12 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 		RepoUri:   pa.gh_connection.GetRepoUri(),
 		Actor:     actor,
 		Tag:       ref,
-		CreatedOn: curTime,
+		CreatedOn: timestamppb.Now(),
 		Controls:  controlStatus.Controls,
-		VsaSummaries: []provenance.VsaSummary{
+		VsaSummaries: []*provenance.VsaSummary{
 			{
 				SourceRefs:     vsaRefs,
-				VerifiedLevels: slsa.StringsToControlNames(vsaPred.GetVerifiedLevels()),
+				VerifiedLevels: vsaPred.GetVerifiedLevels(),
 			},
 		},
 	}
