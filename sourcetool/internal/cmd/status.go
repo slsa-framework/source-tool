@@ -165,13 +165,22 @@ sourcetool status myorg/myrepo@mybranch
 
 			fmt.Println(w("Current SLSA Source level: " + toplevel))
 			fmt.Println("")
-
-			fmt.Println("Recommended actions:")
-
+			titled := false
 			for _, status := range controls.Controls {
 				if status.RecommendedAction == nil {
 					continue
 				}
+
+				// Suggest creating the policy but only on the higher levels
+				if status.Name == slsa.PolicyAvailable && toplevel == slsa.SlsaSourceLevel1 {
+					continue
+				}
+
+				if !titled {
+					fmt.Println(w2("✨ Recommended actions:"))
+					titled = true
+				}
+
 				fmt.Printf(" - %s\n", status.RecommendedAction.Message)
 				if status.RecommendedAction.Command != "" {
 					fmt.Printf("   > %s\n", status.RecommendedAction.Command)

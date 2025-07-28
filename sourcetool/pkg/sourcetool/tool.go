@@ -20,7 +20,7 @@ import (
 )
 
 var ControlConfigurations = []models.ControlConfiguration{
-	models.CONFIG_POLICY, models.CONFIG_GEN_PROVENANCE, models.CONFIG_BRANCH_RULES,
+	models.CONFIG_POLICY, models.CONFIG_GEN_PROVENANCE, models.CONFIG_BRANCH_RULES, models.CONFIG_TAG_RULES,
 }
 
 // New initializes a new source tool instance.

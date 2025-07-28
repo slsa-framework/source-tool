@@ -151,7 +151,7 @@ sourcetool is about to perform the following actions on your behalf:
   - %s.
 
 `,
-					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_POLICY),
+					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_TAG_RULES),
 					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_GEN_PROVENANCE),
 					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_BRANCH_RULES),
 				)
@@ -322,6 +322,11 @@ a fork of the repository you want to protect.
 				opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cs,
 			)
 			if err != nil {
+				// if strings.Contains(err.Error(), models.ErrProtectionAlreadyInPlace.Error()) {
+				if errors.Is(err, models.ErrProtectionAlreadyInPlace) {
+					fmt.Printf("\n   ℹ️  Controls already enabled on %s\n\n", opts.GetRepository().Path)
+					return nil
+				}
 				return fmt.Errorf("configuring controls: %w", err)
 			}
 
