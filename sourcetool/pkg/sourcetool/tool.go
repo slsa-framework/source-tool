@@ -204,13 +204,12 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 		return nil, fmt.Errorf("could not get provenance for latest commit: %w", err)
 	}
 
-	var controls *slsa.Controls
+	controls := &slsa.Controls{}
 	if predicate != nil {
 		for _, c := range predicate.GetControls() {
 			controls.AddControl(c)
 		}
 	}
-
 	return t.createPolicy(r, branches[0], controls)
 }
 

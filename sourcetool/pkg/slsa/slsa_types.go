@@ -66,6 +66,9 @@ type Controls []*provenance.Control
 // Adds the control to the list. Ignores nil controls.
 // Does not check for duplicate controls.
 func (controls *Controls) AddControl(newControls ...*provenance.Control) {
+	if controls == nil {
+		controls = &Controls{}
+	}
 	for _, c := range newControls {
 		if c == nil {
 			continue
