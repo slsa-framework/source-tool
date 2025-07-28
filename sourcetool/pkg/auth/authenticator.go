@@ -31,7 +31,7 @@ const (
 )
 
 var oauthScopes = []string{
-	"repo", "user:email",
+	"repo", "user:email", "workflow",
 }
 
 type Authenticator struct {

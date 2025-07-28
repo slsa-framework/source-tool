@@ -176,8 +176,9 @@ func (di *defaultImplementation) readToken() (string, error) {
 
 	data, err := os.ReadFile(filepath.Join(dir, configDirName, githubTokenFileName))
 	if err != nil {
+		// If the token file is not found, try reading it from the environment
 		if errors.Is(err, os.ErrNotExist) {
-			return "", nil
+			return os.Getenv("GITHUB_TOKEN"), nil
 		}
 		return "", fmt.Errorf("reading token file: %w", err)
 	}
