@@ -171,8 +171,8 @@ sourcetool status myorg/myrepo@mybranch
 					continue
 				}
 
-				// Suggest creating the policy but only on the higher levels
-				if status.Name == slsa.PolicyAvailable && toplevel == slsa.SlsaSourceLevel1 {
+				// Suggest creating the policy but only when reaching SLSA3+
+				if status.Name == slsa.PolicyAvailable && !slsa.IsLevelHigherOrEqualTo(toplevel, slsa.SlsaSourceLevel3) {
 					continue
 				}
 

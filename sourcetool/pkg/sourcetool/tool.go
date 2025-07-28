@@ -80,26 +80,16 @@ func (t *Tool) OnboardRepository(repo *models.Repository, branches []*models.Bra
 		return fmt.Errorf("getting VCS backend: %w", err)
 	}
 
-	if err := t.impl.CheckForks(&t.Options); err != nil {
-		return fmt.Errorf("checking repository forks: %w", err)
-	}
-
-	if err := t.impl.VerifyOptionsForFullOnboard(&t.Options); err != nil {
+	if err := t.impl.VerifyOptionsForFullOnboard(t.Authenticator, &t.Options); err != nil {
 		return fmt.Errorf("verifying options: %w", err)
 	}
 
 	if err = backend.ConfigureControls(
 		repo, branches, []models.ControlConfiguration{
-			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE,
+			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,
 		},
 	); err != nil {
 		return fmt.Errorf("configuring controls: %w", err)
-	}
-
-	// TODO(puerco): Compute the policy here
-	_, err = t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, nil)
-	if err != nil {
-		return fmt.Errorf("opening the policy pull request: %w", err)
 	}
 
 	return nil

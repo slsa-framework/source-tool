@@ -180,6 +180,13 @@ sourcetool is about to perform the following actions on your behalf:
 				return fmt.Errorf("onboarding repo: %w", err)
 			}
 
+			fmt.Println()
+			fmt.Println(w("✅ Controls have been configured successfully."))
+			fmt.Println()
+			fmt.Printf("Please run %s\n", w2("sourcetool status "+opts.GetRepository().Path))
+			fmt.Println("to check the status of the new controls and for the next steps.")
+			fmt.Println()
+
 			return nil
 		},
 	}
