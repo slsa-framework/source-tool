@@ -12,6 +12,7 @@ import (
 
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
 )
 
 const (
@@ -241,8 +242,7 @@ func (ghc *GitHubConnection) EnableBranchRules(ctx context.Context) error {
 
 	// Check if they are both enabled and noop if they are
 	if oldestDeletion != nil && oldestNoFf != nil {
-		log.Printf("ℹ️ Branch protection already enabled on %s/%s", ghc.Owner(), ghc.Repo())
-		return nil
+		return models.ErrProtectionAlreadyInPlace
 	}
 
 	// Create the SLSA ruleset
@@ -262,7 +262,51 @@ func (ghc *GitHubConnection) EnableBranchRules(ctx context.Context) error {
 			NonFastForward: &github.EmptyRuleParameters{},
 		},
 	}); err != nil {
-		return fmt.Errorf("creating reposirory ruleset: %w", err)
+		return fmt.Errorf("creating branch protection ruleset: %w", err)
+	}
+
+	return nil
+}
+
+// EnableTagRules adds a ruleset to the repo to enforce delete and push and update
+// protection on all branches.
+func (ghc *GitHubConnection) EnableTagRules(ctx context.Context) error {
+	allRules, _, err := ghc.Client().Repositories.GetAllRulesets(
+		ctx, ghc.Owner(), ghc.Repo(), true,
+	)
+	if err != nil {
+		return fmt.Errorf("fetching tag rules: %w", err)
+	}
+	ctl, err := ghc.computeTagHygieneControl(ctx, allRules)
+	if err != nil {
+		return fmt.Errorf("checking tag controls: %w", err)
+	}
+	if ctl != nil {
+		// Tag controls are in place, noop
+		return models.ErrProtectionAlreadyInPlace
+	}
+
+	// Create the SLSA ruleset
+	if _, _, err := ghc.Client().Repositories.CreateRuleset(ctx, ghc.Owner(), ghc.Repo(), github.RepositoryRuleset{
+		Name:         "SLSA Tag Controls",
+		Target:       github.Ptr(github.RulesetTargetTag),
+		Enforcement:  EnforcementActive,
+		BypassActors: []*github.BypassActor{},
+		Conditions: &github.RepositoryRulesetConditions{
+			RefName: &github.RepositoryRulesetRefConditionParameters{
+				Exclude: []string{},
+				Include: []string{"~ALL"},
+			},
+		},
+		Rules: &github.RepositoryRulesetRules{
+			Deletion:       &github.EmptyRuleParameters{},
+			NonFastForward: &github.EmptyRuleParameters{},
+			Update: &github.UpdateRuleParameters{
+				UpdateAllowsFetchAndMerge: false,
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("creating tag protection ruleset: %w", err)
 	}
 
 	return nil
