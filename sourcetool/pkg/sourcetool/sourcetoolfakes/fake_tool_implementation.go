@@ -139,10 +139,11 @@ type FakeToolImplementation struct {
 		result1 *models.PullRequest
 		result2 error
 	}
-	VerifyOptionsForFullOnboardStub        func(*options.Options) error
+	VerifyOptionsForFullOnboardStub        func(*auth.Authenticator, *options.Options) error
 	verifyOptionsForFullOnboardMutex       sync.RWMutex
 	verifyOptionsForFullOnboardArgsForCall []struct {
-		arg1 *options.Options
+		arg1 *auth.Authenticator
+		arg2 *options.Options
 	}
 	verifyOptionsForFullOnboardReturns struct {
 		result1 error
@@ -746,18 +747,19 @@ func (fake *FakeToolImplementation) SearchPullRequestReturnsOnCall(i int, result
 	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) VerifyOptionsForFullOnboard(arg1 *options.Options) error {
+func (fake *FakeToolImplementation) VerifyOptionsForFullOnboard(arg1 *auth.Authenticator, arg2 *options.Options) error {
 	fake.verifyOptionsForFullOnboardMutex.Lock()
 	ret, specificReturn := fake.verifyOptionsForFullOnboardReturnsOnCall[len(fake.verifyOptionsForFullOnboardArgsForCall)]
 	fake.verifyOptionsForFullOnboardArgsForCall = append(fake.verifyOptionsForFullOnboardArgsForCall, struct {
-		arg1 *options.Options
-	}{arg1})
+		arg1 *auth.Authenticator
+		arg2 *options.Options
+	}{arg1, arg2})
 	stub := fake.VerifyOptionsForFullOnboardStub
 	fakeReturns := fake.verifyOptionsForFullOnboardReturns
-	fake.recordInvocation("VerifyOptionsForFullOnboard", []interface{}{arg1})
+	fake.recordInvocation("VerifyOptionsForFullOnboard", []interface{}{arg1, arg2})
 	fake.verifyOptionsForFullOnboardMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
@@ -771,17 +773,17 @@ func (fake *FakeToolImplementation) VerifyOptionsForFullOnboardCallCount() int {
 	return len(fake.verifyOptionsForFullOnboardArgsForCall)
 }
 
-func (fake *FakeToolImplementation) VerifyOptionsForFullOnboardCalls(stub func(*options.Options) error) {
+func (fake *FakeToolImplementation) VerifyOptionsForFullOnboardCalls(stub func(*auth.Authenticator, *options.Options) error) {
 	fake.verifyOptionsForFullOnboardMutex.Lock()
 	defer fake.verifyOptionsForFullOnboardMutex.Unlock()
 	fake.VerifyOptionsForFullOnboardStub = stub
 }
 
-func (fake *FakeToolImplementation) VerifyOptionsForFullOnboardArgsForCall(i int) *options.Options {
+func (fake *FakeToolImplementation) VerifyOptionsForFullOnboardArgsForCall(i int) (*auth.Authenticator, *options.Options) {
 	fake.verifyOptionsForFullOnboardMutex.RLock()
 	defer fake.verifyOptionsForFullOnboardMutex.RUnlock()
 	argsForCall := fake.verifyOptionsForFullOnboardArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeToolImplementation) VerifyOptionsForFullOnboardReturns(result1 error) {
