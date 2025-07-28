@@ -86,14 +86,20 @@ func AddSetupRepo(parent *cobra.Command) {
 	setupRepoCmd := &cobra.Command{
 		Short: "configure all the SLSA source features in a repository",
 		Long: `The setup repo subcommand is a "one shot" setup process enabling all
-the security controls required to get a repository to a specific SLSA level.
+the security controls required to get a repository to SLSA Source level 3.
 
 This command is ideal for new repositories or when you are sure the implemented
 changes will not disrupt existing workflows.
 
-To use this subcommand you need to export a GitHub token as an environment
+To run this command make sure sourcetool is authorized on the repository
+(try sourcetool auth whoami ) or export a GitHub token as an environment
 variable called GITHUB_TOKEN. The token needs admin permissions on the repo
 to configure the branch rules.
+
+If the SLSA controls are already enforce in the repository they will be left
+untouched.
+
+Alternatively, to enable each control individually use: sourcetool setup controls.
 
 `,
 		Use:           "repo owner/repo",
@@ -229,8 +235,12 @@ as an identity source.
 The values for --config are as follows:
 
 %s
-Configures push and delete protection in the repository, required to reach slsa
-source level 2+. 
+Configures push and delete branch protection in the repository, required to reach
+SLSA source level 2+. 
+
+%s
+Configures udpate, push and delete protection for all tags in the repository,
+this is required to reach SLSA source level 2+. 
 
 %s
 Opens a pull request in the repository to add the provenance generation workflow
@@ -247,7 +257,8 @@ repositories. Make sure you have a fork of the SLSA source policy repo and
 a fork of the repository you want to protect.
 
 `, w("sourcetool setup controls"), w2("configure a repository for SLSA source"),
-			w2(models.CONFIG_BRANCH_RULES), w2(models.CONFIG_GEN_PROVENANCE), w2(models.CONFIG_POLICY)),
+			w2(models.CONFIG_BRANCH_RULES), w2(models.CONFIG_TAG_RULES),
+			w2(models.CONFIG_GEN_PROVENANCE), w2(models.CONFIG_POLICY)),
 		Use:           "controls owner/repo --config=CONTROL1 --config=CONTROL2",
 		SilenceUsage:  false,
 		SilenceErrors: true,
