@@ -174,6 +174,23 @@ func (b *Backend) CreateRepoRuleset(r *models.Repository, branches []*models.Bra
 	return nil
 }
 
+func (b *Backend) CreateTagRuleset(r *models.Repository) error {
+	if r == nil {
+		return errors.New("unable to create tag ruleset, repository not defined")
+	}
+
+	ghc, err := b.getGitHubConnection(r, "")
+	if err != nil {
+		return err
+	}
+
+	if err := ghc.EnableTagRules(context.Background()); err != nil {
+		return fmt.Errorf("enabling tag protection rules: %w", err)
+	}
+
+	return nil
+}
+
 func (b *Backend) ConfigureControls(r *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
 	for _, config := range configs {
 		switch config {
@@ -186,6 +203,10 @@ func (b *Backend) ConfigureControls(r *models.Repository, branches []*models.Bra
 				return fmt.Errorf("checking repository fork: %w", err)
 			}
 			if _, err := b.CreateWorkflowPR(r, branches); err != nil {
+				return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
+			}
+		case models.CONFIG_TAG_RULES:
+			if err := b.CreateTagRuleset(r); err != nil {
 				return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
 			}
 		case models.CONFIG_POLICY:

@@ -190,6 +190,11 @@ func (b *Backend) ControlConfigurationDescr(branch *models.Branch, config models
 			"Open a pull request on the SLSA policy repo to check-in %s SLSA source policy",
 			repo.Path,
 		)
+	case models.CONFIG_TAG_RULES:
+		return fmt.Sprintf(
+			"Enable push/update/delete protection for all tags in %s",
+			repo.Path,
+		)
 	default:
 		return ""
 	}
@@ -234,6 +239,14 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 			return &slsa.ControlRecommendedAction{
 				Message: "Enable branch push/delete protection",
 				Command: fmt.Sprintf("sourcetool setup controls --config=%s %s", models.CONFIG_BRANCH_RULES, r.Path),
+			}
+		}
+		return nil
+	case slsa.TagHygiene:
+		if state == slsa.StateNotEnabled {
+			return &slsa.ControlRecommendedAction{
+				Message: "Enable tag push/update/delete protection",
+				Command: fmt.Sprintf("sourcetool setup controls --config=%s %s", models.CONFIG_TAG_RULES, r.Path),
 			}
 		}
 		return nil
