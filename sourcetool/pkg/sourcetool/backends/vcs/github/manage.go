@@ -59,7 +59,7 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 	}
 	workflowYAML := fmt.Sprintf(workflowData, strings.Join(quotedBranchesList, ", "))
 
-	// Create a PAR manager
+	// Create a PR manager
 	prManager := repo.NewPullRequestManager(repo.WithAuthenticator(b.authenticator))
 
 	// TODO(puerco): Honor forks settings, etc
@@ -191,29 +191,43 @@ func (b *Backend) CreateTagRuleset(r *models.Repository) error {
 	return nil
 }
 
+// ConfigureControls configure the SLSA controls in the repository
 func (b *Backend) ConfigureControls(r *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
+	errs := []error{}
 	for _, config := range configs {
 		switch config {
 		case models.CONFIG_BRANCH_RULES:
 			if err := b.CreateRepoRuleset(r, branches); err != nil {
-				return fmt.Errorf("creating rules in the repository: %w", err)
+				if !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
+					errs = append(errs, fmt.Errorf("creating rules in the repository: %w", err))
+				}
 			}
 		case models.CONFIG_GEN_PROVENANCE:
-			if err := b.CheckWorkflowFork(r); err != nil {
-				return fmt.Errorf("checking repository fork: %w", err)
+			pr, err := b.FindWorkflowPR(context.Background(), r)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("checking repository pull request: %w", err))
 			}
+
+			if pr != nil {
+				continue
+			}
+
 			if _, err := b.CreateWorkflowPR(r, branches); err != nil {
-				return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
+				if !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
+					errs = append(errs, fmt.Errorf("opening SLSA source workflow pull request: %w", err))
+				}
 			}
 		case models.CONFIG_TAG_RULES:
 			if err := b.CreateTagRuleset(r); err != nil {
-				return fmt.Errorf("opening SLSA source workflow pull request: %w", err)
+				if !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
+					errs = append(errs, fmt.Errorf("opening SLSA source workflow pull request: %w", err))
+				}
 			}
 		case models.CONFIG_POLICY:
 			// Noop, this is not handled by the VCS handler
 		default:
-			return fmt.Errorf("unknown configuration flag: %q", config)
+			errs = append(errs, fmt.Errorf("unknown configuration flag: %q", config))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
