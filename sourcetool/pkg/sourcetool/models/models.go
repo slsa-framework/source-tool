@@ -3,6 +3,7 @@ package models
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,6 +14,8 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
 )
+
+var ErrProtectionAlreadyInPlace = errors.New("controls already in place in the repository")
 
 // AttestationStorageReader abstracts an attestation storage system where
 // sourcetool can read VSAs and provenance attestations.
@@ -44,6 +47,7 @@ const (
 	CONFIG_POLICY         ControlConfiguration = "CONFIG_POLICY"
 	CONFIG_GEN_PROVENANCE ControlConfiguration = "CONFIG_GEN_PROVENANCE"
 	CONFIG_BRANCH_RULES   ControlConfiguration = "CONFIG_BRANCH_RULES"
+	CONFIG_TAG_RULES      ControlConfiguration = "CONFIG_TAG_RULES"
 )
 
 type Commit struct {
