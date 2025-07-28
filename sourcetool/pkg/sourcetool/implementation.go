@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -23,15 +22,11 @@ import (
 	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
 )
 
-const (
-	tokenVar = "GITHUB_TOKEN" //nolint:gosec // This are not creds, just the name
-)
-
 // toolImplementation defines the mockable implementation of source tool
 //
 //counterfeiter:generate . toolImplementation
 type toolImplementation interface {
-	VerifyOptionsForFullOnboard(*options.Options) error
+	VerifyOptionsForFullOnboard(*auth.Authenticator, *options.Options) error
 	CheckPolicyFork(*options.Options) error
 	CreatePolicyPR(*auth.Authenticator, *options.Options, *models.Repository, *policy.RepoPolicy) (*models.PullRequest, error)
 	CheckForks(*options.Options) error
@@ -72,10 +67,14 @@ func (impl *defaultToolImplementation) GetVcsBackend(*models.Repository) (models
 
 // VerifyOptions checks options are in good shape to run
 // TODO(puerco): To be completed
-func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(opts *options.Options) error {
+func (impl *defaultToolImplementation) VerifyOptionsForFullOnboard(a *auth.Authenticator, opts *options.Options) error {
 	errs := []error{}
-	if t := os.Getenv(tokenVar); t == "" {
-		errs = append(errs, fmt.Errorf("$%s environment variable not set", tokenVar))
+	uid, err := a.WhoAmI()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if uid == nil {
+		errs = append(errs, errors.New("sourcetool is not logged in"))
 	}
 
 	return errors.Join(errs...)
