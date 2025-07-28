@@ -187,35 +187,17 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 		return nil, fmt.Errorf("getting backend: %w", err)
 	}
 
-	// Get the branch latest commit from the backend
-	latestCommit, err := backend.GetLatestCommit(ctx, r, branches[0])
+	controls, err := t.impl.GetBranchControls(ctx, backend, r, branches[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get latest commit: %w", err)
+		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
 
-	reader, err := t.impl.GetAttestationReader(nil)
-	if err != nil {
-		return nil, fmt.Errorf("getting attestation reader")
-	}
-
-	// Get the latest commit provenance attestation
-	_, predicate, err := reader.GetCommitProvenance(ctx, branches[0], latestCommit)
-	if err != nil {
-		return nil, fmt.Errorf("could not get provenance for latest commit: %w", err)
-	}
-
-	controls := &slsa.Controls{}
-	if predicate != nil {
-		for _, c := range predicate.GetControls() {
-			controls.AddControl(c)
-		}
-	}
 	return t.createPolicy(r, branches[0], controls)
 }
 
 // This function will be moved to the policy package once we start integrating
 // it with the global data models (if we do).
-func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.Controls) (*policy.RepoPolicy, error) {
+func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.ControlSetStatus) (*policy.RepoPolicy, error) {
 	// Default to SLSA1 since unset date
 	eligibleSince := &time.Time{}
 	eligibleLevel := slsa.SlsaSourceLevel1
@@ -223,10 +205,9 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 	var err error
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
-
 	if controls != nil {
-		eligibleLevel = policy.ComputeEligibleSlsaLevel(*controls)
-		eligibleSince, err = policy.ComputeEligibleSince(*controls, eligibleLevel)
+		eligibleLevel = policy.ComputeEligibleSlsaLevel(*controls.GetActiveControls())
+		eligibleSince, err = policy.ComputeEligibleSince(*controls.GetActiveControls(), eligibleLevel)
 		if err != nil {
 			return nil, fmt.Errorf("could not compute eligible_since: %w", err)
 		}
