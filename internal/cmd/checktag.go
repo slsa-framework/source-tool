@@ -1,6 +1,6 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
+// SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package cmd
 
 import (

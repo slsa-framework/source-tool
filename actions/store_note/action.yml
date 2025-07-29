@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+# SPDX-License-Identifier: Apache-2.0
+---
 name: Store data in git notes
 description: Stores provided data in a git note for the current commit.
 inputs:

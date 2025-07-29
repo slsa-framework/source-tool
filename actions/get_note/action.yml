@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+# SPDX-License-Identifier: Apache-2.0
+---
 name: Gets data from a git note
 description: Gets data from the git note and stores it in the provided path.
 inputs:
