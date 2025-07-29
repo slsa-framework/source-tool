@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -191,6 +192,10 @@ just print the generated policy.
 			}
 
 			if opts.openPullRequest && opts.interactive {
+				if err := ensureOrCreatePolicyFork(srctool); err != nil {
+					return err
+				}
+
 				fmt.Printf(`
 
 sourcetool is about to perform the following actions on your behalf:
@@ -230,7 +235,7 @@ open the pull request from there.
 
 			if opts.openPullRequest && pr != nil {
 				fmt.Fprintf(os.Stderr, "\n")
-				fmt.Fprintf(os.Stderr, "Opened pull request: https://github.com/%s/pulls/%d\n\n", pr.Repo.Path, pr.Number)
+				fmt.Fprintf(os.Stderr, "pull request open: https://github.com/%s/pull/%d\n\n", pr.Repo.Path, pr.Number)
 			}
 
 			return nil
@@ -258,5 +263,39 @@ func displayPolicy(opts repoOptions, pcy *policy.RepoPolicy) error {
 	fmt.Fprint(os.Stderr, w(fmt.Sprintf("\n🛡️  Source policy for %s/%s:\n\n", opts.owner, opts.repository)))
 	fmt.Println(string(data))
 	fmt.Println()
+	return nil
+}
+
+// ensureOrCreatePolicyFork checks the user has a fork of the policy repo.
+// In case they do not, asks to create a fork in their GitHub account.
+func ensureOrCreatePolicyFork(srctool *sourcetool.Tool) error {
+	found, err := srctool.CheckPolicyRepoFork()
+	if err != nil {
+		return fmt.Errorf("checking for policy repo fork: %w", err)
+	}
+	if found {
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Println()
+	fmt.Printf("%s sourcetool could not find a fork of the community source\n", w("Note:"))
+	fmt.Printf("policy repository (%s). We need it to\n", srctool.Options.PolicyRepo)
+	fmt.Println("create pull requests for your policies.")
+	fmt.Println()
+	fmt.Println("Would you like to create the fork in your GitHub account now?")
+	fmt.Println()
+
+	_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+	if err != nil {
+		return err
+	}
+	if !s {
+		return errors.New("no policy repo found and creation declined")
+	}
+
+	if err := srctool.CreatePolicyRepoFork(context.Background()); err != nil {
+		return err
+	}
 	return nil
 }
