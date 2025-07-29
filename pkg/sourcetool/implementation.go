@@ -39,6 +39,7 @@ type toolImplementation interface {
 	GetBranchControls(context.Context, models.VcsBackend, *models.Repository, *models.Branch) (*slsa.ControlSetStatus, error)
 	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
 	GetPolicyStatus(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.ControlStatus, error)
+	CreateRepositoryFork(context.Context, *auth.Authenticator, *models.Repository, string) error
 }
 
 type defaultToolImplementation struct{}
@@ -279,4 +280,38 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 			Message: "Wait for the policy pull request to merge",
 		},
 	}, nil
+}
+
+// CreateRepositoryFork creates a fork of a repo into the logged-in user's org.
+// Optionally the fork can have a different name than the original.
+func (impl *defaultToolImplementation) CreateRepositoryFork(
+	ctx context.Context, a *auth.Authenticator, src *models.Repository, forkName string,
+) error {
+	client, err := a.GetGitHubClient()
+	if err != nil {
+		return fmt.Errorf("creating GitHub client: %w", err)
+	}
+
+	srcOrg, srcName, err := src.PathAsGitHubOwnerName()
+	if err != nil {
+		return err
+	}
+
+	if forkName == "" {
+		forkName = srcName
+	}
+
+	// Create the fork
+	_, resp, err := client.Repositories.CreateFork(
+		ctx, srcOrg, srcName, &github.RepositoryCreateForkOptions{
+			Name: forkName,
+		},
+	)
+
+	// GitHub will return 202 for larger repos that are cloned async
+	if err != nil && resp.StatusCode != 202 {
+		return fmt.Errorf("creating repository fork: %w", err)
+	}
+
+	return nil
 }

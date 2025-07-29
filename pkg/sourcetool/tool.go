@@ -87,7 +87,7 @@ func (t *Tool) OnboardRepository(repo *models.Repository, branches []*models.Bra
 		return fmt.Errorf("verifying options: %w", err)
 	}
 
-	if err = backend.ConfigureControls(
+	if err := backend.ConfigureControls(
 		repo, branches, []models.ControlConfiguration{
 			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,
 		},
@@ -155,15 +155,19 @@ func (t *Tool) FindPolicyPR(repo *models.Repository) (*models.PullRequest, error
 	return pr, nil
 }
 
-func (t *Tool) CheckPolicyRepoFork(repo *models.Repository) (bool, error) {
+// CheckPolicyRepoFork checks that the logged in user has a fork
+// of the configured policy repo.
+func (t *Tool) CheckPolicyRepoFork() (bool, error) {
 	if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
 		if strings.Contains(err.Error(), "404 Not Found") {
 			return false, nil
 		}
+		if strings.Contains(err.Error(), "oes not have a fork of") {
+			return false, nil
+		}
 		return false, err
-	} else {
-		return true, nil
 	}
+	return true, nil
 }
 
 // CreateBranchPolicy creates a repository policy
@@ -247,4 +251,15 @@ func (t *Tool) CreateRepositoryPolicy(ctx context.Context, r *models.Repository,
 		}
 	}
 	return pcy, pr, nil
+}
+
+// CreatePolicyRepoFork creates a fork of the policy repository in the user's GitHub org
+func (t *Tool) CreatePolicyRepoFork(ctx context.Context) error {
+	err := t.impl.CreateRepositoryFork(ctx, t.Authenticator, &models.Repository{
+		Path: t.Options.PolicyRepo,
+	}, "")
+	if err != nil {
+		return fmt.Errorf("creating policy repo fork: %w", err)
+	}
+	return nil
 }
