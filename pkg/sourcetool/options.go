@@ -3,7 +3,7 @@ package sourcetool
 import (
 	"errors"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
 )
 
 type ConfigFn func(*Tool) error

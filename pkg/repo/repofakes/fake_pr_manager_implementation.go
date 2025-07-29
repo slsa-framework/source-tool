@@ -4,10 +4,10 @@ package repofakes
 import (
 	"sync"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo/options"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
+	"github.com/slsa-framework/slsa-source-poc/pkg/repo"
+	"github.com/slsa-framework/slsa-source-poc/pkg/repo/options"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
 )
 
 type FakePrManagerImplementation struct {

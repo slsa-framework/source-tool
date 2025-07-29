@@ -11,15 +11,15 @@ import (
 
 	"github.com/google/go-github/v69/github"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo"
-	roptions "github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/repo/options"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/backends/attestation/notes"
-	ghbackend "github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/backends/vcs/github"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
+	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
+	"github.com/slsa-framework/slsa-source-poc/pkg/repo"
+	roptions "github.com/slsa-framework/slsa-source-poc/pkg/repo/options"
+	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/backends/attestation/notes"
+	ghbackend "github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/backends/vcs/github"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/options"
 )
 
 // toolImplementation defines the mockable implementation of source tool

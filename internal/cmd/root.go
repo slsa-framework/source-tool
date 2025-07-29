@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
+	"github.com/slsa-framework/slsa-source-poc/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
 )
 
 var githubToken string

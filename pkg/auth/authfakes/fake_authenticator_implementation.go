@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
 )
 
 type FakeAuthenticatorImplementation struct {

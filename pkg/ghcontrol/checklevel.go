@@ -10,9 +10,9 @@ import (
 	"github.com/google/go-github/v69/github"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/pkg/provenance"
+	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
 )
 
 const (

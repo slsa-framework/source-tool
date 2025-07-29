@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models/modelsfakes"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/sourcetoolfakes"
+	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models/modelsfakes"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/sourcetoolfakes"
 )
 
 func TestGetBranchControls(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
+	"github.com/slsa-framework/slsa-source-poc/pkg/provenance"
 )
 
 type (

@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
+	"github.com/slsa-framework/slsa-source-poc/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
 )
 
 type checkTagOptions struct {

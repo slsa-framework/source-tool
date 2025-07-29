@@ -7,9 +7,9 @@ import (
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance"
+	"github.com/slsa-framework/slsa-source-poc/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/pkg/provenance"
 )
 
 type Auditor struct {

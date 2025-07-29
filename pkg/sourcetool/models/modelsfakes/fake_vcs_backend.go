@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
 )
 
 type FakeVcsBackend struct {

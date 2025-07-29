@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/release-utils/util"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
 )
 
 type setupOpts struct {

@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/audit"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/ghcontrol"
+	"github.com/slsa-framework/slsa-source-poc/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/pkg/audit"
+	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
 )
 
 type AuditMode int

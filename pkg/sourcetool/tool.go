@@ -12,11 +12,11 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/models"
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/sourcetool/options"
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
+	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
+	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/options"
 )
 
 var ControlConfigurations = []models.ControlConfiguration{

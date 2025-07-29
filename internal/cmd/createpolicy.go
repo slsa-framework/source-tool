@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
+	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
 )
 
 type createPolicyOptions struct {

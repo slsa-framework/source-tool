@@ -3,7 +3,7 @@ package options
 import (
 	"fmt"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy"
+	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
 )
 
 type Options struct {

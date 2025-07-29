@@ -4,7 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package main
 
 import (
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/internal/cmd"
+	"github.com/slsa-framework/slsa-source-poc/internal/cmd"
 )
 
 func main() {

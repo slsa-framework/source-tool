@@ -9,7 +9,7 @@ import (
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/slsa"
+	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
 )
 
 type BundleReader struct {
