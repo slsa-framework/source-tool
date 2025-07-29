@@ -100,12 +100,12 @@ func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBra
 func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, rules *github.BranchRules) (*provenance.Control, error) {
 	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("looking for oldest branch delete protection: %w", err)
 	}
 
 	oldestNoFf, err := ghc.getOldestActiveRule(ctx, rules.NonFastForward)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("looking for oldest push protection rule: %w", err)
 	}
 
 	if oldestDeletion == nil || oldestNoFf == nil {
@@ -315,7 +315,7 @@ func (ghc *GitHubConnection) EnableTagRules(ctx context.Context) error {
 func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*github.BranchRuleMetadata) (*github.RepositoryRuleset, error) {
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
-		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), rule.RulesetID, false)
+		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), rule.RulesetID, true)
 		if err != nil {
 			return nil, err
 		}
