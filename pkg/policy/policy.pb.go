@@ -313,8 +313,8 @@ const file_policy_proto_rawDesc = "" +
 	"\rproperty_name\x18\x01 \x01(\tR\fpropertyName\x120\n" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1d\n" +
 	"\n" +
-	"check_name\x18\x03 \x01(\tR\tcheckNameB\x9d\x01\n" +
-	"\fcom.ampel.v1B\vPolicyProtoP\x01Z?github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy\xa2\x02\x03AXX\xaa\x02\bAmpel.V1\xca\x02\bAmpel\\V1\xe2\x02\x14Ampel\\V1\\GPBMetadata\xea\x02\tAmpel::V1b\x06proto3"
+	"check_name\x18\x03 \x01(\tR\tcheckNameB\x92\x01\n" +
+	"\fcom.ampel.v1B\vPolicyProtoP\x01Z4github.com/slsa-framework/slsa-source-poc/pkg/policy\xa2\x02\x03AXX\xaa\x02\bAmpel.V1\xca\x02\bAmpel\\V1\xe2\x02\x14Ampel\\V1\\GPBMetadata\xea\x02\tAmpel::V1b\x06proto3"
 
 var (
 	file_policy_proto_rawDescOnce sync.Once

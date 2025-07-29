@@ -6,7 +6,7 @@ package ampel.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/slsa-framework/slsa-source-poc/sourcetool/pkg/policy";
+option go_package = "github.com/slsa-framework/slsa-source-poc/pkg/policy";
 
 // The repository policy definition
 message RepoPolicy {

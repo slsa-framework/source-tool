@@ -345,8 +345,8 @@ const file_provenance_proto_rawDesc = "" +
 	"VsaSummary\x12\x1f\n" +
 	"\vsource_refs\x18\x01 \x03(\tR\n" +
 	"sourceRefs\x12&\n" +
-	"\x0everifiedLevels\x18\x02 \x03(\tR\x0everifiedLevelsB\xa5\x01\n" +
-	"\fcom.ampel.v1B\x0fProvenanceProtoP\x01ZCgithub.com/slsa-framework/slsa-source-poc/sourcetool/pkg/provenance\xa2\x02\x03AXX\xaa\x02\bAmpel.V1\xca\x02\bAmpel\\V1\xe2\x02\x14Ampel\\V1\\GPBMetadata\xea\x02\tAmpel::V1b\x06proto3"
+	"\x0everifiedLevels\x18\x02 \x03(\tR\x0everifiedLevelsB\x9a\x01\n" +
+	"\fcom.ampel.v1B\x0fProvenanceProtoP\x01Z8github.com/slsa-framework/slsa-source-poc/pkg/provenance\xa2\x02\x03AXX\xaa\x02\bAmpel.V1\xca\x02\bAmpel\\V1\xe2\x02\x14Ampel\\V1\\GPBMetadata\xea\x02\tAmpel::V1b\x06proto3"
 
 var (
 	file_provenance_proto_rawDescOnce sync.Once
