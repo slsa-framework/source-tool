@@ -1,3 +1,13 @@
+# 🛑 Deprecation Notice 🛑
+
+This directory is deprecated. To check in new source policies please open a
+pull request in the new community repository at
+[github.com/slsa-framework/source-policies](https://github.com/slsa-framework/source-policies).
+
+The contents of this directory will be removed in the near future.
+
+---
+
 # Policy
 
 This folder stores 'policies' for individual repos.
