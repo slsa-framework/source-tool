@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package attest
 
 // TODO: This test package uses some functions that live in provenance_test.go

@@ -1,6 +1,8 @@
+// SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // Package notes implements an attestation storage backend that reads from
 // git commit notes
-
 package notes
 
 import (
