@@ -11,7 +11,7 @@ First, enable continuity controls within the target GitHub repo.
 2. Click the 'Settings' option
 3. Click 'Rules -> Rulesets'
 4. Click 'New Ruleset -> Import a ruleset'
-5. Upload [rulesets/source_level_3_basic.json](rulesets/source_level_3_basic.json)
+5. Upload [docs/rulesets/source_level_3_basic.json](docs/rulesets/source_level_3_basic.json)
 6. Click 'Create'
 
 ## Enable Source PoC workflow
