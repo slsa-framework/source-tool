@@ -307,7 +307,8 @@ a fork of the repository you want to protect.
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
-				sourcetool.WithPolicyRepo(opts.policyRepo),
+				// Uncomment when we support other policy repo
+				// sourcetool.WithPolicyRepo(opts.policyRepo),
 				sourcetool.WithUserForkOrg(opts.userForkOrg),
 				sourcetool.WithEnforce(opts.enforce),
 			)
@@ -316,8 +317,16 @@ a fork of the repository you want to protect.
 			}
 			cs := []models.ControlConfiguration{}
 			if opts.interactive {
-				fmt.Println("\nsourcetool is about to perform the following actions on your behalf:")
-				fmt.Println("")
+				// Check if we need the policy fork
+				if slices.Contains(opts.configs, string(models.CONFIG_POLICY)) {
+					if err := ensureOrCreatePolicyFork(srctool); err != nil {
+						return err
+					}
+				}
+
+				fmt.Println()
+				fmt.Println("sourcetool is about to perform the following actions on your behalf:")
+				fmt.Println()
 
 				for _, c := range opts.configs {
 					cs = append(cs, models.ControlConfiguration(c))

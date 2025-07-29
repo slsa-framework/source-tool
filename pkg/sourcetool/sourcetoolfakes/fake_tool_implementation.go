@@ -65,6 +65,20 @@ type FakeToolImplementation struct {
 		result1 *models.PullRequest
 		result2 error
 	}
+	CreateRepositoryForkStub        func(context.Context, *auth.Authenticator, *models.Repository, string) error
+	createRepositoryForkMutex       sync.RWMutex
+	createRepositoryForkArgsForCall []struct {
+		arg1 context.Context
+		arg2 *auth.Authenticator
+		arg3 *models.Repository
+		arg4 string
+	}
+	createRepositoryForkReturns struct {
+		result1 error
+	}
+	createRepositoryForkReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetAttestationReaderStub        func(*models.Repository) (models.AttestationStorageReader, error)
 	getAttestationReaderMutex       sync.RWMutex
 	getAttestationReaderArgsForCall []struct {
@@ -416,6 +430,70 @@ func (fake *FakeToolImplementation) CreatePolicyPRReturnsOnCall(i int, result1 *
 		result1 *models.PullRequest
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeToolImplementation) CreateRepositoryFork(arg1 context.Context, arg2 *auth.Authenticator, arg3 *models.Repository, arg4 string) error {
+	fake.createRepositoryForkMutex.Lock()
+	ret, specificReturn := fake.createRepositoryForkReturnsOnCall[len(fake.createRepositoryForkArgsForCall)]
+	fake.createRepositoryForkArgsForCall = append(fake.createRepositoryForkArgsForCall, struct {
+		arg1 context.Context
+		arg2 *auth.Authenticator
+		arg3 *models.Repository
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.CreateRepositoryForkStub
+	fakeReturns := fake.createRepositoryForkReturns
+	fake.recordInvocation("CreateRepositoryFork", []interface{}{arg1, arg2, arg3, arg4})
+	fake.createRepositoryForkMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeToolImplementation) CreateRepositoryForkCallCount() int {
+	fake.createRepositoryForkMutex.RLock()
+	defer fake.createRepositoryForkMutex.RUnlock()
+	return len(fake.createRepositoryForkArgsForCall)
+}
+
+func (fake *FakeToolImplementation) CreateRepositoryForkCalls(stub func(context.Context, *auth.Authenticator, *models.Repository, string) error) {
+	fake.createRepositoryForkMutex.Lock()
+	defer fake.createRepositoryForkMutex.Unlock()
+	fake.CreateRepositoryForkStub = stub
+}
+
+func (fake *FakeToolImplementation) CreateRepositoryForkArgsForCall(i int) (context.Context, *auth.Authenticator, *models.Repository, string) {
+	fake.createRepositoryForkMutex.RLock()
+	defer fake.createRepositoryForkMutex.RUnlock()
+	argsForCall := fake.createRepositoryForkArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *FakeToolImplementation) CreateRepositoryForkReturns(result1 error) {
+	fake.createRepositoryForkMutex.Lock()
+	defer fake.createRepositoryForkMutex.Unlock()
+	fake.CreateRepositoryForkStub = nil
+	fake.createRepositoryForkReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeToolImplementation) CreateRepositoryForkReturnsOnCall(i int, result1 error) {
+	fake.createRepositoryForkMutex.Lock()
+	defer fake.createRepositoryForkMutex.Unlock()
+	fake.CreateRepositoryForkStub = nil
+	if fake.createRepositoryForkReturnsOnCall == nil {
+		fake.createRepositoryForkReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.createRepositoryForkReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeToolImplementation) GetAttestationReader(arg1 *models.Repository) (models.AttestationStorageReader, error) {
