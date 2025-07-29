@@ -7,7 +7,7 @@ managed:
   enabled: true
 plugins:
   - protoc_builtin: go
-    out: ./sourcetool/pkg
+    out: ./pkg
     opt: 
       - paths=import
-      - module=github.com/slsa-framework/slsa-source-poc/sourcetool/pkg
+      - module=github.com/slsa-framework/slsa-source-poc/pkg

@@ -28,7 +28,7 @@ jobs:
 
       - name: Run Go tests
         run: |
-          go test ./sourcetool/...
+          go test ./...
 
       - name: Check generated fakes
         run: |

@@ -8,7 +8,7 @@ env:
 
 before:
   hooks:
-    - /bin/bash -c 'cd sourcetool && go mod tidy'
+    - /bin/bash -c 'go mod tidy'
     - /bin/bash -c 'if [ -n "$(git --no-pager diff --exit-code go.mod go.sum)" ]; then exit 1; fi'
 
 gomod:
@@ -18,7 +18,7 @@ builds:
   - id: release
     no_unique_dist_dir: true
     binary: sourcetool-{{ .Tag }}-{{ .Os }}-{{ .Arch }}
-    main: ./sourcetool/
+    main: ./
     goos:
       - darwin
       - linux

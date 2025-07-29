@@ -8,10 +8,10 @@ Status: in development
 
 ## Design
 
-[REQUIREMENTS_MAPPING.md](REQUIREMENTS_MAPPING.md) defines the rationale for how
+[REQUIREMENTS_MAPPING.md](docs/REQUIREMENTS_MAPPING.md) defines the rationale for how
 this tool meets the SLSA Source Requirements.
 
-[DESIGN.md](DESIGN.md) explains more specifically how the system works.
+[DESIGN.md](docs/DESIGN.md) explains more specifically how the system works.
 
 ## Components
 

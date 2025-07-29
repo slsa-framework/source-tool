@@ -11,7 +11,7 @@ help:
 
 .PHONY: fakes
 fakes: ## Rebuild the implementation fakes
-	go generate ./sourcetool/...
+	go generate ./...
 
 .PHONY: proto
 proto: ## Rebuild the policies and provenance predicate from protocol buffer definitions
