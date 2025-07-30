@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -309,7 +310,7 @@ func (impl *defaultToolImplementation) CreateRepositoryFork(
 	)
 
 	// GitHub will return 202 for larger repos that are cloned async
-	if err != nil && resp.StatusCode != 202 {
+	if err != nil && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("creating repository fork: %w", err)
 	}
 
