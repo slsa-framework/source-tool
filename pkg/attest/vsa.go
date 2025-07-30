@@ -21,7 +21,7 @@ import (
 
 const (
 	VsaPredicateType = "https://slsa.dev/verification_summary/v1"
-	VsaVerifierId    = "https://github.com/slsa-framework/slsa-source-poc"
+	VsaVerifierId    = "https://github.com/slsa-framework/source-actions"
 )
 
 func CreateUnsignedSourceVsa(repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels, policy string) (string, error) {

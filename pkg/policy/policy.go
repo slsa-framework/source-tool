@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	SourcePolicyUri       = "github.com/slsa-framework/slsa-source-poc"
+	SourcePolicyUri       = "github.com/slsa-framework/source-policies"
 	SourcePolicyRepoOwner = "slsa-framework"
 	SourcePolicyRepo      = "source-policies"
 )
