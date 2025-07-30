@@ -13,11 +13,16 @@ type VerificationOptions struct {
 	ExpectedSan    string
 }
 
+const (
+	ExpectedIssuer = "https://token.actions.githubusercontent.com"
+	ExpectedSan    = "https://github.com/slsa-framework/source-actions/.github/workflows/compute_slsa_source.yml@refs/heads/main"
+)
+
 // TODO: Update ExpectedSan to support regex so we can get the branches/tags we really think
 // folks should be using (they won't all run from main).
 var DefaultVerifierOptions = VerificationOptions{
-	ExpectedIssuer: "https://token.actions.githubusercontent.com",
-	ExpectedSan:    "https://github.com/slsa-framework/source-actions/.github/workflows/compute_slsa_source.yml@refs/heads/main",
+	ExpectedIssuer: ExpectedIssuer,
+	ExpectedSan:    ExpectedSan,
 }
 
 type Verifier interface {
