@@ -14,8 +14,19 @@ type VerificationOptions struct {
 }
 
 const (
+	// ExpectedIssuer is the OIDC issuer found in the sigstore bundles
 	ExpectedIssuer = "https://token.actions.githubusercontent.com"
-	ExpectedSan    = "https://github.com/slsa-framework/source-actions/.github/workflows/compute_slsa_source.yml@refs/heads/main"
+
+	// Expected SAN is the expected identity of the workflow signing the
+	// provenance and VSAs.
+	ExpectedSan = "https://github.com/slsa-framework/source-actions/.github/workflows/compute_slsa_source.yml@refs/heads/main"
+
+	// OldExpectedSan is the old singer identity before splitting out the actions to their own repo
+	// this constant is part of a compatibility hack that should be reverted once the latests attestations
+	// of the repos are signed with the new identity.
+	//
+	// See https://github.com/slsa-framework/slsa-source-poc/issues/255
+	OldExpectedSan = "https://github.com/slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@refs/heads/main"
 )
 
 // TODO: Update ExpectedSan to support regex so we can get the branches/tags we really think

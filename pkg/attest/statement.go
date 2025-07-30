@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -31,11 +32,26 @@ func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, err
 	if err == nil {
 		// This is it.
 		return vr.Statement, nil
-	} else {
-		// We ignore errors because there could be other stuff in the
-		// bundle this line came from.
-		Debugf("Line '%s' failed verification: %v", line, err)
 	}
+
+	// Compatibility hack bridgind identities for repository migration
+	// See here for more info and when to drop:
+	//
+	//  https://github.com/slsa-framework/slsa-source-poc/issues/255
+	if strings.Contains(err.Error(), "no matching CertificateIdentity") && strings.Contains(err.Error(), OldExpectedSan) {
+		ver, err := (&BndVerifier{
+			Options: VerificationOptions{
+				ExpectedIssuer: ExpectedIssuer,
+				ExpectedSan:    OldExpectedSan,
+			},
+		}).Verify(line)
+		if err == nil {
+			Debugf("found statement signed with old identity")
+			return ver.Statement, nil
+		}
+	}
+
+	Debugf("Line '%s' failed verification: %v", line, err)
 
 	// TODO: add support for 'regular' DSSEs.
 
