@@ -70,7 +70,7 @@ func doCheckTag(args *checkTagOptions) error {
 	pa := attest.NewProvenanceAttestor(ghconnection, verifier)
 	prov, err := pa.CreateTagProvenance(ctx, args.commit, ghcontrol.TagToFullRef(args.tagName), args.actor)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating tag provenance metadata: %w", err)
 	}
 
 	// check p against policy
@@ -78,7 +78,7 @@ func doCheckTag(args *checkTagOptions) error {
 	pe.UseLocalPolicy = args.useLocalPolicy
 	verifiedLevels, policyPath, err := pe.EvaluateTagProv(ctx, args.GetRepository(), prov)
 	if err != nil {
-		return err
+		return fmt.Errorf("evaluating the tag provenance metadata: %w", err)
 	}
 
 	// create vsa
