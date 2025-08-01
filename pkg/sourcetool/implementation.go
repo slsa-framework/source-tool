@@ -100,7 +100,7 @@ func (impl *defaultToolImplementation) CreatePolicyPR(a *auth.Authenticator, opt
 		return nil, fmt.Errorf("checking policy repository fork: %w", err)
 	}
 
-	// MArshal the policy json
+	// Marshal the policy json
 	policyJson, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshaling policy data: %w", err)
