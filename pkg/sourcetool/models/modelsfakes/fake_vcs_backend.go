@@ -35,6 +35,25 @@ type FakeVcsBackend struct {
 	controlConfigurationDescrReturnsOnCall map[int]struct {
 		result1 string
 	}
+	ControlPrecheckStub        func(*models.Repository, []*models.Branch, models.ControlConfiguration) (bool, string, models.ControlPreRemediationFn, error)
+	controlPrecheckMutex       sync.RWMutex
+	controlPrecheckArgsForCall []struct {
+		arg1 *models.Repository
+		arg2 []*models.Branch
+		arg3 models.ControlConfiguration
+	}
+	controlPrecheckReturns struct {
+		result1 bool
+		result2 string
+		result3 models.ControlPreRemediationFn
+		result4 error
+	}
+	controlPrecheckReturnsOnCall map[int]struct {
+		result1 bool
+		result2 string
+		result3 models.ControlPreRemediationFn
+		result4 error
+	}
 	GetBranchControlsStub        func(context.Context, *models.Repository, *models.Branch) (*slsa.ControlSetStatus, error)
 	getBranchControlsMutex       sync.RWMutex
 	getBranchControlsArgsForCall []struct {
@@ -232,6 +251,83 @@ func (fake *FakeVcsBackend) ControlConfigurationDescrReturnsOnCall(i int, result
 	fake.controlConfigurationDescrReturnsOnCall[i] = struct {
 		result1 string
 	}{result1}
+}
+
+func (fake *FakeVcsBackend) ControlPrecheck(arg1 *models.Repository, arg2 []*models.Branch, arg3 models.ControlConfiguration) (bool, string, models.ControlPreRemediationFn, error) {
+	var arg2Copy []*models.Branch
+	if arg2 != nil {
+		arg2Copy = make([]*models.Branch, len(arg2))
+		copy(arg2Copy, arg2)
+	}
+	fake.controlPrecheckMutex.Lock()
+	ret, specificReturn := fake.controlPrecheckReturnsOnCall[len(fake.controlPrecheckArgsForCall)]
+	fake.controlPrecheckArgsForCall = append(fake.controlPrecheckArgsForCall, struct {
+		arg1 *models.Repository
+		arg2 []*models.Branch
+		arg3 models.ControlConfiguration
+	}{arg1, arg2Copy, arg3})
+	stub := fake.ControlPrecheckStub
+	fakeReturns := fake.controlPrecheckReturns
+	fake.recordInvocation("ControlPrecheck", []interface{}{arg1, arg2Copy, arg3})
+	fake.controlPrecheckMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3, ret.result4
+	}
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3, fakeReturns.result4
+}
+
+func (fake *FakeVcsBackend) ControlPrecheckCallCount() int {
+	fake.controlPrecheckMutex.RLock()
+	defer fake.controlPrecheckMutex.RUnlock()
+	return len(fake.controlPrecheckArgsForCall)
+}
+
+func (fake *FakeVcsBackend) ControlPrecheckCalls(stub func(*models.Repository, []*models.Branch, models.ControlConfiguration) (bool, string, models.ControlPreRemediationFn, error)) {
+	fake.controlPrecheckMutex.Lock()
+	defer fake.controlPrecheckMutex.Unlock()
+	fake.ControlPrecheckStub = stub
+}
+
+func (fake *FakeVcsBackend) ControlPrecheckArgsForCall(i int) (*models.Repository, []*models.Branch, models.ControlConfiguration) {
+	fake.controlPrecheckMutex.RLock()
+	defer fake.controlPrecheckMutex.RUnlock()
+	argsForCall := fake.controlPrecheckArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeVcsBackend) ControlPrecheckReturns(result1 bool, result2 string, result3 models.ControlPreRemediationFn, result4 error) {
+	fake.controlPrecheckMutex.Lock()
+	defer fake.controlPrecheckMutex.Unlock()
+	fake.ControlPrecheckStub = nil
+	fake.controlPrecheckReturns = struct {
+		result1 bool
+		result2 string
+		result3 models.ControlPreRemediationFn
+		result4 error
+	}{result1, result2, result3, result4}
+}
+
+func (fake *FakeVcsBackend) ControlPrecheckReturnsOnCall(i int, result1 bool, result2 string, result3 models.ControlPreRemediationFn, result4 error) {
+	fake.controlPrecheckMutex.Lock()
+	defer fake.controlPrecheckMutex.Unlock()
+	fake.ControlPrecheckStub = nil
+	if fake.controlPrecheckReturnsOnCall == nil {
+		fake.controlPrecheckReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 string
+			result3 models.ControlPreRemediationFn
+			result4 error
+		})
+	}
+	fake.controlPrecheckReturnsOnCall[i] = struct {
+		result1 bool
+		result2 string
+		result3 models.ControlPreRemediationFn
+		result4 error
+	}{result1, result2, result3, result4}
 }
 
 func (fake *FakeVcsBackend) GetBranchControls(arg1 context.Context, arg2 *models.Repository, arg3 *models.Branch) (*slsa.ControlSetStatus, error) {
