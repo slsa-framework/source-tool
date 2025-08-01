@@ -20,12 +20,18 @@ import (
 func New() *Backend {
 	return &Backend{
 		authenticator: auth.New(),
+		Options:       Options{UseFork: true},
 	}
+}
+
+type Options struct {
+	UseFork bool
 }
 
 // Backend implemets the GitHub sourcetool backend
 type Backend struct {
 	authenticator *auth.Authenticator
+	Options       Options
 }
 
 // getGitHubConnection builds a github connector to a repository

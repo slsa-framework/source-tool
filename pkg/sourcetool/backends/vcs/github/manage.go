@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-github/v69/github"
@@ -49,6 +50,30 @@ jobs:
 `
 )
 
+// checkPushAccess
+func (b *Backend) checkPushAccess(r *models.Repository) (bool, error) {
+	client, err := b.authenticator.GetGitHubClient()
+	if err != nil {
+		return false, err
+	}
+	owner, repoName, err := r.PathAsGitHubOwnerName()
+	if err != nil {
+		return false, err
+	}
+
+	//nolint:noctx
+	resp, err := client.Client().Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/collaborators", owner, repoName))
+	if resp.StatusCode == http.StatusForbidden {
+		return false, nil
+	}
+	if err != nil {
+		resp.Body.Close() //nolint:errcheck,gosec
+		return false, fmt.Errorf("checking repository access: %w", err)
+	}
+	resp.Body.Close() //nolint:errcheck,gosec
+	return true, nil
+}
+
 // CreateWorkflowPR creates the pull request to add the provenance workflow
 // to the specified repository.
 func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Branch) (*models.PullRequest, error) {
@@ -63,10 +88,20 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 	}
 	workflowYAML := fmt.Sprintf(workflowData, strings.Join(quotedBranchesList, ", "))
 
+	// We need to determine if the user needs a fork
+	hasPush, err := b.checkPushAccess(r)
+	if err != nil {
+		return nil, fmt.Errorf("checking for repository push access: %w", err)
+	}
+
+	// If user does not have push access, use a fork
+	if err := b.CheckWorkflowFork(r); err != nil {
+		return nil, fmt.Errorf("checking for required repository fork: %w", err)
+	}
+
 	// Create a PR manager
 	prManager := repo.NewPullRequestManager(repo.WithAuthenticator(b.authenticator))
-
-	// TODO(puerco): Honor forks settings, etc
+	prManager.Options.UseFork = !hasPush
 
 	// Open the pull request
 	pr, err := prManager.PullRequestFileList(
@@ -93,7 +128,7 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 // CheckWorkflowFork verifies that the user has a fork of the repository
 // we are configuring.
 func (b *Backend) CheckWorkflowFork(r *models.Repository) error {
-	// Create a PAR manager
+	// Create a PR manager
 	prManager := repo.NewPullRequestManager(repo.WithAuthenticator(b.authenticator))
 
 	// TODO(puerco): Support forkname from options
@@ -193,6 +228,75 @@ func (b *Backend) CreateTagRuleset(r *models.Repository) error {
 	}
 
 	return nil
+}
+
+// CreateRepositoryFork creates a fork of a repo into the logged-in user's org.
+// Optionally the fork can have a different name than the original.
+func (b *Backend) createRepositoryFork(
+	src *models.Repository, forkName string,
+) error {
+	client, err := b.authenticator.GetGitHubClient()
+	if err != nil {
+		return fmt.Errorf("creating GitHub client: %w", err)
+	}
+
+	srcOrg, srcName, err := src.PathAsGitHubOwnerName()
+	if err != nil {
+		return err
+	}
+
+	if forkName == "" {
+		forkName = srcName
+	}
+
+	// Create the fork
+	_, resp, err := client.Repositories.CreateFork(
+		context.Background(), srcOrg, srcName, &github.RepositoryCreateForkOptions{
+			Name: forkName,
+		},
+	)
+
+	// GitHub will return 202 for larger repos that are cloned async
+	if err != nil && resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("creating repository fork: %w", err)
+	}
+
+	return nil
+}
+
+// ControlPrecheck  checks if the prerequisites to enable the controls are OK
+func (b *Backend) ControlPrecheck(
+	r *models.Repository, branches []*models.Branch, config models.ControlConfiguration,
+) (ok bool, remediationMessage string, remediateFn models.ControlPreRemediationFn, err error) {
+	//nolint:exhaustive // Not all configs have prechecks
+	switch config {
+	case models.CONFIG_GEN_PROVENANCE:
+		sino, err := b.checkPushAccess(r)
+		if err != nil {
+			return false, "", nil, fmt.Errorf("checking for push access: %w", err)
+		}
+		// If user has push access, everything is OK
+		if sino {
+			return true, "", nil, nil
+		}
+
+		// No push access, check if user has a fork
+		if err := b.CheckWorkflowFork(r); err == nil {
+			// Fork found, all ok
+			return true, "", nil, nil
+		}
+		msg := "No fork found of repository %s\n"
+		msg += "and user has no push access.\n\n"
+		msg += "Would you like to create a fork in your account?\n"
+		return false, fmt.Sprintf(msg, r.Path), func() (string, error) {
+			if err := b.createRepositoryFork(r, ""); err != nil {
+				return "", fmt.Errorf("creating repository fork: %w", err)
+			}
+			return "successfully created the repository fork", nil
+		}, nil
+	default:
+		return true, "", nil, nil
+	}
 }
 
 // ConfigureControls configure the SLSA controls in the repository
