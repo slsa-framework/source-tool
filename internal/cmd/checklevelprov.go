@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/slsa-framework/slsa-source-poc/pkg/attest"
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
 )
@@ -78,12 +79,19 @@ func addCheckLevelProv(parentCmd *cobra.Command) {
 }
 
 func doCheckLevelProv(checkLevelProvArgs *checkLevelProvOpts) error {
-	ghconnection := ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repository, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(githubToken)
+	t := githubToken
+	var err error
+	if t == "" {
+		t, err = auth.New().ReadToken()
+		if err != nil {
+			return err
+		}
+	}
+	ghconnection := ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repository, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(t)
 	ghconnection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
 	ctx := context.Background()
 
 	prevCommit := checkLevelProvArgs.prevCommit
-	var err error
 	if prevCommit == "" {
 		prevCommit, err = ghconnection.GetPriorCommit(ctx, checkLevelProvArgs.commit)
 		if err != nil {

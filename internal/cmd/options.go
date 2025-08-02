@@ -12,6 +12,7 @@ import (
 	"github.com/carabiner-dev/vcslocator"
 	"github.com/spf13/cobra"
 
+	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
 	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
 	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
 )
@@ -122,7 +123,16 @@ func (bo *branchOptions) EnsureDefaults() error {
 		return nil
 	}
 
-	gcx := ghcontrol.NewGhConnection(bo.owner, bo.repository, "").WithAuthToken(githubToken)
+	t := githubToken
+	var err error
+	if t == "" {
+		t, err = auth.New().ReadToken()
+		if err != nil {
+			return err
+		}
+	}
+
+	gcx := ghcontrol.NewGhConnection(bo.owner, bo.repository, "").WithAuthToken(t)
 	branch, err := gcx.GetDefaultBranch(context.Background())
 	if err != nil {
 		return fmt.Errorf("reading repository default branch: %w", err)
@@ -181,7 +191,16 @@ func (co *commitOptions) EnsureDefaults() error {
 	}
 
 	if co.commit == "" {
-		gcx := ghcontrol.NewGhConnection(co.owner, co.repository, "").WithAuthToken(githubToken)
+		t := githubToken
+		var err error
+		if t == "" {
+			t, err = auth.New().ReadToken()
+			if err != nil {
+				return err
+			}
+		}
+
+		gcx := ghcontrol.NewGhConnection(co.owner, co.repository, "").WithAuthToken(t)
 		digest, err := gcx.GetLatestCommit(context.Background(), co.branch)
 		if err != nil {
 			return fmt.Errorf("fetching last commit from %q: %w", co.branch, err)
