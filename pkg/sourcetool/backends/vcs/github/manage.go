@@ -96,8 +96,10 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 	}
 
 	// If user does not have push access, use a fork
-	if err := b.CheckWorkflowFork(r); err != nil {
-		return nil, fmt.Errorf("checking for required repository fork: %w", err)
+	if !hasPush {
+		if err := b.CheckWorkflowFork(r); err != nil {
+			return nil, fmt.Errorf("checking for required repository fork: %w", err)
+		}
 	}
 
 	// Create a PR manager
