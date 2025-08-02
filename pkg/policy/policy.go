@@ -365,7 +365,7 @@ func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls s
 	}
 
 	if branchPolicy.GetSince().AsTime().Before(*eligibleSince) {
-		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.GetTargetSlsaSourceLevel(), branchPolicy.GetSince(), eligibleSince)
+		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.GetTargetSlsaSourceLevel(), branchPolicy.GetSince().AsTime(), eligibleSince)
 	}
 
 	return []slsa.ControlName{slsa.ControlName(branchPolicy.GetTargetSlsaSourceLevel())}, nil
