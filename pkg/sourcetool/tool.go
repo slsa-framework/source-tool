@@ -214,7 +214,7 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 		CanonicalRepo: r.GetHttpURL(),
 		ProtectedBranches: []*policy.ProtectedBranch{
 			{
-				Name:                  branch.FullRef(),
+				Name:                  branch.Name,
 				Since:                 timestamppb.New(*eligibleSince),
 				TargetSlsaSourceLevel: string(eligibleLevel),
 			},
