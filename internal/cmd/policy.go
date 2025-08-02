@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/release-utils/util"
 
 	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
@@ -26,12 +27,14 @@ type policyCreateOpts struct {
 	branchOptions
 	interactive     bool
 	openPullRequest bool
+	update          bool
 }
 
 func (pco *policyCreateOpts) AddFlags(cmd *cobra.Command) {
 	pco.branchOptions.AddFlags(cmd)
 	cmd.PersistentFlags().BoolVar(&pco.openPullRequest, "pr", true, "Open a pull request to check-in the policy")
 	cmd.PersistentFlags().BoolVar(&pco.interactive, "interactive", true, "confirm before performing changes")
+	cmd.PersistentFlags().BoolVar(&pco.update, "update", false, "update if existing policy found")
 }
 
 func addPolicy(parentCmd *cobra.Command) {
@@ -172,6 +175,8 @@ just print the generated policy.
 				return err
 			}
 
+			fmt.Println()
+			fmt.Println(w(fmt.Sprintf("Creating source policy for %s#%s", opts.GetRepository().GetHttpURL(), opts.GetBranch().Name)))
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
@@ -187,8 +192,44 @@ just print the generated policy.
 			if err != nil {
 				return fmt.Errorf("checking for existing policy: %w", err)
 			}
+
+			if epcy != nil && !opts.interactive && !opts.update {
+				fmt.Fprintln(os.Stderr, "There is an existing policy in the community repository")
+				return nil
+			}
+
+			if epcy != nil && !opts.update {
+				fmt.Println()
+				fmt.Println("There is a policy already published for this repository.")
+				fmt.Println("Do you want to update it?")
+				fmt.Println()
+
+				_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+				if err != nil {
+					return err
+				}
+
+				if !s {
+					fmt.Println("Not changing existing policy.")
+					return nil
+				}
+			}
+
+			// If there is an existing policy, check if something changed.
+			var pcy *policy.RepoPolicy
+			pcy, err = srctool.CreateBranchPolicy(
+				context.Background(), opts.GetRepository(), []*models.Branch{opts.GetBranch()},
+			)
+			if err != nil {
+				return fmt.Errorf("creating new source policy: %w", err)
+			}
 			if epcy != nil {
-				return fmt.Errorf("repository already has a policy checked into the community repo")
+				if proto.Equal(pcy, epcy) {
+					fmt.Println()
+					fmt.Printf("Repository policy has not changed. All done.")
+					fmt.Println()
+					return nil
+				}
 			}
 
 			if opts.openPullRequest && opts.interactive {
@@ -222,7 +263,7 @@ open the pull request from there.
 
 			// Create the policy, this will open the pull request in the community
 			// repo if the options say so.
-			pcy, pr, err := srctool.CreateRepositoryPolicy(
+			_, pr, err := srctool.CreateRepositoryPolicy(
 				context.Background(), opts.GetRepository(), []*models.Branch{opts.GetBranch()},
 			)
 			if err != nil {
