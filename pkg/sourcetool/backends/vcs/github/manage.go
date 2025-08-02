@@ -37,6 +37,7 @@ name: SLSA Source
 on:
   push:
     branches: [ %s ]
+    tags: ['**']
 permissions: {}
 
 jobs:
