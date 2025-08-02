@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -150,7 +151,16 @@ sourcetool status myorg/myrepo@mybranch
 				fmt.Printf("%-35s  ", "Repo policy found:")
 				switch policyControlStatus.State {
 				case slsa.StateActive:
-					fmt.Println("✅")
+					fmt.Print("✅")
+					// Check if the policy needs updating
+					pcy, err := srctool.GetRepositoryPolicy(context.Background(), opts.GetRepository())
+					if err == nil {
+						pb := pcy.GetBranchPolicy(opts.GetBranch().Name)
+						if pb != nil && pb.GetTargetSlsaSourceLevel() == string(toplevel) {
+							fmt.Print(w2(fmt.Sprintf(" (needs update to %s)", toplevel)))
+						}
+					}
+					fmt.Println()
 				case slsa.StateNotEnabled:
 					fmt.Println("🚫")
 				case slsa.StateInProgress:
