@@ -1443,7 +1443,7 @@ func assertPolicyResultEquals(t *testing.T, ctx context.Context, ghConn *ghcontr
 
 	// TODO: check the rest of the contents of expectedPolicy?
 
-	gotPb := rp.getBranchPolicy(ghcontrol.GetBranchFromRef(ghConn.GetFullRef()))
+	gotPb := rp.GetBranchPolicy(ghcontrol.GetBranchFromRef(ghConn.GetFullRef()))
 
 	if expectedBranchPolicy == nil {
 		if gotPb != nil {

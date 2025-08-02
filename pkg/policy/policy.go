@@ -38,7 +38,8 @@ const (
 )
 
 // Returns the policy for the branch or nil if the branch doesn't have one.
-func (rp *RepoPolicy) getBranchPolicy(branch string) *ProtectedBranch {
+func (rp *RepoPolicy) GetBranchPolicy(branch string) *ProtectedBranch {
+	branch = strings.TrimPrefix(branch, "refs/heads/")
 	for _, pb := range rp.GetProtectedBranches() {
 		if pb.GetName() == branch {
 			return pb
@@ -525,7 +526,7 @@ func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Rep
 		return slsa.SourceVerifiedLevels{}, "", err
 	}
 
-	branchPolicy := rp.getBranchPolicy(branch.Name)
+	branchPolicy := rp.GetBranchPolicy(branch.Name)
 	if branchPolicy == nil {
 		branchPolicy = createDefaultBranchPolicy(branch)
 		policyPath = "DEFAULT"
@@ -555,7 +556,7 @@ func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.
 		return slsa.SourceVerifiedLevels{}, "", err
 	}
 
-	branchPolicy := rp.getBranchPolicy(branch.Name)
+	branchPolicy := rp.GetBranchPolicy(branch.Name)
 	if branchPolicy == nil {
 		branchPolicy = createDefaultBranchPolicy(branch)
 		policyPath = "DEFAULT"
