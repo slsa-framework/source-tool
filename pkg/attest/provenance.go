@@ -139,7 +139,14 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.Controls = controlStatus.Controls
 
 	// At the very least provenance is available starting now. :)
-	curProvPred.AddControl(&provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: timestamppb.New(curTime)})
+	// ... indeed, but don't set the `since`` date because doing so breaks
+	// checking against policies.
+	// See https://github.com/slsa-framework/slsa-source-poc/issues/272
+	curProvPred.AddControl(
+		&provenance.Control{
+			Name: slsa.ProvenanceAvailable.String(),
+		},
+	)
 
 	return addPredToStatement(&curProvPred, provenance.SourceProvPredicateType, commit)
 }
