@@ -263,3 +263,17 @@ func (t *Tool) CreatePolicyRepoFork(ctx context.Context) error {
 	}
 	return nil
 }
+
+// ControlPrecheck performs a prerequisite check before enabling a contrlol
+// Backend may optionally return a remediation function to correct the
+// prerequisite which the CLI can before attempting to enable the control.
+func (t *Tool) ControlPrecheck(
+	r *models.Repository, branches []*models.Branch, config models.ControlConfiguration,
+) (ok bool, remediationMessage string, remediateFn models.ControlPreRemediationFn, err error) {
+	backend, err := t.impl.GetVcsBackend(r)
+	if err != nil {
+		return false, "", nil, fmt.Errorf("getting VCS backend: %w", err)
+	}
+
+	return backend.ControlPrecheck(r, branches, config)
+}

@@ -151,6 +151,45 @@ Alternatively, to enable each control individually use: sourcetool setup control
 				return err
 			}
 
+			// Check the control prerequisites
+			preReqOut := false
+			for _, cc := range []models.ControlConfiguration{
+				models.CONFIG_TAG_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_BRANCH_RULES,
+			} {
+				ok, actionDescr, remediateFn, err := srctool.ControlPrecheck(
+					opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc,
+				)
+				if err != nil {
+					return fmt.Errorf("checking prerequisites for %s: %w", cc, err)
+				}
+
+				if !ok {
+					if !preReqOut {
+						fmt.Println()
+						fmt.Println("🟠 " + w("Prerequisites Check:"))
+						preReqOut = true
+					}
+					fmt.Println(">> " + actionDescr)
+					fmt.Println()
+
+					_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+					if err != nil {
+						return err
+					}
+
+					if !s {
+						return fmt.Errorf("prerequisites for %s not met", cc)
+					}
+
+					msg, err := remediateFn()
+					if err != nil {
+						return err
+					}
+
+					fmt.Printf("☑️  %s\n", msg)
+				}
+			}
+
 			if opts.interactive {
 				fmt.Printf(`
 sourcetool is about to perform the following actions on your behalf:
@@ -165,7 +204,7 @@ sourcetool is about to perform the following actions on your behalf:
 					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_BRANCH_RULES),
 				)
 
-				_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+				_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
 				if err != nil {
 					return err
 				}
@@ -323,18 +362,57 @@ a fork of the repository you want to protect.
 						return err
 					}
 				}
+				questions := ""
+				preReqOut := false
+				for _, c := range opts.configs {
+					// Run the control preflight check
+					cc := models.ControlConfiguration(c)
+
+					// Check the control prerequisites
+					ok, actionDescr, remediateFn, err := srctool.ControlPrecheck(
+						opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc,
+					)
+					if err != nil {
+						return fmt.Errorf("checking prerequisites for %s: %w", cc, err)
+					}
+
+					if !ok {
+						if !preReqOut {
+							fmt.Println()
+							fmt.Println("🟠 " + w("Prerequisites Check:"))
+							preReqOut = true
+						}
+						fmt.Println(">> " + actionDescr)
+						fmt.Println()
+
+						_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+						if err != nil {
+							return err
+						}
+
+						if !s {
+							return fmt.Errorf("prerequisites for %s not met", cc)
+						}
+
+						msg, err := remediateFn()
+						if err != nil {
+							return err
+						}
+
+						fmt.Printf("☑️  %s\n", msg)
+					}
+
+					cs = append(cs, cc)
+					questions += fmt.Sprintf("  - %s.\n", srctool.ControlConfigurationDescr(opts.GetBranch(), models.ControlConfiguration(c)))
+				}
 
 				fmt.Println()
 				fmt.Println("sourcetool is about to perform the following actions on your behalf:")
 				fmt.Println()
+				fmt.Print(questions)
+				fmt.Println()
 
-				for _, c := range opts.configs {
-					cs = append(cs, models.ControlConfiguration(c))
-					fmt.Printf("  - %s.\n", srctool.ControlConfigurationDescr(opts.GetBranch(), models.ControlConfiguration(c)))
-				}
-				fmt.Println("")
-
-				_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+				_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
 				if err != nil {
 					return err
 				}
@@ -345,7 +423,20 @@ a fork of the repository you want to protect.
 				}
 			} else {
 				for _, c := range opts.configs {
-					cs = append(cs, models.ControlConfiguration(c))
+					cc := models.ControlConfiguration(c)
+					// Run the prerequisites and run any remediations
+					ok, _, remediateFn, err := srctool.ControlPrecheck(opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc)
+					if err != nil {
+						return fmt.Errorf("checking prerequisites for %q: %w", cc, err)
+					}
+					if !ok {
+						msg, err := remediateFn()
+						if err != nil {
+							return fmt.Errorf("running remedaition for %q prereqs: %w", cc, err)
+						}
+						fmt.Println(msg)
+					}
+					cs = append(cs, cc)
 				}
 			}
 			err = srctool.ConfigureControls(

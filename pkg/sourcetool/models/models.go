@@ -42,7 +42,12 @@ type VcsBackend interface {
 	ControlConfigurationDescr(*Branch, ControlConfiguration) string
 	ConfigureControls(*Repository, []*Branch, []ControlConfiguration) error
 	GetLatestCommit(context.Context, *Repository, *Branch) (*Commit, error)
+	ControlPrecheck(*Repository, []*Branch, ControlConfiguration) (bool, string, ControlPreRemediationFn, error)
 }
+
+// ControlPreRemediation is a function returned by the VCS backends
+// when checking for prerequisites that the user may optionally run
+type ControlPreRemediationFn func() (string, error)
 
 type ControlConfiguration string
 
