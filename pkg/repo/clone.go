@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	billy "github.com/go-git/go-billy/v6"
 	git "github.com/go-git/go-git/v6"
@@ -159,7 +160,14 @@ func (c *Clone) Commit(opts *options.CommitOptions) error {
 		usegit = *opts.UseGit
 	}
 	if usegit {
-		return c.gitCliCommit(opts)
+		if err := c.gitCliCommit(opts); err != nil {
+			// If signing is not defined and the commit failed
+			// signing, try again with the pure go signature.
+			if opts.Sign == nil && opts.UseGit == nil && strings.Contains(err.Error(), "gpg failed") {
+				return c.puregoCommit(opts)
+			}
+			return err
+		}
 	}
 	return c.puregoCommit(opts)
 }
