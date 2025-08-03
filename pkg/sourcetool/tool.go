@@ -220,6 +220,15 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 			},
 		},
 	}
+
+	// If the controls returned
+	tagHygiene := controls.GetActiveControls().GetControl(slsa.TagHygiene)
+	if tagHygiene != nil {
+		p.ProtectedTag = &policy.ProtectedTag{
+			Since:      tagHygiene.GetSince(),
+			TagHygiene: true,
+		}
+	}
 	return p, nil
 }
 

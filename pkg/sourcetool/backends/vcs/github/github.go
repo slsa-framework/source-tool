@@ -201,7 +201,7 @@ func (b *Backend) ControlConfigurationDescr(branch *models.Branch, config models
 		)
 	case models.CONFIG_TAG_RULES:
 		return fmt.Sprintf(
-			"Enable push/update/delete protection for all tags in %s",
+			"Enable force push/update/delete protection for all tags in %s",
 			repo.Path,
 		)
 	default:
