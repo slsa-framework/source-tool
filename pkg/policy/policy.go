@@ -276,6 +276,16 @@ func (pe *PolicyEvaluator) CreateLocalPolicy(ctx context.Context, repo *models.R
 			},
 		},
 	}
+
+	// If the controls returned
+	controls := slsa.Controls(provPred.GetControls())
+	tagHygiene := controls.GetControl(slsa.TagHygiene)
+	if tagHygiene != nil {
+		p.ProtectedTag = &ProtectedTag{
+			Since:      tagHygiene.GetSince(),
+			TagHygiene: true,
+		}
+	}
 	data, err := json.MarshalIndent(&p, "", "  ")
 	if err != nil {
 		return "", err

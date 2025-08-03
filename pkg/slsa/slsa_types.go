@@ -189,6 +189,9 @@ type ControlRecommendedAction struct {
 // which are active in the set.
 func (cs *ControlSetStatus) GetActiveControls() *Controls {
 	ret := Controls{}
+	if cs == nil {
+		return &ret
+	}
 	for _, c := range cs.Controls {
 		if c.State == StateActive {
 			ret.AddControl(&provenance.Control{
