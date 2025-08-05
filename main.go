@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/slsa-framework/slsa-source-poc/internal/cmd"
+	"github.com/slsa-framework/source-tool/internal/cmd"
 )
 
 func main() {

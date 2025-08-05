@@ -19,9 +19,9 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/pkg/provenance"
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/provenance"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
 type ProvenanceAttestor struct {
@@ -141,7 +141,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	// At the very least provenance is available starting now. :)
 	// ... indeed, but don't set the `since`` date because doing so breaks
 	// checking against policies.
-	// See https://github.com/slsa-framework/slsa-source-poc/issues/272
+	// See https://github.com/slsa-framework/source-tool/issues/272
 	curProvPred.AddControl(
 		&provenance.Control{
 			Name: slsa.ProvenanceAvailable.String(),
@@ -266,7 +266,7 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 
 	// Find the most recent VSA for this commit. Any reference is OK.
 	// TODO: in the future get all of them.
-	// TODO: we should actually verify this vsa: https://github.com/slsa-framework/slsa-source-poc/issues/148
+	// TODO: we should actually verify this vsa: https://github.com/slsa-framework/source-tool/issues/148
 	vsaStatement, vsaPred, err := GetVsa(ctx, pa.gh_connection, pa.verifier, commit, ghcontrol.AnyReference)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching VSA when creating tag provenance %w", err)

@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/go-github/v69/github"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/repo"
-	"github.com/slsa-framework/slsa-source-poc/pkg/repo/options"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/repo"
+	"github.com/slsa-framework/source-tool/pkg/repo/options"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 		`Every time a new commit merges to the specified branch, attestations will ` +
 		`be automatically signed and stored in git notes in this repository.` + "\n\n" +
 		`Note: This is an automated PR created using the ` +
-		`[SLSA sourcetool](https://github.com/slsa-framework/slsa-source-poc) utility.` + "\n"
+		`[SLSA sourcetool](https://github.com/slsa-framework/source-tool) utility.` + "\n"
 
 	workflowData = `---
 name: SLSA Source

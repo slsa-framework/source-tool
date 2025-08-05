@@ -11,7 +11,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
+	"github.com/slsa-framework/source-tool/pkg/auth"
 )
 
 var colorHiRed = color.New(color.FgHiRed).SprintFunc()

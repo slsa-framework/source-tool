@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
 // Matches any reference type.

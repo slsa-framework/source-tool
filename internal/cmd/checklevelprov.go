@@ -13,10 +13,10 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/attest"
+	"github.com/slsa-framework/source-tool/pkg/auth"
+	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/policy"
 )
 
 type checkLevelProvOpts struct {

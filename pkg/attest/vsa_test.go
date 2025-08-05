@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/go-github/v69/github"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/pkg/testsupport"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/testsupport"
 )
 
 func createTestVsa(t *testing.T, repoUri, ref, commit string, verifiedLevels slsa.SourceVerifiedLevels) string {

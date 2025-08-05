@@ -25,7 +25,7 @@ const (
 	// this constant is part of a compatibility hack that should be reverted once the latests attestations
 	// of the repos are signed with the new identity.
 	//
-	// See https://github.com/slsa-framework/slsa-source-poc/issues/255
+	// See https://github.com/slsa-framework/source-tool/issues/255
 	OldExpectedSan = "https://github.com/slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@refs/heads/main"
 )
 

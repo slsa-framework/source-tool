@@ -6,7 +6,7 @@ package options
 import (
 	"fmt"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/policy"
 )
 
 type Options struct {

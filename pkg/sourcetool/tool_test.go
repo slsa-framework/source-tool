@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models/modelsfakes"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/sourcetoolfakes"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models/modelsfakes"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/sourcetoolfakes"
 )
 
 func TestGetBranchControls(t *testing.T) {
@@ -166,7 +166,7 @@ func TestFindPolicyPR(t *testing.T) {
 			"pr-is-found", false, &models.PullRequest{
 				Repo: &models.Repository{
 					Hostname:      "github.com",
-					Path:          "slsa-framework/slsa-source-poc",
+					Path:          "slsa-framework/source-tool",
 					DefaultBranch: "",
 				},
 				Number: 10,
@@ -178,7 +178,7 @@ func TestFindPolicyPR(t *testing.T) {
 				i.SearchPullRequestReturns(&models.PullRequest{
 					Repo: &models.Repository{
 						Hostname:      "github.com",
-						Path:          "slsa-framework/slsa-source-poc",
+						Path:          "slsa-framework/source-tool",
 						DefaultBranch: "",
 					},
 					Number: 10,

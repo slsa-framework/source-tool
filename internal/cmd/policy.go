@@ -14,9 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/release-utils/util"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type policyViewOpts struct {
