@@ -292,19 +292,19 @@ var File_policy_proto protoreflect.FileDescriptor
 
 const file_policy_proto_rawDesc = "" +
 	"\n" +
-	"\fpolicy.proto\x12\bampel.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd3\x01\n" +
+	"\fpolicy.proto\x123in_toto_attestation.predicates.source_provenance.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa9\x02\n" +
 	"\n" +
 	"RepoPolicy\x12&\n" +
-	"\x0ecanonical_repo\x18\x01 \x01(\tR\x0ecanonical_repo\x12I\n" +
-	"\x12protected_branches\x18\x02 \x03(\v2\x19.ampel.v1.ProtectedBranchR\x12protected_branches\x12@\n" +
-	"\rprotected_tag\x18\x03 \x01(\v2\x16.ampel.v1.ProtectedTagH\x00R\fprotectedTag\x88\x01\x01B\x10\n" +
-	"\x0e_protected_tag\"\x96\x02\n" +
+	"\x0ecanonical_repo\x18\x01 \x01(\tR\x0ecanonical_repo\x12t\n" +
+	"\x12protected_branches\x18\x02 \x03(\v2D.in_toto_attestation.predicates.source_provenance.v1.ProtectedBranchR\x12protected_branches\x12k\n" +
+	"\rprotected_tag\x18\x03 \x01(\v2A.in_toto_attestation.predicates.source_provenance.v1.ProtectedTagH\x00R\fprotectedTag\x88\x01\x01B\x10\n" +
+	"\x0e_protected_tag\"\xc2\x02\n" +
 	"\x0fProtectedBranch\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x127\n" +
 	"\x18target_slsa_source_level\x18\x03 \x01(\tR\x15targetSlsaSourceLevel\x12%\n" +
-	"\x0erequire_review\x18\x04 \x01(\bR\rrequireReview\x12]\n" +
-	"\x19org_status_check_controls\x18\x05 \x03(\v2\x1f.ampel.v1.OrgStatusCheckControlR\x19org_status_check_controls\"a\n" +
+	"\x0erequire_review\x18\x04 \x01(\bR\rrequireReview\x12\x88\x01\n" +
+	"\x19org_status_check_controls\x18\x05 \x03(\v2J.in_toto_attestation.predicates.source_provenance.v1.OrgStatusCheckControlR\x19org_status_check_controls\"a\n" +
 	"\fProtectedTag\x120\n" +
 	"\x05since\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1f\n" +
 	"\vtag_hygiene\x18\x02 \x01(\bR\n" +
@@ -313,8 +313,8 @@ const file_policy_proto_rawDesc = "" +
 	"\rproperty_name\x18\x01 \x01(\tR\fpropertyName\x120\n" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1d\n" +
 	"\n" +
-	"check_name\x18\x03 \x01(\tR\tcheckNameB\x92\x01\n" +
-	"\fcom.ampel.v1B\vPolicyProtoP\x01Z4github.com/slsa-framework/slsa-source-poc/pkg/policy\xa2\x02\x03AXX\xaa\x02\bAmpel.V1\xca\x02\bAmpel\\V1\xe2\x02\x14Ampel\\V1\\GPBMetadata\xea\x02\tAmpel::V1b\x06proto3"
+	"check_name\x18\x03 \x01(\tR\tcheckNameB\xdf\x02\n" +
+	"7com.in_toto_attestation.predicates.source_provenance.v1B\vPolicyProtoP\x01Z4github.com/slsa-framework/slsa-source-poc/pkg/policy\xa2\x02\x03IPS\xaa\x020InTotoAttestation.Predicates.SourceProvenance.V1\xca\x020InTotoAttestation\\Predicates\\SourceProvenance\\V1\xe2\x02<InTotoAttestation\\Predicates\\SourceProvenance\\V1\\GPBMetadata\xea\x023InTotoAttestation::Predicates::SourceProvenance::V1b\x06proto3"
 
 var (
 	file_policy_proto_rawDescOnce sync.Once
@@ -330,19 +330,19 @@ func file_policy_proto_rawDescGZIP() []byte {
 
 var file_policy_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_policy_proto_goTypes = []any{
-	(*RepoPolicy)(nil),            // 0: ampel.v1.RepoPolicy
-	(*ProtectedBranch)(nil),       // 1: ampel.v1.ProtectedBranch
-	(*ProtectedTag)(nil),          // 2: ampel.v1.ProtectedTag
-	(*OrgStatusCheckControl)(nil), // 3: ampel.v1.OrgStatusCheckControl
+	(*RepoPolicy)(nil),            // 0: in_toto_attestation.predicates.source_provenance.v1.RepoPolicy
+	(*ProtectedBranch)(nil),       // 1: in_toto_attestation.predicates.source_provenance.v1.ProtectedBranch
+	(*ProtectedTag)(nil),          // 2: in_toto_attestation.predicates.source_provenance.v1.ProtectedTag
+	(*OrgStatusCheckControl)(nil), // 3: in_toto_attestation.predicates.source_provenance.v1.OrgStatusCheckControl
 	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
 }
 var file_policy_proto_depIdxs = []int32{
-	1, // 0: ampel.v1.RepoPolicy.protected_branches:type_name -> ampel.v1.ProtectedBranch
-	2, // 1: ampel.v1.RepoPolicy.protected_tag:type_name -> ampel.v1.ProtectedTag
-	4, // 2: ampel.v1.ProtectedBranch.since:type_name -> google.protobuf.Timestamp
-	3, // 3: ampel.v1.ProtectedBranch.org_status_check_controls:type_name -> ampel.v1.OrgStatusCheckControl
-	4, // 4: ampel.v1.ProtectedTag.since:type_name -> google.protobuf.Timestamp
-	4, // 5: ampel.v1.OrgStatusCheckControl.since:type_name -> google.protobuf.Timestamp
+	1, // 0: in_toto_attestation.predicates.source_provenance.v1.RepoPolicy.protected_branches:type_name -> in_toto_attestation.predicates.source_provenance.v1.ProtectedBranch
+	2, // 1: in_toto_attestation.predicates.source_provenance.v1.RepoPolicy.protected_tag:type_name -> in_toto_attestation.predicates.source_provenance.v1.ProtectedTag
+	4, // 2: in_toto_attestation.predicates.source_provenance.v1.ProtectedBranch.since:type_name -> google.protobuf.Timestamp
+	3, // 3: in_toto_attestation.predicates.source_provenance.v1.ProtectedBranch.org_status_check_controls:type_name -> in_toto_attestation.predicates.source_provenance.v1.OrgStatusCheckControl
+	4, // 4: in_toto_attestation.predicates.source_provenance.v1.ProtectedTag.since:type_name -> google.protobuf.Timestamp
+	4, // 5: in_toto_attestation.predicates.source_provenance.v1.OrgStatusCheckControl.since:type_name -> google.protobuf.Timestamp
 	6, // [6:6] is the sub-list for method output_type
 	6, // [6:6] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name

@@ -2,50 +2,51 @@
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
-package ampel.v1;
+package in_toto_attestation.predicates.source_provenance.v1;
 
 import "google/protobuf/timestamp.proto";
 
+// buf:lint:ignore PACKAGE_SAME_GO_PACKAGE
 option go_package = "github.com/slsa-framework/slsa-source-poc/pkg/policy";
 
 // The repository policy definition
 message RepoPolicy {
-    string canonical_repo = 1 [json_name="canonical_repo"];
-	repeated ProtectedBranch protected_branches = 2 [json_name="protected_branches"];
-    optional ProtectedTag protected_tag = 3;  
+  string canonical_repo = 1 [json_name = "canonical_repo"];
+  repeated ProtectedBranch protected_branches = 2 [json_name = "protected_branches"];
+  optional ProtectedTag protected_tag = 3;
 }
 
 // When a branch requires multiple controls, they must all be enabled
 // at or before 'since'.
 message ProtectedBranch {
-    string name = 1;
-    google.protobuf.Timestamp since = 2;
-    // We override this string with slsa.SlsaSourceLevel
-    string target_slsa_source_level = 3; 
-	bool require_review = 4;
-	repeated OrgStatusCheckControl org_status_check_controls = 5 [json_name="org_status_check_controls"];
+  string name = 1;
+  google.protobuf.Timestamp since = 2;
+  // We override this string with slsa.SlsaSourceLevel
+  string target_slsa_source_level = 3;
+  bool require_review = 4;
+  repeated OrgStatusCheckControl org_status_check_controls = 5 [json_name = "org_status_check_controls"];
 }
 
 // The controls required for protected tags.
 message ProtectedTag {
-    google.protobuf.Timestamp since = 1;
-    bool tag_hygiene = 2;
+  google.protobuf.Timestamp since = 1;
+  bool tag_hygiene = 2;
 }
 
 // Used by orgs to require that specific 'checks' are run on protected
 // branches and to associate those checks with a control name to include
 // in provenance and VSAs.
 // https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-status-checks-to-pass-before-merging
-message OrgStatusCheckControl  {
-	// The property to record in the VSA if the conditions are met.
-	// MUST start with `ORG_SOURCE_`.
-    // We'll overide this with slsa.ControlName
-    string property_name = 1;
+message OrgStatusCheckControl {
+  // The property to record in the VSA if the conditions are met.
+  // MUST start with `ORG_SOURCE_`.
+  // We'll overide this with slsa.ControlName
+  string property_name = 1;
 
-	// These controls have their own start time to enable orgs to enable
-	// new ones without violating continuity on other controls.
-	google.protobuf.Timestamp since = 2;
+  // These controls have their own start time to enable orgs to enable
+  // new ones without violating continuity on other controls.
+  google.protobuf.Timestamp since = 2;
 
-	// The name of the 'Status Check' as reported in the GitHub UI & API.
-	string check_name = 3;
+  // The name of the 'Status Check' as reported in the GitHub UI & API.
+  string check_name = 3;
 }
