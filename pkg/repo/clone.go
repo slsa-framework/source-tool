@@ -168,6 +168,7 @@ func (c *Clone) Commit(opts *options.CommitOptions) error {
 			}
 			return err
 		}
+		return nil
 	}
 	return c.puregoCommit(opts)
 }

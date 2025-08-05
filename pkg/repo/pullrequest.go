@@ -107,7 +107,7 @@ func (prm *PullRequestManager) PullRequestFileList(
 	}
 
 	if err := prm.impl.CommitChanges(opts, clone); err != nil {
-		return nil, fmt.Errorf("committing changes to remote: %w", err)
+		return nil, fmt.Errorf("committing changes: %w", err)
 	}
 
 	if err := prm.impl.PushFeatureBranch(&prm.Options, clone); err != nil {
