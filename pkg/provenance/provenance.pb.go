@@ -264,7 +264,7 @@ func (x *TagProvenancePred) GetVsaSummaries() []*VsaSummary {
 type VsaSummary struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	SourceRefs     []string               `protobuf:"bytes,1,rep,name=source_refs,json=sourceRefs,proto3" json:"source_refs,omitempty"`
-	VerifiedLevels []string               `protobuf:"bytes,2,rep,name=verifiedLevels,proto3" json:"verifiedLevels,omitempty"`
+	VerifiedLevels []string               `protobuf:"bytes,2,rep,name=verified_levels,json=verifiedLevels,proto3" json:"verified_levels,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -317,7 +317,7 @@ var File_provenance_proto protoreflect.FileDescriptor
 
 const file_provenance_proto_rawDesc = "" +
 	"\n" +
-	"\x10provenance.proto\x12\bampel.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa3\x02\n" +
+	"\x10provenance.proto\x123in_toto_attestation.predicates.source_provenance.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xce\x02\n" +
 	"\x14SourceProvenancePred\x12\x1f\n" +
 	"\vprev_commit\x18\x01 \x01(\tR\n" +
 	"prevCommit\x12\x19\n" +
@@ -326,27 +326,27 @@ const file_provenance_proto_rawDesc = "" +
 	"\x05actor\x18\x04 \x01(\tR\x05actor\x12\x16\n" +
 	"\x06branch\x18\x05 \x01(\tR\x06branch\x12>\n" +
 	"\n" +
-	"created_on\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tcreatedOn\x88\x01\x01\x12-\n" +
-	"\bcontrols\x18\a \x03(\v2\x11.ampel.v1.ControlR\bcontrolsB\r\n" +
+	"created_on\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tcreatedOn\x88\x01\x01\x12X\n" +
+	"\bcontrols\x18\a \x03(\v2<.in_toto_attestation.predicates.source_provenance.v1.ControlR\bcontrolsB\r\n" +
 	"\v_created_on\"O\n" +
 	"\aControl\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
-	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\"\x8f\x02\n" +
+	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\"\xe5\x02\n" +
 	"\x11TagProvenancePred\x12\x19\n" +
 	"\brepo_uri\x18\x01 \x01(\tR\arepoUri\x12\x14\n" +
 	"\x05actor\x18\x02 \x01(\tR\x05actor\x12\x10\n" +
 	"\x03tag\x18\x03 \x01(\tR\x03tag\x12>\n" +
 	"\n" +
-	"created_on\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tcreatedOn\x88\x01\x01\x12-\n" +
-	"\bcontrols\x18\a \x03(\v2\x11.ampel.v1.ControlR\bcontrols\x129\n" +
-	"\rvsa_summaries\x18\b \x03(\v2\x14.ampel.v1.VsaSummaryR\fvsaSummariesB\r\n" +
-	"\v_created_on\"U\n" +
+	"created_on\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tcreatedOn\x88\x01\x01\x12X\n" +
+	"\bcontrols\x18\a \x03(\v2<.in_toto_attestation.predicates.source_provenance.v1.ControlR\bcontrols\x12d\n" +
+	"\rvsa_summaries\x18\b \x03(\v2?.in_toto_attestation.predicates.source_provenance.v1.VsaSummaryR\fvsaSummariesB\r\n" +
+	"\v_created_on\"V\n" +
 	"\n" +
 	"VsaSummary\x12\x1f\n" +
 	"\vsource_refs\x18\x01 \x03(\tR\n" +
-	"sourceRefs\x12&\n" +
-	"\x0everifiedLevels\x18\x02 \x03(\tR\x0everifiedLevelsB\x9a\x01\n" +
-	"\fcom.ampel.v1B\x0fProvenanceProtoP\x01Z8github.com/slsa-framework/slsa-source-poc/pkg/provenance\xa2\x02\x03AXX\xaa\x02\bAmpel.V1\xca\x02\bAmpel\\V1\xe2\x02\x14Ampel\\V1\\GPBMetadata\xea\x02\tAmpel::V1b\x06proto3"
+	"sourceRefs\x12'\n" +
+	"\x0fverified_levels\x18\x02 \x03(\tR\x0everifiedLevelsB\xe7\x02\n" +
+	"7com.in_toto_attestation.predicates.source_provenance.v1B\x0fProvenanceProtoP\x01Z8github.com/slsa-framework/slsa-source-poc/pkg/provenance\xa2\x02\x03IPS\xaa\x020InTotoAttestation.Predicates.SourceProvenance.V1\xca\x020InTotoAttestation\\Predicates\\SourceProvenance\\V1\xe2\x02<InTotoAttestation\\Predicates\\SourceProvenance\\V1\\GPBMetadata\xea\x023InTotoAttestation::Predicates::SourceProvenance::V1b\x06proto3"
 
 var (
 	file_provenance_proto_rawDescOnce sync.Once
@@ -362,19 +362,19 @@ func file_provenance_proto_rawDescGZIP() []byte {
 
 var file_provenance_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_provenance_proto_goTypes = []any{
-	(*SourceProvenancePred)(nil),  // 0: ampel.v1.SourceProvenancePred
-	(*Control)(nil),               // 1: ampel.v1.Control
-	(*TagProvenancePred)(nil),     // 2: ampel.v1.TagProvenancePred
-	(*VsaSummary)(nil),            // 3: ampel.v1.VsaSummary
+	(*SourceProvenancePred)(nil),  // 0: in_toto_attestation.predicates.source_provenance.v1.SourceProvenancePred
+	(*Control)(nil),               // 1: in_toto_attestation.predicates.source_provenance.v1.Control
+	(*TagProvenancePred)(nil),     // 2: in_toto_attestation.predicates.source_provenance.v1.TagProvenancePred
+	(*VsaSummary)(nil),            // 3: in_toto_attestation.predicates.source_provenance.v1.VsaSummary
 	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
 }
 var file_provenance_proto_depIdxs = []int32{
-	4, // 0: ampel.v1.SourceProvenancePred.created_on:type_name -> google.protobuf.Timestamp
-	1, // 1: ampel.v1.SourceProvenancePred.controls:type_name -> ampel.v1.Control
-	4, // 2: ampel.v1.Control.since:type_name -> google.protobuf.Timestamp
-	4, // 3: ampel.v1.TagProvenancePred.created_on:type_name -> google.protobuf.Timestamp
-	1, // 4: ampel.v1.TagProvenancePred.controls:type_name -> ampel.v1.Control
-	3, // 5: ampel.v1.TagProvenancePred.vsa_summaries:type_name -> ampel.v1.VsaSummary
+	4, // 0: in_toto_attestation.predicates.source_provenance.v1.SourceProvenancePred.created_on:type_name -> google.protobuf.Timestamp
+	1, // 1: in_toto_attestation.predicates.source_provenance.v1.SourceProvenancePred.controls:type_name -> in_toto_attestation.predicates.source_provenance.v1.Control
+	4, // 2: in_toto_attestation.predicates.source_provenance.v1.Control.since:type_name -> google.protobuf.Timestamp
+	4, // 3: in_toto_attestation.predicates.source_provenance.v1.TagProvenancePred.created_on:type_name -> google.protobuf.Timestamp
+	1, // 4: in_toto_attestation.predicates.source_provenance.v1.TagProvenancePred.controls:type_name -> in_toto_attestation.predicates.source_provenance.v1.Control
+	3, // 5: in_toto_attestation.predicates.source_provenance.v1.TagProvenancePred.vsa_summaries:type_name -> in_toto_attestation.predicates.source_provenance.v1.VsaSummary
 	6, // [6:6] is the sub-list for method output_type
 	6, // [6:6] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name
