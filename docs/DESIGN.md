@@ -181,7 +181,7 @@ field in the policy then needs to be enabled too.
 TODO: In the future this tool could be updated to allow some subset of tags
 to be updated (e.g. `latest`, `nightly`), but that feature is not yet
 supported. Tracked
-[here](https://github.com/slsa-framework/slsa-source-poc/issues/129).
+[here](https://github.com/slsa-framework/source-tool/issues/129).
 
 The tag hygiene control is evaluated for _both_ branch updates and tag updates.
 
@@ -243,7 +243,7 @@ Source provenance covers changes to a branch.  It indicates:
       }
     }
   ],
-  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft",
+  "predicateType": "https://github.com/slsa-framework/source-tool/source-provenance/v1-draft",
   "predicate": {
     "activity_type": "pr_merge",
     "actor": "TomHennen",
@@ -268,7 +268,7 @@ Source provenance covers changes to a branch.  It indicates:
     ],
     "created_on": "2025-05-31T21:52:36.665624162Z",
     "prev_commit": "a224aa2d55884ef0cef78ccb498c3561ca240808",
-    "repo_uri": "https://github.com/slsa-framework/slsa-source-poc"
+    "repo_uri": "https://github.com/slsa-framework/source-tool"
   }
 }
 ```
@@ -306,7 +306,7 @@ Tag provenance records a tag creation event.  It indicates:
       }
     ],
     "created_on": "2025-06-01T21:46:21.698144672Z",
-    "repo_uri": "https://github.com/slsa-framework/slsa-source-poc",
+    "repo_uri": "https://github.com/slsa-framework/source-tool",
     "tag": "refs/tags/sourcetool/v0.5.1",
     "vsa_summaries": [
       {
@@ -326,8 +326,8 @@ Tag provenance records a tag creation event.  It indicates:
 
 ## Policy
 
-This PoC uses user supplied 'policy' files (stored in
-[a public git repo](https://github.com/slsa-framework/slsa-source-poc/tree/main/policy/github.com)
+This PoC uses user-supplied 'policy' files (stored in
+[a public git repo](https://github.com/slsa-framework/source-policies/tree/main/policy/github.com)
 outside of user control) to indicate what controls _ought_ to be enforced and when that
 enforcement should start.
 
@@ -340,7 +340,7 @@ This amounts to public declaration of SLSA adoption and allows backsliding to be
 
 ```json
 {
-  "canonical_repo": "https://github.com/slsa-framework/slsa-source-poc",
+  "canonical_repo": "https://github.com/slsa-framework/source-tool",
   "protected_branches": [
     {
       "Name": "main",
@@ -370,7 +370,7 @@ declaration by the org that all tags are protected.
 
 The tool does not yet support protecting only some tags. Adding support is
 tracked in
-[this issue](https://github.com/slsa-framework/slsa-source-poc/issues/129).
+[this issue](https://github.com/slsa-framework/source-tool/issues/129).
 
 ### Org Specified Properties
 
@@ -403,9 +403,9 @@ Example VSA
   "predicateType": "https://slsa.dev/verification_summary/v1",
   "predicate": {
     "policy": {
-      "uri": "https://github.com/slsa-framework/slsa-source-poc/blob/main/policy/github.com/slsa-framework/slsa-source-poc/source-policy.json"
+      "uri": "https://github.com/slsa-framework/source-policies/blob/main/policy/github.com/slsa-framework/source-tool/source-policy.json"
     },
-    "resourceUri": "git+https://github.com/slsa-framework/slsa-source-poc",
+    "resourceUri": "git+https://github.com/slsa-framework/source-tool",
     "timeVerified": "2025-06-01T21:51:51.451207508Z",
     "verificationResult": "PASSED",
     "verifiedLevels": [
@@ -414,7 +414,7 @@ Example VSA
       "ORG_SOURCE_TESTED"
     ],
     "verifier": {
-      "id": "https://github.com/slsa-framework/slsa-source-poc"
+      "id": "https://github.com/slsa-framework/source-tool"
     }
   }
 }
