@@ -2,49 +2,49 @@
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
-package ampel.v1;
+package in_toto_attestation.predicates.source_provenance.v1;
 
 import "google/protobuf/timestamp.proto";
 
+// buf:lint:ignore PACKAGE_SAME_GO_PACKAGE
 option go_package = "github.com/slsa-framework/slsa-source-poc/pkg/provenance";
 
 // The predicate that encodes source provenance data.
 // The git commit this corresponds to is encoded in the surrounding statement.
 message SourceProvenancePred {
-	// The commit preceding 'Commit' in the current context.
-	string prev_commit = 1;
-	string repo_uri = 2;
-    string activity_type = 3;
-    string actor = 4;
-    string branch = 5;
-    optional google.protobuf.Timestamp created_on = 6;
-	// TODO: get the author of the PR (if this was from a PR).
+  // The commit preceding 'Commit' in the current context.
+  string prev_commit = 1;
+  string repo_uri = 2;
+  string activity_type = 3;
+  string actor = 4;
+  string branch = 5;
+  optional google.protobuf.Timestamp created_on = 6;
+  // TODO: get the author of the PR (if this was from a PR).
 
-	// The controls enabled at the time this commit was pushed.
-    repeated Control controls = 7;
+  // The controls enabled at the time this commit was pushed.
+  repeated Control controls = 7;
 }
 
-message Control  {
-	// The name of the control
-	string name = 1;
-	// The time from which this control has been continuously enforced/observed.
-    google.protobuf.Timestamp since = 2;
+message Control {
+  // The name of the control
+  string name = 1;
+  // The time from which this control has been continuously enforced/observed.
+  google.protobuf.Timestamp since = 2;
 }
 
 message TagProvenancePred {
-	string repo_uri = 1;
-	string actor = 2;
-	string tag = 3;
-	optional google.protobuf.Timestamp created_on = 4;
+  string repo_uri = 1;
+  string actor = 2;
+  string tag = 3;
+  optional google.protobuf.Timestamp created_on = 4;
 
-	// The tag related controls enabled at the time this tag was created/updated.
-	repeated Control controls = 7;
-	repeated VsaSummary vsa_summaries = 8;
+  // The tag related controls enabled at the time this tag was created/updated.
+  repeated Control controls = 7;
+  repeated VsaSummary vsa_summaries = 8;
 }
 
 // Summary of a summary
 message VsaSummary {
-	repeated string source_refs = 1;
-	repeated string verifiedLevels = 2;
+  repeated string source_refs = 1;
+  repeated string verified_levels = 2 [json_name = "verifiedLevels"];
 }
-
