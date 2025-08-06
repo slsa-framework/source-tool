@@ -5,11 +5,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/options"
+	"github.com/slsa-framework/source-tool/pkg/auth"
+	"github.com/slsa-framework/source-tool/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/options"
 )
 
 type FakeToolImplementation struct {

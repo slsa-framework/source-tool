@@ -33,7 +33,7 @@ func (ghc *GitHubConnection) GetNotesForCommit(ctx context.Context, commit strin
 		// trying the sharded path above as notes will be found using this
 		// path only when there is a small number of notes in the repo.
 		//
-		// See  https://github.com/slsa-framework/slsa-source-poc/issues/215
+		// See  https://github.com/slsa-framework/source-tool/issues/215
 		contents, _, resp, err = ghc.Client().Repositories.GetContents(
 			ctx, ghc.Owner(), ghc.Repo(), commit,
 			&github.RepositoryContentGetOptions{Ref: "refs/notes/commits"},

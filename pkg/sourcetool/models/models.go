@@ -14,8 +14,8 @@ import (
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	attestation "github.com/in-toto/attestation/go/v1"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/provenance"
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/provenance"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
 var ErrProtectionAlreadyInPlace = errors.New("controls already in place in the repository")

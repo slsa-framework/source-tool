@@ -20,8 +20,8 @@ import (
 	"github.com/google/uuid"
 	"sigs.k8s.io/release-utils/command"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/repo/options"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/repo/options"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 // Clone is a local clone of a repository

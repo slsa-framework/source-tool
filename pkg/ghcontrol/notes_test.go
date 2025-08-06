@@ -25,7 +25,7 @@ func TestGetNotesForCommit(t *testing.T) {
 		mustBeEmpty bool
 		mustErr     bool
 	}{
-		{name: "success", owner: "slsa-framework", repo: "slsa-source-poc", commit: "e573149ab3e574abc2e5a151a04acfaf2a59b453", mustBeEmpty: false, mustErr: false},
+		{name: "success", owner: "slsa-framework", repo: "source-tool", commit: "e573149ab3e574abc2e5a151a04acfaf2a59b453", mustBeEmpty: false, mustErr: false},
 		{name: "invalida-commit", owner: "kjsdhi373iuh", repo: "lksjdhfk3773", commit: "invalid", mustBeEmpty: true, mustErr: true},
 		{name: "non-existent", owner: "kjsdhi373iuh", repo: "lksjdhfk3773", commit: "de9395302d14b24c0a42685cf27315d93c88ff79", mustBeEmpty: true, mustErr: false},
 	} {

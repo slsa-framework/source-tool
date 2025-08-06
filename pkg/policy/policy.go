@@ -22,13 +22,13 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/attest"
-	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/pkg/provenance"
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/backends/attestation/notes"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/attest"
+	"github.com/slsa-framework/source-tool/pkg/auth"
+	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/provenance"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/backends/attestation/notes"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
 type BundleReader struct {
@@ -37,7 +37,7 @@ func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, err
 	// Compatibility hack bridgind identities for repository migration
 	// See here for more info and when to drop:
 	//
-	//  https://github.com/slsa-framework/slsa-source-poc/issues/255
+	//  https://github.com/slsa-framework/source-tool/issues/255
 	if strings.Contains(err.Error(), "no matching CertificateIdentity") && strings.Contains(err.Error(), OldExpectedSan) {
 		ver, err := (&BndVerifier{
 			Options: VerificationOptions{

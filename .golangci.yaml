@@ -27,7 +27,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/slsa-framework/slsa-source-poc)
+        - prefix(github.com/slsa-framework/source-tool)
 linters:
   enable:
     - asasalint

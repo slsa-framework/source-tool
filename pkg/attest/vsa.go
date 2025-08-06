@@ -15,8 +15,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
 const (

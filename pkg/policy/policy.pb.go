@@ -313,8 +313,8 @@ const file_policy_proto_rawDesc = "" +
 	"\rproperty_name\x18\x01 \x01(\tR\fpropertyName\x120\n" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1d\n" +
 	"\n" +
-	"check_name\x18\x03 \x01(\tR\tcheckNameB\xdf\x02\n" +
-	"7com.in_toto_attestation.predicates.source_provenance.v1B\vPolicyProtoP\x01Z4github.com/slsa-framework/slsa-source-poc/pkg/policy\xa2\x02\x03IPS\xaa\x020InTotoAttestation.Predicates.SourceProvenance.V1\xca\x020InTotoAttestation\\Predicates\\SourceProvenance\\V1\xe2\x02<InTotoAttestation\\Predicates\\SourceProvenance\\V1\\GPBMetadata\xea\x023InTotoAttestation::Predicates::SourceProvenance::V1b\x06proto3"
+	"check_name\x18\x03 \x01(\tR\tcheckNameB\xdb\x02\n" +
+	"7com.in_toto_attestation.predicates.source_provenance.v1B\vPolicyProtoP\x01Z0github.com/slsa-framework/source-tool/pkg/policy\xa2\x02\x03IPS\xaa\x020InTotoAttestation.Predicates.SourceProvenance.V1\xca\x020InTotoAttestation\\Predicates\\SourceProvenance\\V1\xe2\x02<InTotoAttestation\\Predicates\\SourceProvenance\\V1\\GPBMetadata\xea\x023InTotoAttestation::Predicates::SourceProvenance::V1b\x06proto3"
 
 var (
 	file_policy_proto_rawDescOnce sync.Once

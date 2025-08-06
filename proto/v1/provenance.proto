@@ -7,7 +7,7 @@ package in_toto_attestation.predicates.source_provenance.v1;
 import "google/protobuf/timestamp.proto";
 
 // buf:lint:ignore PACKAGE_SAME_GO_PACKAGE
-option go_package = "github.com/slsa-framework/slsa-source-poc/pkg/provenance";
+option go_package = "github.com/slsa-framework/source-tool/pkg/provenance";
 
 // The predicate that encodes source provenance data.
 // The git commit this corresponds to is encoded in the surrounding statement.

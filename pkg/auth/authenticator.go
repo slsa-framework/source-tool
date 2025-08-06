@@ -15,7 +15,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/google/go-github/v69/github"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 const (

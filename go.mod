@@ -1,4 +1,4 @@
-module github.com/slsa-framework/slsa-source-poc
+module github.com/slsa-framework/source-tool
 
 go 1.24.5
 

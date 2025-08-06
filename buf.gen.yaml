@@ -10,4 +10,4 @@ plugins:
     out: ./pkg
     opt: 
       - paths=import
-      - module=github.com/slsa-framework/slsa-source-poc/pkg
+      - module=github.com/slsa-framework/source-tool/pkg

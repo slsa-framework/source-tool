@@ -12,9 +12,9 @@ import (
 	"github.com/carabiner-dev/vcslocator"
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/pkg/ghcontrol"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/auth"
+	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type repoOptions struct {

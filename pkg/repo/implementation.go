@@ -21,9 +21,9 @@ import (
 	"github.com/go-git/go-git/v6/storage/memory"
 	"github.com/google/go-github/v69/github"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/auth"
-	"github.com/slsa-framework/slsa-source-poc/pkg/repo/options"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/auth"
+	"github.com/slsa-framework/source-tool/pkg/repo/options"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 //counterfeiter:generate . prManagerImplementation

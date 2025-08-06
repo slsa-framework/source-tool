@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/slsa-source-poc/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/policy"
 )
 
 type createPolicyOptions struct {
@@ -23,7 +23,7 @@ func (cpo *createPolicyOptions) Validate() error {
 
 func (cpo *createPolicyOptions) AddFlags(cmd *cobra.Command) {
 	cpo.branchOptions.AddFlags(cmd)
-	cmd.PersistentFlags().StringVar(&cpo.policyRepoPath, "policy_repo_path", "./", "Path to the directory with a clean clone of github.com/slsa-framework/slsa-source-poc.")
+	cmd.PersistentFlags().StringVar(&cpo.policyRepoPath, "policy_repo_path", "./", "Path to the directory with a clean clone of github.com/slsa-framework/source-policies.")
 }
 
 func addCreatePolicy(parentCmd *cobra.Command) {
@@ -31,10 +31,10 @@ func addCreatePolicy(parentCmd *cobra.Command) {
 
 	createpolicyCmd := &cobra.Command{
 		Use:   "createpolicy",
-		Short: "Creates a policy in a local copy of slsa-source-poc",
-		Long: `Creates a SLSA source policy in a local copy of slsa-source-poc.
+		Short: "Creates a policy in a local copy of source-policies",
+		Long: `Creates a SLSA source policy in a local copy of source-policies.
 
-		The created policy should then be sent as a PR to slsa-framework/slsa-source-poc.`,
+		The created policy should then be sent as a PR to slsa-framework/source-policies.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

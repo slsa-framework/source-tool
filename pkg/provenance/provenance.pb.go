@@ -345,8 +345,8 @@ const file_provenance_proto_rawDesc = "" +
 	"VsaSummary\x12\x1f\n" +
 	"\vsource_refs\x18\x01 \x03(\tR\n" +
 	"sourceRefs\x12'\n" +
-	"\x0fverified_levels\x18\x02 \x03(\tR\x0everifiedLevelsB\xe7\x02\n" +
-	"7com.in_toto_attestation.predicates.source_provenance.v1B\x0fProvenanceProtoP\x01Z8github.com/slsa-framework/slsa-source-poc/pkg/provenance\xa2\x02\x03IPS\xaa\x020InTotoAttestation.Predicates.SourceProvenance.V1\xca\x020InTotoAttestation\\Predicates\\SourceProvenance\\V1\xe2\x02<InTotoAttestation\\Predicates\\SourceProvenance\\V1\\GPBMetadata\xea\x023InTotoAttestation::Predicates::SourceProvenance::V1b\x06proto3"
+	"\x0fverified_levels\x18\x02 \x03(\tR\x0everifiedLevelsB\xe3\x02\n" +
+	"7com.in_toto_attestation.predicates.source_provenance.v1B\x0fProvenanceProtoP\x01Z4github.com/slsa-framework/source-tool/pkg/provenance\xa2\x02\x03IPS\xaa\x020InTotoAttestation.Predicates.SourceProvenance.V1\xca\x020InTotoAttestation\\Predicates\\SourceProvenance\\V1\xe2\x02<InTotoAttestation\\Predicates\\SourceProvenance\\V1\\GPBMetadata\xea\x023InTotoAttestation::Predicates::SourceProvenance::V1b\x06proto3"
 
 var (
 	file_provenance_proto_rawDescOnce sync.Once

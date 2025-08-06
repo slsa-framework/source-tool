@@ -7,8 +7,8 @@ import (
 
 	v1a "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	v1 "github.com/in-toto/attestation/go/v1"
-	"github.com/slsa-framework/slsa-source-poc/pkg/provenance"
-	"github.com/slsa-framework/slsa-source-poc/pkg/sourcetool/models"
+	"github.com/slsa-framework/source-tool/pkg/provenance"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type FakeAttestationStorageReader struct {
