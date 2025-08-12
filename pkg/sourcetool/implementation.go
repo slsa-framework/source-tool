@@ -90,6 +90,11 @@ func (impl *defaultToolImplementation) CreatePolicyPR(a *auth.Authenticator, opt
 	if p == nil {
 		return nil, fmt.Errorf("policy is nil")
 	}
+	user, err := a.WhoAmI()
+	if err != nil {
+		return nil, err
+	}
+
 	repoOwner, repoName, err := r.PathAsGitHubOwnerName()
 	if err != nil {
 		return nil, err
@@ -134,6 +139,10 @@ func (impl *defaultToolImplementation) CreatePolicyPR(a *auth.Authenticator, opt
 		&roptions.PullRequestFileListOptions{
 			Title: fmt.Sprintf("Add %s/%s SLSA Source policy file", repoOwner, repoName),
 			Body:  fmt.Sprintf(`This pull request adds the SLSA source policy for github.com/%s/%s`, repoOwner, repoName),
+			CommitOptions: roptions.CommitOptions{
+				Name:  user.GetLogin(),
+				Email: user.GetLogin() + "@users.noreply.github.com",
+			},
 		},
 		[]*repo.PullRequestFileEntry{
 			{

@@ -82,6 +82,11 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 		return nil, errors.New("no branches specified")
 	}
 
+	user, err := b.authenticator.WhoAmI()
+	if err != nil {
+		return nil, err
+	}
+
 	// Populate the branches in the workflow template
 	quotedBranchesList := []string{}
 	for _, b := range branches {
@@ -112,6 +117,10 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 		&options.PullRequestFileListOptions{
 			Title: workflowCommitMessage,
 			Body:  workflowPRBody,
+			CommitOptions: options.CommitOptions{
+				Name:  user.GetLogin(),
+				Email: user.GetLogin() + "@users.noreply.github.com",
+			},
 		},
 		[]*repo.PullRequestFileEntry{
 			{
