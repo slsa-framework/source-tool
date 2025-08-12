@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
-	"sigs.k8s.io/release-utils/util"
+	"sigs.k8s.io/release-utils/helpers"
 
 	"github.com/slsa-framework/source-tool/pkg/policy"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool"
@@ -204,7 +204,7 @@ just print the generated policy.
 				fmt.Println("Do you want to update it?")
 				fmt.Println()
 
-				_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+				_, s, err := helpers.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
 				if err != nil {
 					return err
 				}
@@ -250,7 +250,7 @@ open the pull request from there.
 
 `, policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo, opts.owner, opts.repository)
 
-				_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+				_, s, err := helpers.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
 				if err != nil {
 					return err
 				}
@@ -327,7 +327,7 @@ func ensureOrCreatePolicyFork(srctool *sourcetool.Tool) error {
 	fmt.Println("Would you like to create the fork in your GitHub account now?")
 	fmt.Println()
 
-	_, s, err := util.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
+	_, s, err := helpers.Ask("Type 'yes' if you want to continue?", "yes|no|no", 3)
 	if err != nil {
 		return err
 	}
