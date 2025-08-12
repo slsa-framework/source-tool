@@ -9,7 +9,7 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/release-utils/util"
+	"sigs.k8s.io/release-utils/helpers"
 
 	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
@@ -172,7 +172,7 @@ Alternatively, to enable each control individually use: sourcetool setup control
 					fmt.Println(">> " + actionDescr)
 					fmt.Println()
 
-					_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+					_, s, err := helpers.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
 					if err != nil {
 						return err
 					}
@@ -204,7 +204,7 @@ sourcetool is about to perform the following actions on your behalf:
 					srctool.ControlConfigurationDescr(opts.GetBranch(), models.CONFIG_BRANCH_RULES),
 				)
 
-				_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+				_, s, err := helpers.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
 				if err != nil {
 					return err
 				}
@@ -385,7 +385,7 @@ a fork of the repository you want to protect.
 						fmt.Println(">> " + actionDescr)
 						fmt.Println()
 
-						_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+						_, s, err := helpers.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
 						if err != nil {
 							return err
 						}
@@ -412,7 +412,7 @@ a fork of the repository you want to protect.
 				fmt.Print(questions)
 				fmt.Println()
 
-				_, s, err := util.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
+				_, s, err := helpers.Ask("Type 'yes' if you want to continue", "yes|no|no", 3)
 				if err != nil {
 					return err
 				}
