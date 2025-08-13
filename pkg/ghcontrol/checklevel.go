@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"slices"
 	"time"
 
@@ -249,7 +250,7 @@ func (ghc *GitHubConnection) EnableBranchRules(ctx context.Context) error {
 	}
 
 	// Create the SLSA ruleset
-	if _, _, err := ghc.Client().Repositories.CreateRuleset(ctx, ghc.Owner(), ghc.Repo(), github.RepositoryRuleset{
+	if _, resp, err := ghc.Client().Repositories.CreateRuleset(ctx, ghc.Owner(), ghc.Repo(), github.RepositoryRuleset{
 		Name:         "SLSA Branch Controls",
 		Target:       github.Ptr(github.RulesetTargetBranch),
 		Enforcement:  EnforcementActive,
@@ -265,6 +266,9 @@ func (ghc *GitHubConnection) EnableBranchRules(ctx context.Context) error {
 			NonFastForward: &github.EmptyRuleParameters{},
 		},
 	}); err != nil {
+		if resp.StatusCode == http.StatusNotFound {
+			return models.ErrRepositoryAccessDenied
+		}
 		return fmt.Errorf("creating branch protection ruleset: %w", err)
 	}
 
@@ -290,7 +294,7 @@ func (ghc *GitHubConnection) EnableTagRules(ctx context.Context) error {
 	}
 
 	// Create the SLSA ruleset
-	if _, _, err := ghc.Client().Repositories.CreateRuleset(ctx, ghc.Owner(), ghc.Repo(), github.RepositoryRuleset{
+	if _, resp, err := ghc.Client().Repositories.CreateRuleset(ctx, ghc.Owner(), ghc.Repo(), github.RepositoryRuleset{
 		Name:         "SLSA Tag Controls",
 		Target:       github.Ptr(github.RulesetTargetTag),
 		Enforcement:  EnforcementActive,
@@ -309,6 +313,9 @@ func (ghc *GitHubConnection) EnableTagRules(ctx context.Context) error {
 			},
 		},
 	}); err != nil {
+		if resp.StatusCode == http.StatusNotFound {
+			return models.ErrRepositoryAccessDenied
+		}
 		return fmt.Errorf("creating tag protection ruleset: %w", err)
 	}
 
