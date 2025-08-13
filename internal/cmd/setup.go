@@ -448,6 +448,14 @@ a fork of the repository you want to protect.
 					fmt.Printf("\n   ℹ️  Controls already enabled on %s\n\n", opts.GetRepository().Path)
 					return nil
 				}
+
+				if errors.Is(err, models.ErrRepositoryAccessDenied) {
+					fmt.Printf("\n   🔐 %s sourcetool does not have access to %s\n\n", colorHiRed("Error:"), opts.GetRepository().Path)
+					fmt.Println()
+					fmt.Printf("Please run %s again and grant the app access\n", w("sourcetool auth login"))
+					fmt.Println("to the repository or organization.")
+					return nil
+				}
 				return fmt.Errorf("configuring controls: %w", err)
 			}
 
