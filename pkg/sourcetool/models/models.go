@@ -18,7 +18,10 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
-var ErrProtectionAlreadyInPlace = errors.New("controls already in place in the repository")
+var (
+	ErrProtectionAlreadyInPlace = errors.New("controls already in place in the repository")
+	ErrRepositoryAccessDenied   = errors.New("access to repository denied")
+)
 
 // AttestationStorageReader abstracts an attestation storage system where
 // sourcetool can read VSAs and provenance attestations.
