@@ -276,7 +276,7 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 			Message: fmt.Sprintf("Repository policy not found for %s", r.Path),
 			RecommendedAction: &slsa.ControlRecommendedAction{
 				Message: "Create a policy for the repository",
-				Command: fmt.Sprintf("buildtool setup --config=CONFIG_POLICY %s", r.Path),
+				Command: fmt.Sprintf("buildtool policy create %s", r.Path),
 			},
 		}, nil
 	}
