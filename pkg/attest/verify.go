@@ -4,7 +4,8 @@
 package attest
 
 import (
-	"github.com/carabiner-dev/bnd/pkg/bnd"
+	"github.com/carabiner-dev/signer"
+	"github.com/carabiner-dev/signer/options"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
@@ -47,18 +48,23 @@ type BndVerifier struct {
 func (bv *BndVerifier) Verify(data string) (*verify.VerificationResult, error) {
 	// TODO: There's more for us to do here... but what?
 	// Maybe check to make sure it's from the identity we expect (the workflow?)
-	verifier := bnd.NewVerifier()
-	verifier.Options.ExpectedIssuer = bv.Options.ExpectedIssuer
-	verifier.Options.ExpectedSan = bv.Options.ExpectedSan
-	vr, err := verifier.VerifyInlineBundle([]byte(data))
+	verifier := signer.NewVerifier()
+
+	// Verify the signed bundle
+	vr, err := verifier.VerifyInlineBundle(
+		[]byte(data),
+		options.WithExpectedIdentity(
+			bv.Options.ExpectedIssuer, bv.Options.ExpectedSan,
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
 	return vr, nil
 }
 
-func NewBndVerifier(options VerificationOptions) *BndVerifier {
-	return &BndVerifier{Options: options}
+func NewBndVerifier(opts VerificationOptions) *BndVerifier {
+	return &BndVerifier{Options: opts}
 }
 
 func GetDefaultVerifier() Verifier {
