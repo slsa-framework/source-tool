@@ -34,7 +34,7 @@ func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, err
 		return vr.Statement, nil
 	}
 
-	// Compatibility hack bridgind identities for repository migration
+	// Compatibility hack bridging identities for repository migration
 	// See here for more info and when to drop:
 	//
 	//  https://github.com/slsa-framework/source-tool/issues/255
@@ -55,7 +55,7 @@ func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, err
 
 	// TODO: add support for 'regular' DSSEs.
 
-	return nil, fmt.Errorf("could not convert line to statement: '%s'", line)
+	return nil, fmt.Errorf("could not convert line to statement: '%s': %w", line, err)
 }
 
 func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]string, error) {

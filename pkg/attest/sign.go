@@ -4,13 +4,15 @@
 package attest
 
 import (
-	"github.com/carabiner-dev/bnd/pkg/bnd"
+	"github.com/carabiner-dev/signer"
+	"github.com/carabiner-dev/signer/options"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Sign(data string) (string, error) {
-	signer := bnd.NewSigner()
-	bundle, err := signer.SignStatement([]byte(data))
+	bundle, err := signer.NewSigner().SignStatement(
+		[]byte(data), options.WithPayloadType("application/vnd.in-toto+json"),
+	)
 	if err != nil {
 		return "", err
 	}
