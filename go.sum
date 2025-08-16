@@ -717,8 +717,8 @@ github.com/boombuler/barcode v1.0.0/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl
 github.com/boombuler/barcode v1.0.1/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/carabiner-dev/signer v0.1.1 h1:8+hZOnUAtAzd/OWhi8NVhD4Auz3hLUhIq1rFyk68n9o=
 github.com/carabiner-dev/signer v0.1.1/go.mod h1:cyXsI2efKEzfg66AF5Z3s2QQeksoYQwl2ywjiSVZmYA=
-github.com/carabiner-dev/vcslocator v0.3.1 h1:TIC7NfrBjMUkul9F+vvrDVIxxRqhsywjWy4L7WzdaMA=
-github.com/carabiner-dev/vcslocator v0.3.1/go.mod h1:jvYlXLVyqQqkBuSH/CiE1pbHifoPaAhWtUjLquHaBb0=
+github.com/carabiner-dev/vcslocator v0.3.2 h1:/rfhELG1mvqFq0xi8LQSkfpAVoQDCGlWoL6J5tX9Inw=
+github.com/carabiner-dev/vcslocator v0.3.2/go.mod h1:jvYlXLVyqQqkBuSH/CiE1pbHifoPaAhWtUjLquHaBb0=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cenkalti/backoff/v5 v5.0.2 h1:rIfFVxEf1QsI7E1ZHfp/B4DF/6QBAUhmgkxc0H7Zss8=
