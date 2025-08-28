@@ -7,9 +7,9 @@ on:
   push:
     tags:
       - 'v*'
-permissions:
-  contents: read
-  
+
+permissions: {}
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -18,9 +18,9 @@ jobs:
       id-token: write # To sign attestations
       attestations: write # To push build provenance to attestations store
       contents: write # To create the release
-      
+
     steps:
-      
+
       - name: Setup bnd
         uses: carabiner-dev/actions/install/bnd@HEAD
 
@@ -30,9 +30,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Extract version of Go to use
+        run: echo "GOVERSION=$(awk -F'[:@]' '/FROM golang/{print $2; exit}' Dockerfile)" >> $GITHUB_ENV
+
       - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          go-version-file: go.mod
+          go-version: ${{ env.GOVERSION }}
+          check-latest: true
           cache: false
 
       - name: Install tejolote
@@ -43,7 +47,7 @@ jobs:
       - name: Set tag output
         id: tag
         run: echo "tag_name=${GITHUB_REF#refs/*/}" >> "$GITHUB_OUTPUT"
-  
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
         id: goreleaser
@@ -67,5 +71,4 @@ jobs:
             bnd pack attestations/ > sourcetool.intoto.jsonl
             gh release upload ${{ steps.tag.outputs.tag_name }} sourcetool.intoto.jsonl
             # Remove this once GitHub like the tejolote build predicate
-            # bnd push github ${{github.repository}} attestations/sourcetool-${{ steps.tag.outputs.tag_name }}.provenance.json 
-
+            # bnd push github ${{github.repository}} attestations/sourcetool-${{ steps.tag.outputs.tag_name }}.provenance.json
