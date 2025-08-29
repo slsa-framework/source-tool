@@ -3,7 +3,7 @@ module github.com/slsa-framework/source-tool
 go 1.24.5
 
 require (
-	github.com/carabiner-dev/signer v0.1.1
+	github.com/carabiner-dev/signer v0.1.2
 	github.com/carabiner-dev/vcslocator v0.3.2
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-billy/v6 v6.0.0-20250627091229-31e2a16eef30
@@ -15,8 +15,8 @@ require (
 	github.com/migueleliasweb/go-github-mock v1.4.0
 	github.com/sigstore/sigstore-go v1.1.1
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
-	google.golang.org/protobuf v1.36.7
+	github.com/stretchr/testify v1.11.0
+	google.golang.org/protobuf v1.36.8
 	sigs.k8s.io/release-utils v0.12.1
 )
 
