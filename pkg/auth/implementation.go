@@ -112,7 +112,7 @@ func (di *defaultImplementation) openBrowser(authURL string) error {
 		cmd = "xdg-open"
 	}
 
-	return exec.Command(cmd, append(args, authURL)...).Start() //nolint:gosec // yes variable input
+	return exec.CommandContext(context.Background(), cmd, append(args, authURL)...).Start() //nolint:gosec // yes variable input
 }
 
 // requestDeviceCode requests a device code from GitHub
