@@ -3,12 +3,16 @@ name: "Computes the SLSA source information"
 on:
   workflow_call:
 
+permissions: {}
+
 jobs:
   compute_slsa_source:
+    runs-on: ubuntu-latest
+
     permissions:
       contents: write # needed for storing attestations in the repo
       id-token: write
-    runs-on: ubuntu-latest
+
     steps:
     - name: prov
       uses: slsa-framework/slsa-source-poc/actions/slsa_with_provenance@main
