@@ -13,6 +13,9 @@ this tool meets the SLSA Source Requirements.
 
 [DESIGN.md](docs/DESIGN.md) explains more specifically how the system works.
 
+[VERIFICATION.md](docs/VERIFICATION.md) explains the security model for VSA verification,
+policy binding, and why verification commands do not allow policy override.
+
 ## Components
 
 [compute_slsa_source.yml](.github/workflows/compute_slsa_source.yml) is a reusable workflow that

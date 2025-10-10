@@ -383,6 +383,13 @@ have been run by GitHub Actions.  As seen in this example:
 
 ## Verification Summary Attestations (VSA)
 
+VSAs are cryptographically signed claims that a specific commit complies with a specific
+policy. Each VSA includes a reference to the policy it was evaluated against, creating a
+binding between the attestation and the policy.
+
+**Important**: For information about how to safely consume and verify VSAs, including why
+verification commands do not allow policy override, see [VERIFICATION.md](VERIFICATION.md).
+
 Example VSA
 
 ```json
@@ -419,6 +426,9 @@ Example VSA
   }
 }
 ```
+
+The `policy.uri` field is critical: it identifies which policy was used to evaluate the commit.
+Consumers should verify that this policy URI is one they trust before accepting the VSA's claims.
 
 ## Attestation Storage
 
