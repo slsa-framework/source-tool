@@ -83,7 +83,7 @@ func addAudit(parentCmd *cobra.Command) {
 	auditCmd := &cobra.Command{
 		Use:     "audit",
 		GroupID: "verification",
-		Short:   "Audits the SLSA properties and controls of a repository",
+		Short:   "Verifies multiple commits in the branch history",
 		Long: `Checks the revisions on the specified branch within the repository.
 
 Revisions 'pass' an audit if they have:
