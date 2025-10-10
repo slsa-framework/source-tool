@@ -55,6 +55,10 @@ controls and much more.
 			Title: "Attestation & Evaluation Commands:",
 		},
 		&cobra.Group{
+			ID:    "policy",
+			Title: "Policy Commands:",
+		},
+		&cobra.Group{
 			ID:    "configuration",
 			Title: "Configuration & Setup Commands:",
 		},
@@ -71,11 +75,13 @@ controls and much more.
 	addCheckTag(rootCmd)
 	addProv(rootCmd)
 
+	// Policy commands
+	addPolicy(rootCmd)
+	addCreatePolicy(rootCmd)
+
 	// Configuration & setup commands
 	addSetup(rootCmd)
 	addAuth(rootCmd)
-	addPolicy(rootCmd)
-	addCreatePolicy(rootCmd)
 
 	return rootCmd
 }

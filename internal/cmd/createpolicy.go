@@ -31,7 +31,7 @@ func addCreatePolicy(parentCmd *cobra.Command) {
 
 	createpolicyCmd := &cobra.Command{
 		Use:     "createpolicy",
-		GroupID: "configuration",
+		GroupID: "policy",
 		Short:   "Creates a policy in a local copy of source-policies",
 		Long: `Creates a SLSA source policy in a local copy of source-policies.
 
