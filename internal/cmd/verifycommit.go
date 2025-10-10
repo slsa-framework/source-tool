@@ -17,7 +17,20 @@ import (
 type verifyCommitOptions struct {
 	commitOptions
 	verifierOptions
+	outputOptions
 	tag string
+}
+
+// VerifyCommitResult represents the result of a commit verification in JSON format
+type VerifyCommitResult struct {
+	Success        bool     `json:"success"`
+	Commit         string   `json:"commit"`
+	Ref            string   `json:"ref"`
+	RefType        string   `json:"ref_type"` // "branch" or "tag"
+	Owner          string   `json:"owner"`
+	Repository     string   `json:"repository"`
+	VerifiedLevels []string `json:"verified_levels,omitempty"`
+	Message        string   `json:"message,omitempty"`
 }
 
 func (vco *verifyCommitOptions) Validate() error {
@@ -34,6 +47,8 @@ func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(
 		&vco.tag, "tag", "", "The tag within the repository",
 	)
+	vco.format = OutputFormatText
+	cmd.PersistentFlags().Var(&vco.format, "format", "Output format: 'text' (default) or 'json'")
 }
 
 //nolint:dupl
@@ -74,11 +89,17 @@ func addVerifyCommit(cmd *cobra.Command) {
 
 func doVerifyCommit(opts *verifyCommitOptions) error {
 	var ref string
+	var refType string
+	var refName string
 	switch {
 	case opts.branch != "":
 		ref = ghcontrol.BranchToFullRef(opts.branch)
+		refType = "branch"
+		refName = opts.branch
 	case opts.tag != "":
 		ref = ghcontrol.TagToFullRef(opts.tag)
+		refType = "tag"
+		refName = opts.tag
 	default:
 		return fmt.Errorf("must specify either branch or tag")
 	}
@@ -90,14 +111,33 @@ func doVerifyCommit(opts *verifyCommitOptions) error {
 	if err != nil {
 		return err
 	}
+
+	result := VerifyCommitResult{
+		Success:    vsaPred != nil,
+		Commit:     opts.commit,
+		Ref:        refName,
+		RefType:    refType,
+		Owner:      opts.owner,
+		Repository: opts.repository,
+	}
+
 	if vsaPred == nil {
-		fmt.Printf(
-			"FAILED: no VSA matching commit '%s' on branch '%s' found in github.com/%s/%s\n",
-			opts.commit, opts.branch, opts.owner, opts.repository,
+		result.Message = fmt.Sprintf(
+			"no VSA matching commit '%s' on %s '%s' found in github.com/%s/%s",
+			opts.commit, refType, refName, opts.owner, opts.repository,
 		)
+		if opts.isJSON() {
+			return opts.writeJSON(result)
+		}
+		opts.writeText("FAILED: %s\n", result.Message)
 		return nil
 	}
 
-	fmt.Printf("SUCCESS: commit %s on %s verified with %v\n", opts.commit, opts.branch, vsaPred.GetVerifiedLevels())
+	result.VerifiedLevels = vsaPred.GetVerifiedLevels()
+
+	if opts.isJSON() {
+		return opts.writeJSON(result)
+	}
+	opts.writeText("SUCCESS: commit %s on %s verified with %v\n", opts.commit, refName, vsaPred.GetVerifiedLevels())
 	return nil
 }

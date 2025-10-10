@@ -56,9 +56,41 @@ func (e *AuditMode) Type() string {
 type auditOpts struct {
 	branchOptions
 	verifierOptions
+	outputOptions
 	auditDepth   int
 	endingCommit string
 	auditMode    AuditMode
+}
+
+// AuditCommitResultJSON represents a single commit audit result in JSON format
+type AuditCommitResultJSON struct {
+	Commit             string                   `json:"commit"`
+	Status             string                   `json:"status"`
+	VerifiedLevels     []string                 `json:"verified_levels,omitempty"`
+	PrevCommitMatches  *bool                    `json:"prev_commit_matches,omitempty"`
+	ProvControls       interface{}              `json:"prov_controls,omitempty"`
+	GhControls         interface{}              `json:"gh_controls,omitempty"`
+	PrevCommit         string                   `json:"prev_commit,omitempty"`
+	GhPriorCommit      string                   `json:"gh_prior_commit,omitempty"`
+	Link               string                   `json:"link,omitempty"`
+	Error              string                   `json:"error,omitempty"`
+}
+
+// AuditResultJSON represents the full audit result in JSON format
+type AuditResultJSON struct {
+	Owner          string                  `json:"owner"`
+	Repository     string                  `json:"repository"`
+	Branch         string                  `json:"branch"`
+	LatestCommit   string                  `json:"latest_commit"`
+	CommitResults  []AuditCommitResultJSON `json:"commit_results"`
+	Summary        *AuditSummary           `json:"summary,omitempty"`
+}
+
+// AuditSummary provides summary statistics for the audit
+type AuditSummary struct {
+	TotalCommits  int `json:"total_commits"`
+	PassedCommits int `json:"passed_commits"`
+	FailedCommits int `json:"failed_commits"`
 }
 
 func (ao *auditOpts) Validate() error {
@@ -76,6 +108,8 @@ func (ao *auditOpts) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&ao.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
 	ao.auditMode = AuditModeBasic
 	cmd.PersistentFlags().Var(&ao.auditMode, "audit-mode", "'basic' for limited details (default), 'full' for all details")
+	ao.format = OutputFormatText
+	cmd.PersistentFlags().Var(&ao.format, "format", "Output format: 'text' (default) or 'json'")
 }
 
 func addAudit(parentCmd *cobra.Command) {
@@ -156,6 +190,41 @@ func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, m
 	fmt.Printf("\tlink: https://github.com/%s/%s/commit/%s\n", ghc.Owner(), ghc.Repo(), ar.GhPriorCommit)
 }
 
+func convertAuditResultToJSON(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, mode AuditMode) AuditCommitResultJSON {
+	good := ar.IsGood()
+	status := "passed"
+	if !good {
+		status = "failed"
+	}
+
+	result := AuditCommitResultJSON{
+		Commit: ar.Commit,
+		Status: status,
+		Link:   fmt.Sprintf("https://github.com/%s/%s/commit/%s", ghc.Owner(), ghc.Repo(), ar.GhPriorCommit),
+	}
+
+	// Only include details if mode is Full or status is failed
+	if mode == AuditModeFull || !good {
+		if ar.VsaPred != nil {
+			result.VerifiedLevels = ar.VsaPred.GetVerifiedLevels()
+		}
+
+		if ar.ProvPred != nil {
+			result.ProvControls = ar.ProvPred.GetControls()
+			result.PrevCommit = ar.ProvPred.GetPrevCommit()
+			result.GhPriorCommit = ar.GhPriorCommit
+			matches := ar.ProvPred.GetPrevCommit() == ar.GhPriorCommit
+			result.PrevCommitMatches = &matches
+		}
+
+		if ar.GhControlStatus != nil {
+			result.GhControls = ar.GhControlStatus.Controls
+		}
+	}
+
+	return result
+}
+
 func doAudit(auditArgs *auditOpts) error {
 	ghc := ghcontrol.NewGhConnection(auditArgs.owner, auditArgs.repository, ghcontrol.BranchToFullRef(auditArgs.branch)).WithAuthToken(githubToken)
 	ctx := context.Background()
@@ -169,7 +238,54 @@ func doAudit(auditArgs *auditOpts) error {
 		return fmt.Errorf("could not get latest commit for %s", auditArgs.branch)
 	}
 
-	fmt.Printf("Auditing branch %s starting from revision %s\n", auditArgs.branch, latestCommit)
+	// For JSON output, collect all results
+	if auditArgs.isJSON() {
+		jsonResult := AuditResultJSON{
+			Owner:         auditArgs.owner,
+			Repository:    auditArgs.repository,
+			Branch:        auditArgs.branch,
+			LatestCommit:  latestCommit,
+			CommitResults: []AuditCommitResultJSON{},
+		}
+
+		count := 0
+		passed := 0
+		failed := 0
+
+		for ar, err := range auditor.AuditBranch(ctx, auditArgs.branch) {
+			if ar == nil {
+				return err
+			}
+			commitResult := convertAuditResultToJSON(ghc, ar, auditArgs.auditMode)
+			if err != nil {
+				commitResult.Error = err.Error()
+			}
+			if commitResult.Status == "passed" {
+				passed++
+			} else {
+				failed++
+			}
+			jsonResult.CommitResults = append(jsonResult.CommitResults, commitResult)
+			if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
+				break
+			}
+			if auditArgs.auditDepth > 0 && count >= auditArgs.auditDepth {
+				break
+			}
+			count++
+		}
+
+		jsonResult.Summary = &AuditSummary{
+			TotalCommits:  len(jsonResult.CommitResults),
+			PassedCommits: passed,
+			FailedCommits: failed,
+		}
+
+		return auditArgs.writeJSON(jsonResult)
+	}
+
+	// Text output (original behavior)
+	auditArgs.writeText("Auditing branch %s starting from revision %s\n", auditArgs.branch, latestCommit)
 
 	count := 0
 	for ar, err := range auditor.AuditBranch(ctx, auditArgs.branch) {
@@ -177,15 +293,15 @@ func doAudit(auditArgs *auditOpts) error {
 			return err
 		}
 		if err != nil {
-			fmt.Printf("\terror: %v\n", err)
+			auditArgs.writeText("\terror: %v\n", err)
 		}
 		printResult(ghc, ar, auditArgs.auditMode)
 		if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
-			fmt.Printf("Found ending commit %s\n", auditArgs.endingCommit)
+			auditArgs.writeText("Found ending commit %s\n", auditArgs.endingCommit)
 			return nil
 		}
 		if auditArgs.auditDepth > 0 && count >= auditArgs.auditDepth {
-			fmt.Printf("Reached depth limit %d\n", auditArgs.auditDepth)
+			auditArgs.writeText("Reached depth limit %d\n", auditArgs.auditDepth)
 			return nil
 		}
 		count++
