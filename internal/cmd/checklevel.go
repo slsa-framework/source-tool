@@ -43,7 +43,7 @@ func addCheckLevel(parentCmd *cobra.Command) {
 
 	checklevelCmd := &cobra.Command{
 		Use:     "checklevel",
-		GroupID: "attestation",
+		GroupID: "assessment",
 		Short:   "Determines the SLSA Source Level of the repo",
 		Long: `Determines the SLSA Source Level of the repo.
 

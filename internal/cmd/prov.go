@@ -41,7 +41,7 @@ func addProv(parentCmd *cobra.Command) {
 	opts := provOptions{}
 	provCmd := &cobra.Command{
 		Use:     "prov",
-		GroupID: "attestation",
+		GroupID: "assessment",
 		Short:   "Creates provenance for the given commit, but does not check policy.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {

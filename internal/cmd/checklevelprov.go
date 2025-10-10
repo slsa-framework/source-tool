@@ -52,7 +52,7 @@ func addCheckLevelProv(parentCmd *cobra.Command) {
 
 	checklevelprovCmd := &cobra.Command{
 		Use:     "checklevelprov",
-		GroupID: "attestation",
+		GroupID: "assessment",
 		Short:   "Checks the given commit against policy using & creating provenance",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {

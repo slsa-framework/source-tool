@@ -51,8 +51,8 @@ controls and much more.
 			Title: "Verification Commands:",
 		},
 		&cobra.Group{
-			ID:    "attestation",
-			Title: "Attestation & Evaluation Commands:",
+			ID:    "assessment",
+			Title: "Assessment Commands:",
 		},
 		&cobra.Group{
 			ID:    "policy",
@@ -67,9 +67,9 @@ controls and much more.
 	// Verification commands
 	addVerifyCommit(rootCmd)
 	addAudit(rootCmd)
-	addStatus(rootCmd)
 
-	// Attestation & evaluation commands
+	// Assessment commands
+	addStatus(rootCmd)
 	addCheckLevel(rootCmd)
 	addCheckLevelProv(rootCmd)
 	addCheckTag(rootCmd)
