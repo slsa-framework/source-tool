@@ -42,8 +42,9 @@ func addCheckLevel(parentCmd *cobra.Command) {
 	opts := checkLevelOpts{}
 
 	checklevelCmd := &cobra.Command{
-		Use:   "checklevel",
-		Short: "Determines the SLSA Source Level of the repo",
+		Use:     "checklevel",
+		GroupID: "attestation",
+		Short:   "Determines the SLSA Source Level of the repo",
 		Long: `Determines the SLSA Source Level of the repo.
 
 This is meant to be run within the corresponding GitHub Actions workflow.`,

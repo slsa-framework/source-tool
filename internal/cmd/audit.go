@@ -81,8 +81,9 @@ func (ao *auditOpts) AddFlags(cmd *cobra.Command) {
 func addAudit(parentCmd *cobra.Command) {
 	opts := &auditOpts{}
 	auditCmd := &cobra.Command{
-		Use:   "audit",
-		Short: "Audits the SLSA properties and controls of a repository",
+		Use:     "audit",
+		GroupID: "verification",
+		Short:   "Audits the SLSA properties and controls of a repository",
 		Long: `Checks the revisions on the specified branch within the repository.
 
 Revisions 'pass' an audit if they have:

@@ -44,17 +44,39 @@ controls and much more.
 
 	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
 
+	// Define command groups for better organization
+	rootCmd.AddGroup(
+		&cobra.Group{
+			ID:    "verification",
+			Title: "Verification Commands:",
+		},
+		&cobra.Group{
+			ID:    "attestation",
+			Title: "Attestation & Evaluation Commands:",
+		},
+		&cobra.Group{
+			ID:    "configuration",
+			Title: "Configuration & Setup Commands:",
+		},
+	)
+
+	// Verification commands
+	addVerifyCommit(rootCmd)
+	addAudit(rootCmd)
+	addStatus(rootCmd)
+
+	// Attestation & evaluation commands
 	addCheckLevel(rootCmd)
 	addCheckLevelProv(rootCmd)
-	addVerifyCommit(rootCmd)
-	addStatus(rootCmd)
-	addSetup(rootCmd)
-	addAudit(rootCmd)
-	addProv(rootCmd)
 	addCheckTag(rootCmd)
-	addCreatePolicy(rootCmd)
+	addProv(rootCmd)
+
+	// Configuration & setup commands
+	addSetup(rootCmd)
 	addAuth(rootCmd)
 	addPolicy(rootCmd)
+	addCreatePolicy(rootCmd)
+
 	return rootCmd
 }
 

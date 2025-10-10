@@ -39,7 +39,8 @@ func (pco *policyCreateOpts) AddFlags(cmd *cobra.Command) {
 
 func addPolicy(parentCmd *cobra.Command) {
 	policyCmd := &cobra.Command{
-		Short: "tools to work with source policies",
+		GroupID: "configuration",
+		Short:   "tools to work with source policies",
 		Long: fmt.Sprintf(`
 %s %s
 

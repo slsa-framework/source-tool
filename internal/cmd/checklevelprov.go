@@ -51,8 +51,9 @@ func addCheckLevelProv(parentCmd *cobra.Command) {
 	opts := &checkLevelProvOpts{}
 
 	checklevelprovCmd := &cobra.Command{
-		Use:   "checklevelprov",
-		Short: "Checks the given commit against policy using & creating provenance",
+		Use:     "checklevelprov",
+		GroupID: "attestation",
+		Short:   "Checks the given commit against policy using & creating provenance",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {
