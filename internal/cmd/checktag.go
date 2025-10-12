@@ -50,8 +50,9 @@ func addCheckTag(parentCmd *cobra.Command) {
 	opts := &checkTagOptions{}
 
 	checktagCmd := &cobra.Command{
-		Use:   "checktag",
-		Short: "Checks to see if the tag operation should be allowed and issues a VSA",
+		Use:     "checktag",
+		GroupID: "assessment",
+		Short:   "Checks to see if the tag operation should be allowed and issues a VSA",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doCheckTag(opts)
 		},

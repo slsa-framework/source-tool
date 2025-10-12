@@ -52,7 +52,8 @@ func (so *setupOpts) Validate() error {
 
 func addSetup(parentCmd *cobra.Command) {
 	setupCmd := &cobra.Command{
-		Short: "configure SLSA source features in a repository",
+		GroupID: "configuration",
+		Short:   "configure SLSA source features in a repository",
 		Long: fmt.Sprintf(`
 %s %s
 

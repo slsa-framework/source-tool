@@ -30,8 +30,9 @@ func addCreatePolicy(parentCmd *cobra.Command) {
 	opts := createPolicyOptions{}
 
 	createpolicyCmd := &cobra.Command{
-		Use:   "createpolicy",
-		Short: "Creates a policy in a local copy of source-policies",
+		Use:     "createpolicy",
+		GroupID: "policy",
+		Short:   "Creates a policy in a local copy of source-policies",
 		Long: `Creates a SLSA source policy in a local copy of source-policies.
 
 		The created policy should then be sent as a PR to slsa-framework/source-policies.`,

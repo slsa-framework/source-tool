@@ -40,8 +40,9 @@ func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 func addVerifyCommit(cmd *cobra.Command) {
 	opts := verifyCommitOptions{}
 	verifyCommitCmd := &cobra.Command{
-		Use:   "verifycommit",
-		Short: "Verifies the specified commit is valid",
+		Use:     "verifycommit",
+		GroupID: "verification",
+		Short:   "Verifies the specified commit is valid",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {
