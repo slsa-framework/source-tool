@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	v1 "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -24,9 +25,14 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
+type ProvenanceAttestorOptions struct {
+	VsaRetries uint8
+}
+
 type ProvenanceAttestor struct {
 	verifier      Verifier
 	gh_connection *ghcontrol.GitHubConnection
+	Options       ProvenanceAttestorOptions
 }
 
 func NewProvenanceAttestor(gh_connection *ghcontrol.GitHubConnection, verifier Verifier) *ProvenanceAttestor {
@@ -267,10 +273,22 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 	// Find the most recent VSA for this commit. Any reference is OK.
 	// TODO: in the future get all of them.
 	// TODO: we should actually verify this vsa: https://github.com/slsa-framework/source-tool/issues/148
-	vsaStatement, vsaPred, err := GetVsa(ctx, pa.gh_connection, pa.verifier, commit, ghcontrol.AnyReference)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching VSA when creating tag provenance %w", err)
+	var tries uint8
+	var vsaStatement *spb.Statement
+	var vsaPred *v1.VerificationSummary
+	for {
+		vsaStatement, vsaPred, err = GetVsa(ctx, pa.gh_connection, pa.verifier, commit, ghcontrol.AnyReference)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching VSA when creating tag provenance %w", err)
+		}
+
+		tries++
+		if tries >= pa.Options.VsaRetries || vsaPred != nil {
+			break
+		}
+		time.Sleep(time.Duration(tries*5) * time.Second)
 	}
+
 	if vsaPred == nil {
 		// TODO: If there's not a VSA should we still issue provenance?
 		return nil, nil
