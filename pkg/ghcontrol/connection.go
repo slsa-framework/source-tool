@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/google/go-github/v69/github"
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 const tokenEnvVar = "GITHUB_TOKEN" //nolint:gosec // These are not credentials
@@ -21,7 +22,11 @@ type GitHubConnection struct {
 }
 
 func NewGhConnection(owner, repo, ref string) *GitHubConnection {
-	return NewGhConnectionWithClient(owner, repo, ref, github.NewClient(nil))
+	opts := defaultOptions
+	rClient := retryablehttp.NewClient()
+	rClient.RetryMax = int(opts.ApiRetries)
+	rClient.Logger = nil
+	return NewGhConnectionWithClient(owner, repo, ref, github.NewClient(rClient.StandardClient()))
 }
 
 func NewGhConnectionWithClient(owner, repo, ref string, client *github.Client) *GitHubConnection {
