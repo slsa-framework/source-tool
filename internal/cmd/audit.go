@@ -243,24 +243,33 @@ func doAudit(auditArgs *auditOpts) error {
 		return fmt.Errorf("could not get latest commit for %s", auditArgs.branch)
 	}
 
-	// For JSON output, collect all results
+	// Initialize JSON result structure if needed
+	var jsonResult *AuditResultJSON
 	if auditArgs.isJSON() {
-		jsonResult := AuditResultJSON{
+		jsonResult = &AuditResultJSON{
 			Owner:         auditArgs.owner,
 			Repository:    auditArgs.repository,
 			Branch:        auditArgs.branch,
 			LatestCommit:  latestCommit,
 			CommitResults: []AuditCommitResultJSON{},
 		}
+	} else {
+		// Print header for text output
+		auditArgs.writeTextf("Auditing branch %s starting from revision %s\n", auditArgs.branch, latestCommit)
+	}
 
-		count := 0
-		passed := 0
-		failed := 0
+	// Single loop for both JSON and text output
+	count := 0
+	passed := 0
+	failed := 0
 
-		for ar, err := range auditor.AuditBranch(ctx, auditArgs.branch) {
-			if ar == nil {
-				return err
-			}
+	for ar, err := range auditor.AuditBranch(ctx, auditArgs.branch) {
+		if ar == nil {
+			return err
+		}
+
+		// Process result based on output format
+		if auditArgs.isJSON() {
 			commitResult := convertAuditResultToJSON(ghc, ar, auditArgs.auditMode)
 			if err != nil {
 				commitResult.Error = err.Error()
@@ -271,45 +280,38 @@ func doAudit(auditArgs *auditOpts) error {
 				failed++
 			}
 			jsonResult.CommitResults = append(jsonResult.CommitResults, commitResult)
-			if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
-				break
+		} else {
+			// Text output
+			if err != nil {
+				auditArgs.writeTextf("\terror: %v\n", err)
 			}
-			if auditArgs.auditDepth > 0 && count >= auditArgs.auditDepth {
-				break
-			}
-			count++
+			printResult(ghc, ar, auditArgs.auditMode)
 		}
 
+		// Check for early termination conditions
+		if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
+			if !auditArgs.isJSON() {
+				auditArgs.writeTextf("Found ending commit %s\n", auditArgs.endingCommit)
+			}
+			break
+		}
+		if auditArgs.auditDepth > 0 && count >= auditArgs.auditDepth {
+			if !auditArgs.isJSON() {
+				auditArgs.writeTextf("Reached depth limit %d\n", auditArgs.auditDepth)
+			}
+			break
+		}
+		count++
+	}
+
+	// Write JSON output if needed
+	if auditArgs.isJSON() {
 		jsonResult.Summary = &AuditSummary{
 			TotalCommits:  len(jsonResult.CommitResults),
 			PassedCommits: passed,
 			FailedCommits: failed,
 		}
-
 		return auditArgs.writeJSON(jsonResult)
-	}
-
-	// Text output (original behavior)
-	auditArgs.writeTextf("Auditing branch %s starting from revision %s\n", auditArgs.branch, latestCommit)
-
-	count := 0
-	for ar, err := range auditor.AuditBranch(ctx, auditArgs.branch) {
-		if ar == nil {
-			return err
-		}
-		if err != nil {
-			auditArgs.writeTextf("\terror: %v\n", err)
-		}
-		printResult(ghc, ar, auditArgs.auditMode)
-		if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
-			auditArgs.writeTextf("Found ending commit %s\n", auditArgs.endingCommit)
-			return nil
-		}
-		if auditArgs.auditDepth > 0 && count >= auditArgs.auditDepth {
-			auditArgs.writeTextf("Reached depth limit %d\n", auditArgs.auditDepth)
-			return nil
-		}
-		count++
 	}
 
 	return nil
