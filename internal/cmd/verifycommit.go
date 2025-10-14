@@ -129,7 +129,7 @@ func doVerifyCommit(opts *verifyCommitOptions) error {
 		if opts.isJSON() {
 			return opts.writeJSON(result)
 		}
-		opts.writeText("FAILED: %s\n", result.Message)
+		opts.writeTextf("FAILED: %s\n", result.Message)
 		return nil
 	}
 
@@ -138,6 +138,6 @@ func doVerifyCommit(opts *verifyCommitOptions) error {
 	if opts.isJSON() {
 		return opts.writeJSON(result)
 	}
-	opts.writeText("SUCCESS: commit %s on %s verified with %v\n", opts.commit, refName, vsaPred.GetVerifiedLevels())
+	opts.writeTextf("SUCCESS: commit %s on %s verified with %v\n", opts.commit, refName, vsaPred.GetVerifiedLevels())
 	return nil
 }

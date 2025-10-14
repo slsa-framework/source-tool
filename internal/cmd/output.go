@@ -71,7 +71,8 @@ func (oo *outputOptions) writeJSON(v interface{}) error {
 	return encoder.Encode(v)
 }
 
-func (oo *outputOptions) writeText(format string, a ...interface{}) {
+func (oo *outputOptions) writeTextf(format string, a ...interface{}) {
 	oo.init()
+	//nolint:errcheck // writeTextf is a convenience method that intentionally ignores errors
 	fmt.Fprintf(oo.writer, format, a...)
 }
