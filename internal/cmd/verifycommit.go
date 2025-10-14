@@ -21,7 +21,7 @@ type verifyCommitOptions struct {
 	tag string
 }
 
-// VerifyCommitResult represents the result of a commit verification in JSON format
+// VerifyCommitResult represents the result of a commit verification
 type VerifyCommitResult struct {
 	Success        bool     `json:"success"`
 	Commit         string   `json:"commit"`
@@ -31,6 +31,14 @@ type VerifyCommitResult struct {
 	Repository     string   `json:"repository"`
 	VerifiedLevels []string `json:"verified_levels,omitempty"`
 	Message        string   `json:"message,omitempty"`
+}
+
+// String implements fmt.Stringer for text output
+func (v VerifyCommitResult) String() string {
+	if !v.Success {
+		return fmt.Sprintf("FAILED: %s\n", v.Message)
+	}
+	return fmt.Sprintf("SUCCESS: commit %s on %s verified with %v\n", v.Commit, v.Ref, v.VerifiedLevels)
 }
 
 func (vco *verifyCommitOptions) Validate() error {
@@ -126,18 +134,9 @@ func doVerifyCommit(opts *verifyCommitOptions) error {
 			"no VSA matching commit '%s' on %s '%s' found in github.com/%s/%s",
 			opts.commit, refType, refName, opts.owner, opts.repository,
 		)
-		if opts.isJSON() {
-			return opts.writeJSON(result)
-		}
-		opts.writeTextf("FAILED: %s\n", result.Message)
-		return nil
+		return opts.writeResult(result)
 	}
 
 	result.VerifiedLevels = vsaPred.GetVerifiedLevels()
-
-	if opts.isJSON() {
-		return opts.writeJSON(result)
-	}
-	opts.writeTextf("SUCCESS: commit %s on %s verified with %v\n", opts.commit, refName, vsaPred.GetVerifiedLevels())
-	return nil
+	return opts.writeResult(result)
 }
