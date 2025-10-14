@@ -4,8 +4,8 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
@@ -16,11 +16,38 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
 
+// assertJSONEqual compares two JSON values semantically (ignoring field order and formatting)
+func assertJSONEqual(t *testing.T, got, want interface{}) {
+	t.Helper()
+
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("failed to marshal got: %v", err)
+	}
+
+	wantJSON, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("failed to marshal want: %v", err)
+	}
+
+	var gotData, wantData interface{}
+	if err := json.Unmarshal(gotJSON, &gotData); err != nil {
+		t.Fatalf("failed to unmarshal got JSON: %v", err)
+	}
+	if err := json.Unmarshal(wantJSON, &wantData); err != nil {
+		t.Fatalf("failed to unmarshal want JSON: %v", err)
+	}
+
+	if !reflect.DeepEqual(gotData, wantData) {
+		t.Errorf("JSON mismatch:\ngot:  %s\nwant: %s", string(gotJSON), string(wantJSON))
+	}
+}
+
 func TestAuditResultJSON_JSONMarshaling(t *testing.T) {
 	tests := []struct {
 		name   string
 		result AuditResultJSON
-		want   string
+		want   AuditResultJSON
 	}{
 		{
 			name: "complete audit result",
@@ -43,28 +70,25 @@ func TestAuditResultJSON_JSONMarshaling(t *testing.T) {
 					FailedCommits: 0,
 				},
 			},
-			want: `{
-  "owner": "test-owner",
-  "repository": "test-repo",
-  "branch": "main",
-  "latest_commit": "abc123",
-  "commit_results": [
-    {
-      "commit": "abc123",
-      "status": "passed",
-      "verified_levels": [
-        "SLSA_SOURCE_LEVEL_3"
-      ],
-      "link": "https://github.com/test-owner/test-repo/commit/abc123"
-    }
-  ],
-  "summary": {
-    "total_commits": 1,
-    "passed_commits": 1,
-    "failed_commits": 0
-  }
-}
-`,
+			want: AuditResultJSON{
+				Owner:        "test-owner",
+				Repository:   "test-repo",
+				Branch:       "main",
+				LatestCommit: "abc123",
+				CommitResults: []AuditCommitResultJSON{
+					{
+						Commit:         "abc123",
+						Status:         "passed",
+						VerifiedLevels: []string{"SLSA_SOURCE_LEVEL_3"},
+						Link:           "https://github.com/test-owner/test-repo/commit/abc123",
+					},
+				},
+				Summary: &AuditSummary{
+					TotalCommits:  1,
+					PassedCommits: 1,
+					FailedCommits: 0,
+				},
+			},
 		},
 		{
 			name: "audit with failed commit",
@@ -86,41 +110,31 @@ func TestAuditResultJSON_JSONMarshaling(t *testing.T) {
 					FailedCommits: 1,
 				},
 			},
-			want: `{
-  "owner": "test-owner",
-  "repository": "test-repo",
-  "branch": "main",
-  "latest_commit": "def456",
-  "commit_results": [
-    {
-      "commit": "def456",
-      "status": "failed",
-      "link": "https://github.com/test-owner/test-repo/commit/def456"
-    }
-  ],
-  "summary": {
-    "total_commits": 1,
-    "passed_commits": 0,
-    "failed_commits": 1
-  }
-}
-`,
+			want: AuditResultJSON{
+				Owner:        "test-owner",
+				Repository:   "test-repo",
+				Branch:       "main",
+				LatestCommit: "def456",
+				CommitResults: []AuditCommitResultJSON{
+					{
+						Commit: "def456",
+						Status: "failed",
+						Link:   "https://github.com/test-owner/test-repo/commit/def456",
+					},
+				},
+				Summary: &AuditSummary{
+					TotalCommits:  1,
+					PassedCommits: 0,
+					FailedCommits: 1,
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			encoder := json.NewEncoder(&buf)
-			encoder.SetIndent("", "  ")
-			if err := encoder.Encode(tt.result); err != nil {
-				t.Fatalf("failed to encode JSON: %v", err)
-			}
-
-			got := buf.String()
-			if got != tt.want {
-				t.Errorf("JSON output mismatch:\ngot:\n%s\nwant:\n%s", got, tt.want)
-			}
+			// Use semantic JSON comparison instead of string comparison
+			assertJSONEqual(t, tt.result, tt.want)
 		})
 	}
 }

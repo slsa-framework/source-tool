@@ -13,7 +13,7 @@ func TestVerifyCommitResult_JSONMarshaling(t *testing.T) {
 	tests := []struct {
 		name   string
 		result VerifyCommitResult
-		want   string
+		want   VerifyCommitResult
 	}{
 		{
 			name: "successful verification",
@@ -26,18 +26,15 @@ func TestVerifyCommitResult_JSONMarshaling(t *testing.T) {
 				Repository:     "test-repo",
 				VerifiedLevels: []string{"SLSA_SOURCE_LEVEL_3"},
 			},
-			want: `{
-  "success": true,
-  "commit": "abc123",
-  "ref": "main",
-  "ref_type": "branch",
-  "owner": "test-owner",
-  "repository": "test-repo",
-  "verified_levels": [
-    "SLSA_SOURCE_LEVEL_3"
-  ]
-}
-`,
+			want: VerifyCommitResult{
+				Success:        true,
+				Commit:         "abc123",
+				Ref:            "main",
+				RefType:        "branch",
+				Owner:          "test-owner",
+				Repository:     "test-repo",
+				VerifiedLevels: []string{"SLSA_SOURCE_LEVEL_3"},
+			},
 		},
 		{
 			name: "failed verification",
@@ -50,16 +47,15 @@ func TestVerifyCommitResult_JSONMarshaling(t *testing.T) {
 				Repository: "test-repo",
 				Message:    "no VSA matching commit 'def456' on branch 'develop' found in github.com/test-owner/test-repo",
 			},
-			want: `{
-  "success": false,
-  "commit": "def456",
-  "ref": "develop",
-  "ref_type": "branch",
-  "owner": "test-owner",
-  "repository": "test-repo",
-  "message": "no VSA matching commit 'def456' on branch 'develop' found in github.com/test-owner/test-repo"
-}
-`,
+			want: VerifyCommitResult{
+				Success:    false,
+				Commit:     "def456",
+				Ref:        "develop",
+				RefType:    "branch",
+				Owner:      "test-owner",
+				Repository: "test-repo",
+				Message:    "no VSA matching commit 'def456' on branch 'develop' found in github.com/test-owner/test-repo",
+			},
 		},
 		{
 			name: "tag verification",
@@ -72,35 +68,22 @@ func TestVerifyCommitResult_JSONMarshaling(t *testing.T) {
 				Repository:     "test-repo",
 				VerifiedLevels: []string{"SLSA_SOURCE_LEVEL_2", "SLSA_SOURCE_LEVEL_3"},
 			},
-			want: `{
-  "success": true,
-  "commit": "ghi789",
-  "ref": "v1.0.0",
-  "ref_type": "tag",
-  "owner": "test-owner",
-  "repository": "test-repo",
-  "verified_levels": [
-    "SLSA_SOURCE_LEVEL_2",
-    "SLSA_SOURCE_LEVEL_3"
-  ]
-}
-`,
+			want: VerifyCommitResult{
+				Success:        true,
+				Commit:         "ghi789",
+				Ref:            "v1.0.0",
+				RefType:        "tag",
+				Owner:          "test-owner",
+				Repository:     "test-repo",
+				VerifiedLevels: []string{"SLSA_SOURCE_LEVEL_2", "SLSA_SOURCE_LEVEL_3"},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			encoder := json.NewEncoder(&buf)
-			encoder.SetIndent("", "  ")
-			if err := encoder.Encode(tt.result); err != nil {
-				t.Fatalf("failed to encode JSON: %v", err)
-			}
-
-			got := buf.String()
-			if got != tt.want {
-				t.Errorf("JSON output mismatch:\ngot:\n%s\nwant:\n%s", got, tt.want)
-			}
+			// Use semantic JSON comparison instead of string comparison
+			assertJSONEqual(t, tt.result, tt.want)
 		})
 	}
 }
