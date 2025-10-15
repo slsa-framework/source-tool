@@ -26,6 +26,7 @@ type checkTagOptions struct {
 	actor              string
 	outputSignedBundle string
 	useLocalPolicy     string
+	vsaRetries         uint8
 }
 
 func (cto *checkTagOptions) Validate() error {
@@ -44,6 +45,7 @@ func (cto *checkTagOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&cto.actor, "actor", "", "The username of the actor that pushed the tag.")
 	cmd.PersistentFlags().StringVar(&cto.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 	cmd.PersistentFlags().StringVar(&cto.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
+	cmd.PersistentFlags().Uint8Var(&cto.vsaRetries, "retries", 3, "Number of times to retry fetching the commit's VSA")
 }
 
 func addCheckTag(parentCmd *cobra.Command) {
@@ -69,6 +71,8 @@ func doCheckTag(args *checkTagOptions) error {
 
 	// Create tag provenance.
 	pa := attest.NewProvenanceAttestor(ghconnection, verifier)
+	pa.Options.VsaRetries = args.vsaRetries // Retry fetching the commit's VSA
+
 	prov, err := pa.CreateTagProvenance(ctx, args.commit, ghcontrol.TagToFullRef(args.tagName), args.actor)
 	if err != nil {
 		return fmt.Errorf("creating tag provenance metadata: %w", err)
