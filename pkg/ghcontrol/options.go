@@ -5,6 +5,7 @@ package ghcontrol
 
 var defaultOptions = Options{
 	AllowMergeCommits: false,
+	ApiRetries:        3,
 }
 
 type Options struct {
@@ -14,4 +15,7 @@ type Options struct {
 
 	// accessToken is the token we will use to connect to the GitHub API
 	accessToken string
+
+	// ApiRetries controls the number of time we retry calls to the GitHub API
+	ApiRetries uint8
 }
