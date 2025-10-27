@@ -1,8 +1,6 @@
-# slsa-source-poc
+# source tool
 
-A proof-of-concept for how the SLSA Source Track could be implemented.
-
-The code in this repository should not be relied upon for production purposes.
+A tool that helps users implement the SLSA Source Track.
 
 Status: in development
 
@@ -13,18 +11,14 @@ this tool meets the SLSA Source Requirements.
 
 [DESIGN.md](docs/DESIGN.md) explains more specifically how the system works.
 
-## Components
+[GETTING_STARTED.md](GETTING_STARTED.md) explains how to get started using the tool.
 
-[compute_slsa_source.yml](.github/workflows/compute_slsa_source.yml) is a reusable workflow that
-is calculates a SLSA source level and produces 'source provenance' and a 'verification summary'
-for the revision (commit) that was just pushed.
+## Related repositories
 
-[local_attest.yml](.github/workflows/local_attest.yml) is a local workflow that invokes compute_slsa_source.yml.
+[source-actions](https://github.com/slsa-framework/source-actions) the GitHub Actions
+used with source-tool to implement SLSA Source Track requirements within GitHub
+projects.
 
-[slsa_with_provenance](actions/slsa_with_provenance/action.yml) is a GitHub Action that does most
-of the work.
-
-[get_note](actions/get_note/action.yml) is a GitHub Action that gets a git note from a commit.
-
-[store_note](actions/store_note/action.yml) is a GitHub Action that stores a git note for
-a commit.
+[source-policies](https://github.com/slsa-framework/source-policies) stores each GitHub
+project's 'policy' which details the SLSA Source Level and other controls implemented
+by that repository.
