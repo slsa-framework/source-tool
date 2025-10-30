@@ -100,7 +100,7 @@ will be enabled through a regular pull request.
 #### 2. Download sourcetool
 
 Download the `sourcetool` binary for your local architecture from the [GitHub
-releases page](https://github.com/slsa-framework/slsa-source-poc/releases/latest).
+releases page](https://github.com/slsa-framework/source-tool/releases/latest).
 
 ## Authorize Sourcetool to Access your Repositories
 
