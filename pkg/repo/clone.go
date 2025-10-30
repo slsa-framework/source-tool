@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	billy "github.com/go-git/go-billy/v6"
 	git "github.com/go-git/go-git/v6"
@@ -211,6 +212,7 @@ func (c *Clone) puregoCommit(opts *options.CommitOptions) error {
 		copts.Author = &object.Signature{
 			Name:  opts.Name,
 			Email: opts.Email,
+			When:  time.Now(),
 		}
 	}
 	_ = copts.Validate(c.repo) //nolint:errcheck // This just loads the user details
