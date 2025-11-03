@@ -114,7 +114,7 @@ func (ao *auditOpts) AddFlags(cmd *cobra.Command) {
 	ao.auditMode = AuditModeBasic
 	cmd.PersistentFlags().Var(&ao.auditMode, "audit-mode", "'basic' for limited details (default), 'full' for all details")
 	ao.format = OutputFormatText
-	cmd.PersistentFlags().Var(&ao.format, "format", "Output format: 'text' (default) or 'json'")
+	cmd.PersistentFlags().StringVar(&ao.format, "format", OutputFormatText, "Output format: 'text' (default) or 'json'")
 }
 
 func addAudit(parentCmd *cobra.Command) {

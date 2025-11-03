@@ -126,7 +126,7 @@ func TestOutputOptions_WriteJSON(t *testing.T) {
 func TestOutputOptions_IsJSON(t *testing.T) {
 	tests := []struct {
 		name   string
-		format OutputFormat
+		format string
 		want   bool
 	}{
 		{
@@ -146,74 +146,6 @@ func TestOutputOptions_IsJSON(t *testing.T) {
 			opts := outputOptions{format: tt.format}
 			if got := opts.isJSON(); got != tt.want {
 				t.Errorf("isJSON() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestOutputFormat_String(t *testing.T) {
-	tests := []struct {
-		name   string
-		format OutputFormat
-		want   string
-	}{
-		{
-			name:   "text format",
-			format: OutputFormatText,
-			want:   "text",
-		},
-		{
-			name:   "JSON format",
-			format: OutputFormatJSON,
-			want:   "json",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.format.String(); got != tt.want {
-				t.Errorf("String() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestOutputFormat_Set(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   string
-		want    OutputFormat
-		wantErr bool
-	}{
-		{
-			name:    "set to text",
-			value:   "text",
-			want:    OutputFormatText,
-			wantErr: false,
-		},
-		{
-			name:    "set to json",
-			value:   "json",
-			want:    OutputFormatJSON,
-			wantErr: false,
-		},
-		{
-			name:    "invalid value",
-			value:   "invalid",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var format OutputFormat
-			err := format.Set(tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && format != tt.want {
-				t.Errorf("Set() got = %v, want %v", format, tt.want)
 			}
 		})
 	}

@@ -5,52 +5,19 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 )
 
-type OutputFormat int
-
 const (
-	OutputFormatText OutputFormat = 1
-	OutputFormatJSON OutputFormat = 2
+	OutputFormatText = "text"
+	OutputFormatJSON = "json"
 )
-
-// String is used both by fmt.Print and by Cobra in help text
-func (e *OutputFormat) String() string {
-	switch *e {
-	case OutputFormatText:
-		return "text"
-	case OutputFormatJSON:
-		return "json"
-	}
-	return "error"
-}
-
-// Set must have pointer receiver so it doesn't change the value of a copy
-func (e *OutputFormat) Set(v string) error {
-	switch v {
-	case "text":
-		*e = OutputFormatText
-		return nil
-	case "json":
-		*e = OutputFormatJSON
-		return nil
-	default:
-		return errors.New(`must be one of "text" or "json"`)
-	}
-}
-
-// Type is only used in help text
-func (e *OutputFormat) Type() string {
-	return "OutputFormat"
-}
 
 // outputOptions provides common output formatting options
 type outputOptions struct {
-	format OutputFormat
+	format string
 	writer io.Writer
 }
 

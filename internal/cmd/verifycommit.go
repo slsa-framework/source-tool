@@ -56,7 +56,7 @@ func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 		&vco.tag, "tag", "", "The tag within the repository",
 	)
 	vco.format = OutputFormatText
-	cmd.PersistentFlags().Var(&vco.format, "format", "Output format: 'text' (default) or 'json'")
+	cmd.PersistentFlags().StringVar(&vco.format, "format", OutputFormatText, "Output format: 'text' (default) or 'json'")
 }
 
 //nolint:dupl
