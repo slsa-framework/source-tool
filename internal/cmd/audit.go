@@ -245,7 +245,7 @@ func doAudit(auditArgs *auditOpts) error {
 
 	// Initialize JSON result structure if needed
 	var jsonResult *AuditResultJSON
-	if auditArgs.isJSON() {
+	if auditArgs.outputFormatIsJSON() {
 		jsonResult = &AuditResultJSON{
 			Owner:         auditArgs.owner,
 			Repository:    auditArgs.repository,
@@ -269,7 +269,7 @@ func doAudit(auditArgs *auditOpts) error {
 		}
 
 		// Process result based on output format
-		if auditArgs.isJSON() {
+		if auditArgs.outputFormatIsJSON() {
 			commitResult := convertAuditResultToJSON(ghc, ar, auditArgs.auditMode)
 			if err != nil {
 				commitResult.Error = err.Error()
@@ -290,13 +290,13 @@ func doAudit(auditArgs *auditOpts) error {
 
 		// Check for early termination conditions
 		if auditArgs.endingCommit != "" && auditArgs.endingCommit == ar.Commit {
-			if !auditArgs.isJSON() {
+			if !auditArgs.outputFormatIsJSON() {
 				auditArgs.writeTextf("Found ending commit %s\n", auditArgs.endingCommit)
 			}
 			break
 		}
 		if auditArgs.auditDepth > 0 && count >= auditArgs.auditDepth {
-			if !auditArgs.isJSON() {
+			if !auditArgs.outputFormatIsJSON() {
 				auditArgs.writeTextf("Reached depth limit %d\n", auditArgs.auditDepth)
 			}
 			break
@@ -305,7 +305,7 @@ func doAudit(auditArgs *auditOpts) error {
 	}
 
 	// Write JSON output if needed
-	if auditArgs.isJSON() {
+	if auditArgs.outputFormatIsJSON() {
 		jsonResult.Summary = &AuditSummary{
 			TotalCommits:  len(jsonResult.CommitResults),
 			PassedCommits: passed,

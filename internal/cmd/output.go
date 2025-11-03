@@ -25,7 +25,7 @@ func (oo *outputOptions) getWriter() io.Writer {
 	return os.Stdout
 }
 
-func (oo *outputOptions) isJSON() bool {
+func (oo *outputOptions) outputFormatIsJSON() bool {
 	return oo.format == OutputFormatJSON
 }
 
@@ -43,7 +43,7 @@ func (oo *outputOptions) writeTextf(format string, a ...interface{}) {
 // writeResult writes the result in the appropriate format (JSON or text)
 // For text output, it uses the String() method if the value implements fmt.Stringer
 func (oo *outputOptions) writeResult(v interface{}) error {
-	if oo.isJSON() {
+	if oo.outputFormatIsJSON() {
 		return oo.writeJSON(v)
 	}
 

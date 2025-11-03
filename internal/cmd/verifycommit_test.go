@@ -109,7 +109,7 @@ func TestOutputOptions_WriteJSON(t *testing.T) {
 	}
 }
 
-func TestOutputOptions_IsJSON(t *testing.T) {
+func TestOutputOptions_OutputFormatIsJSON(t *testing.T) {
 	tests := []struct {
 		name   string
 		format string
@@ -130,8 +130,8 @@ func TestOutputOptions_IsJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := outputOptions{format: tt.format}
-			if got := opts.isJSON(); got != tt.want {
-				t.Errorf("isJSON() = %v, want %v", got, tt.want)
+			if got := opts.outputFormatIsJSON(); got != tt.want {
+				t.Errorf("outputFormatIsJSON() = %v, want %v", got, tt.want)
 			}
 		})
 	}
