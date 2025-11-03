@@ -45,6 +45,7 @@ func (vco *verifyCommitOptions) Validate() error {
 	errs := []error{
 		vco.commitOptions.Validate(),
 		vco.verifierOptions.Validate(),
+		vco.outputOptions.Validate(),
 	}
 	return errors.Join(errs...)
 }
@@ -52,11 +53,10 @@ func (vco *verifyCommitOptions) Validate() error {
 func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 	vco.commitOptions.AddFlags(cmd)
 	vco.verifierOptions.AddFlags(cmd)
+	vco.outputOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(
 		&vco.tag, "tag", "", "The tag within the repository",
 	)
-	vco.format = OutputFormatText
-	cmd.PersistentFlags().StringVar(&vco.format, "format", OutputFormatText, "Output format: 'text' (default) or 'json'")
 }
 
 //nolint:dupl

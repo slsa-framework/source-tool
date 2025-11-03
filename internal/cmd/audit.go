@@ -102,6 +102,7 @@ func (ao *auditOpts) Validate() error {
 	errs := []error{
 		ao.branchOptions.Validate(),
 		ao.verifierOptions.Validate(),
+		ao.outputOptions.Validate(),
 	}
 	return errors.Join(errs...)
 }
@@ -109,12 +110,11 @@ func (ao *auditOpts) Validate() error {
 func (ao *auditOpts) AddFlags(cmd *cobra.Command) {
 	ao.branchOptions.AddFlags(cmd)
 	ao.verifierOptions.AddFlags(cmd)
+	ao.outputOptions.AddFlags(cmd)
 	cmd.PersistentFlags().IntVar(&ao.auditDepth, "depth", 0, "The max number of revisions to audit (depth <= audit all revisions).")
 	cmd.PersistentFlags().StringVar(&ao.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
 	ao.auditMode = AuditModeBasic
 	cmd.PersistentFlags().Var(&ao.auditMode, "audit-mode", "'basic' for limited details (default), 'full' for all details")
-	ao.format = OutputFormatText
-	cmd.PersistentFlags().StringVar(&ao.format, "format", OutputFormatText, "Output format: 'text' (default) or 'json'")
 }
 
 func addAudit(parentCmd *cobra.Command) {
