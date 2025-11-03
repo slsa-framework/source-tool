@@ -18,13 +18,11 @@ const (
 // outputOptions provides common output formatting options
 type outputOptions struct {
 	format string
-	writer io.Writer
 }
 
-func (oo *outputOptions) init() {
-	if oo.writer == nil {
-		oo.writer = os.Stdout
-	}
+// getWriter returns the writer to use for output (currently always os.Stdout)
+func (oo *outputOptions) getWriter() io.Writer {
+	return os.Stdout
 }
 
 func (oo *outputOptions) isJSON() bool {
@@ -32,23 +30,19 @@ func (oo *outputOptions) isJSON() bool {
 }
 
 func (oo *outputOptions) writeJSON(v interface{}) error {
-	oo.init()
-	encoder := json.NewEncoder(oo.writer)
+	encoder := json.NewEncoder(oo.getWriter())
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(v)
 }
 
 func (oo *outputOptions) writeTextf(format string, a ...interface{}) {
-	oo.init()
 	//nolint:errcheck // writeTextf is a convenience method that intentionally ignores errors
-	fmt.Fprintf(oo.writer, format, a...)
+	fmt.Fprintf(oo.getWriter(), format, a...)
 }
 
 // writeResult writes the result in the appropriate format (JSON or text)
 // For text output, it uses the String() method if the value implements fmt.Stringer
 func (oo *outputOptions) writeResult(v interface{}) error {
-	oo.init()
-
 	if oo.isJSON() {
 		return oo.writeJSON(v)
 	}
@@ -56,12 +50,12 @@ func (oo *outputOptions) writeResult(v interface{}) error {
 	// For text output, use String() method if available
 	if stringer, ok := v.(fmt.Stringer); ok {
 		//nolint:errcheck // writeResult is a convenience method that intentionally ignores errors
-		fmt.Fprint(oo.writer, stringer.String())
+		fmt.Fprint(oo.getWriter(), stringer.String())
 		return nil
 	}
 
 	// Fallback: format with %v
 	//nolint:errcheck // writeResult is a convenience method that intentionally ignores errors
-	fmt.Fprintf(oo.writer, "%v\n", v)
+	fmt.Fprintf(oo.getWriter(), "%v\n", v)
 	return nil
 }
