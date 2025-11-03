@@ -136,3 +136,37 @@ func TestOutputOptions_OutputFormatIsJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestOutputOptions_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		format  string
+		wantErr bool
+	}{
+		{
+			name:    "valid text format",
+			format:  OutputFormatText,
+			wantErr: false,
+		},
+		{
+			name:    "valid JSON format",
+			format:  OutputFormatJSON,
+			wantErr: false,
+		},
+		{
+			name:    "invalid format",
+			format:  "invalid",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := outputOptions{format: tt.format}
+			err := opts.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

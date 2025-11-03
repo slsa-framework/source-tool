@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -18,6 +20,20 @@ const (
 // outputOptions provides common output formatting options
 type outputOptions struct {
 	format string
+}
+
+// AddFlags adds output-related flags to the command
+func (oo *outputOptions) AddFlags(cmd *cobra.Command) {
+	oo.format = OutputFormatText
+	cmd.PersistentFlags().StringVar(&oo.format, "format", OutputFormatText, "Output format: 'text' (default) or 'json'")
+}
+
+// Validate checks that the output format is valid
+func (oo *outputOptions) Validate() error {
+	if oo.format != OutputFormatText && oo.format != OutputFormatJSON {
+		return fmt.Errorf("output format must be 'text' or 'json', got: %s", oo.format)
+	}
+	return nil
 }
 
 // getWriter returns the writer to use for output (currently always os.Stdout)
