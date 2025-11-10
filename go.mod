@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/in-toto/attestation v1.1.2
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.0
-	github.com/migueleliasweb/go-github-mock v1.4.0
+	github.com/migueleliasweb/go-github-mock v1.5.0
 	github.com/sigstore/sigstore-go v1.1.3
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
