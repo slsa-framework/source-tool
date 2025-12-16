@@ -77,8 +77,8 @@ github.com/blang/semver v3.5.1+incompatible h1:cQNTCjp13qL8KC3Nbxr/y2Bqb63oX6wdn
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
-github.com/carabiner-dev/signer v0.1.2 h1:R0MT947V75vw8sYUrqxzGeXA3wBcDoxkOiEPYWrO0rg=
-github.com/carabiner-dev/signer v0.1.2/go.mod h1:P9jv4aV3QoukE/304ZmhK1mI7B5aZxjgUMuy/fjsjdQ=
+github.com/carabiner-dev/signer v0.3.4 h1:r7F//81Zl6a6fLbre1bLohuEBJDrc6FFuqDwVbfqhUM=
+github.com/carabiner-dev/signer v0.3.4/go.mod h1:ajyQ8HHnPAFn08sx7g4WgaiVxSM/naeaNIVWkuFoUVQ=
 github.com/carabiner-dev/vcslocator v0.3.2 h1:/rfhELG1mvqFq0xi8LQSkfpAVoQDCGlWoL6J5tX9Inw=
 github.com/carabiner-dev/vcslocator v0.3.2/go.mod h1:jvYlXLVyqQqkBuSH/CiE1pbHifoPaAhWtUjLquHaBb0=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
