@@ -18,6 +18,8 @@ import (
 )
 
 const (
+	ActionsOrg     = "slsa-framework"
+	ActionsRepo    = "source-actions"
 	workflowPath   = ".github/workflows/compute_slsa_source.yaml"
 	workflowSource = "git+https://github.com/slsa-"
 
@@ -350,4 +352,35 @@ func (b *Backend) ConfigureControls(r *models.Repository, branches []*models.Bra
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// GetLatestActionsTag queries GitHub and fetches the latest tag and digest
+// of the slsa-framework/source-actions repository.
+func (b *Backend) GetLatestActionsTag() (tag, digest string, err error) {
+	client, err := b.authenticator.GetGitHubClient()
+	if err != nil {
+		return "", "", fmt.Errorf("getting GitHub client: %w", err)
+	}
+
+	// List tags from slsa-framework/source-actions
+	tags, _, err := client.Repositories.ListTags(
+		context.Background(), ActionsOrg, ActionsRepo,
+		&github.ListOptions{
+			Page:    1,
+			PerPage: 1,
+		},
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("listing tags: %w", err)
+	}
+
+	if len(tags) == 0 {
+		return "", "", errors.New("no tags found in slsa-framework/source-actions")
+	}
+
+	latestTag := tags[0]
+	tagName := latestTag.GetName()
+	commitSHA := latestTag.GetCommit().GetSHA()
+
+	return tagName, commitSHA, nil
 }
