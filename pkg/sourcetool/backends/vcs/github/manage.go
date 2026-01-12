@@ -48,7 +48,7 @@ jobs:
     permissions:
       contents: write # needed for storing the vsa in the repo.
       id-token: write # meeded to mint yokens for signing
-    uses: slsa-framework/source-actions/.github/workflows/compute_slsa_source.yml@main
+    uses: %s/%s/.github/workflows/compute_slsa_source.yml@%s # %s
 
 `
 )
@@ -89,12 +89,21 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 		return nil, err
 	}
 
+	// Get the actions repo tag
+	actionsTag, actionsHash, err := b.GetLatestActionsTag()
+	if err != nil {
+		return nil, fmt.Errorf("getting latest actions tag: %w", err)
+	}
+
 	// Populate the branches in the workflow template
 	quotedBranchesList := []string{}
 	for _, b := range branches {
 		quotedBranchesList = append(quotedBranchesList, fmt.Sprintf("%q", b.Name))
 	}
-	workflowYAML := fmt.Sprintf(workflowData, strings.Join(quotedBranchesList, ", "))
+	workflowYAML := fmt.Sprintf(
+		workflowData, strings.Join(quotedBranchesList, ", "),
+		ActionsOrg, ActionsRepo, actionsHash, actionsTag,
+	)
 
 	// We need to determine if the user needs a fork
 	hasPush, err := b.checkPushAccess(r)
