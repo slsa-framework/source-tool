@@ -66,7 +66,7 @@ func (bo *branchOptions) Validate() error {
 	errs = append(errs, bo.repoOptions.Validate())
 
 	if bo.branch == "" {
-		return errors.New("branch not set")
+		errs = append(errs, errors.New("branch not set"))
 	}
 	return errors.Join(errs...)
 }

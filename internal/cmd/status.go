@@ -30,7 +30,7 @@ type statusOptions struct {
 
 // Validate checks the options
 func (so *statusOptions) Validate() error {
-	errs := []error{}
+	errs := []error{} //nolint:prealloc
 	errs = append(errs, so.commitOptions.Validate())
 
 	return errors.Join(errs...)
