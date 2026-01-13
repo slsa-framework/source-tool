@@ -152,7 +152,21 @@ func addCheckLevelProv(parentCmd *cobra.Command) {
 	checklevelprovCmd := &cobra.Command{
 		Use:     "checklevelprov",
 		GroupID: "assessment",
+		Example: `sourcetool checklevelprov owner/repo --push=note`,
 		Short:   "Checks the given commit against policy using & creating provenance",
+		Long: `Checks the given commit against policy using & creating provenance.
+
+The checklevelprov subcommand computes the SLSA level of a commit by retrieving
+the source policy of the repository and the provenance of its parent revision.
+
+Based on the verification, the subcommand generates the commit's provenance
+attestation and a verification summary attestation which can optionally be
+signed using Sigstore.
+
+The signed attestations can be pushed to a storage repository: either to the
+GitHub attestations API (--push=github) or stored and in the commit's git notes
+and pushed to its remote (--push=note).
+`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {
@@ -246,7 +260,7 @@ func doCheckLevelProv(checkLevelProvArgs *checkLevelProvOpts) error {
 		}
 		defer func() {
 			if f != nil {
-				f.Close() //nolint:errcheck
+				f.Close() //nolint:errcheck,gosec
 			}
 		}()
 
