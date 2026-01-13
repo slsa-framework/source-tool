@@ -9,7 +9,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
+	"strings"
 
+	"github.com/carabiner-dev/attestation"
+	"github.com/carabiner-dev/collector"
+	"github.com/carabiner-dev/collector/envelope"
+	"github.com/carabiner-dev/collector/repository/github"
+	"github.com/carabiner-dev/collector/repository/note"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -19,9 +26,100 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/policy"
 )
 
+type pushOptions struct {
+	pushLocation []string
+}
+
+// Support repository types to push
+var supportedPushRepos = []string{"github", "note"}
+
+// Validate checks the push options
+func (po *pushOptions) Validate() error {
+	errs := []error{}
+	if len(po.pushLocation) == 0 {
+		return nil
+	}
+
+	// Check the supported schemes
+	for _, repouri := range po.pushLocation {
+		if slices.Contains(supportedPushRepos, repouri) {
+			continue
+		}
+
+		s, _, ok := strings.Cut(repouri, ":")
+		if ok && slices.Contains(supportedPushRepos, s) {
+			continue
+		}
+
+		errs = append(errs, fmt.Errorf("unsupported repository type: %q", repouri))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (po *pushOptions) AddFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringSliceVar(&po.pushLocation, "push", []string{}, fmt.Sprintf("Push signed attestations to storage %v", supportedPushRepos))
+}
+
+func (po *pushOptions) GetCollectorAgent(opts commitOptions, token string) (*collector.Agent, error) {
+	if len(po.pushLocation) == 0 {
+		return nil, nil
+	}
+
+	// Create the attestation storage repositories
+	agent, err := collector.New()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, uri := range po.pushLocation {
+		var repo attestation.Repository
+		var err error
+
+		// Translate just "note" or "github" to the full repo spec acting on
+		// the sepcified commit
+		switch uri {
+		case note.TypeMoniker:
+			uri = fmt.Sprintf(
+				"note:git+https://github.com/%s/%s@%s",
+				opts.owner, opts.repository, opts.commit,
+			)
+		case github.TypeMoniker:
+			uri = fmt.Sprintf("github:%s/%s", opts.owner, opts.repository)
+		}
+		switch {
+		case strings.HasPrefix(uri, "github:"):
+			repo, err = github.New(
+				// Initialize the github repository
+				github.WithInit(uri),
+				// We pass the token to use in the githu client
+				github.WithToken(token),
+			)
+		case strings.HasPrefix(uri, "note:"):
+			repo, err = note.New(
+				// Initialize the notes repository
+				note.WithInit(uri),
+				// Push is enabled as we will append the note to the remote
+				note.WithPush(true),
+				// Push via http, using the GH access token
+				note.WithHttpAuth("x-access-token", token),
+			)
+		default:
+			return nil, fmt.Errorf("repository type not supported")
+		}
+		if err != nil {
+			return nil, fmt.Errorf("creating storage repository: %w", err)
+		}
+		agent.AddRepository(repo) //nolint:errcheck,gosec // always returns nil
+	}
+
+	return agent, nil
+}
+
 type checkLevelProvOpts struct {
 	commitOptions
 	verifierOptions
+	pushOptions
 	prevBundlePath       string
 	prevCommit           string
 	outputUnsignedBundle string
@@ -39,6 +137,7 @@ func (clp *checkLevelProvOpts) Validate() error {
 
 func (clp *checkLevelProvOpts) AddFlags(cmd *cobra.Command) {
 	clp.commitOptions.AddFlags(cmd)
+	clp.pushOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(&clp.prevBundlePath, "prev_bundle_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
 	cmd.PersistentFlags().StringVar(&clp.prevCommit, "prev_commit", "", "The commit to check.")
 	cmd.PersistentFlags().StringVar(&clp.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
@@ -137,12 +236,19 @@ func doCheckLevelProv(checkLevelProvArgs *checkLevelProvOpts) error {
 		if _, err := f.WriteString(string(unsignedProv) + "\n" + unsignedVsa + "\n"); err != nil {
 			return fmt.Errorf("writing signed bundle: %w", err)
 		}
-	case checkLevelProvArgs.outputSignedBundle != "":
-		f, err := os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
-		if err != nil {
-			return err
+	case checkLevelProvArgs.outputSignedBundle != "" || len(checkLevelProvArgs.pushLocation) > 0:
+		var f *os.File
+		if checkLevelProvArgs.outputSignedBundle != "" {
+			f, err = os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
+			if err != nil {
+				return err
+			}
 		}
-		defer f.Close() //nolint:errcheck
+		defer func() {
+			if f != nil {
+				f.Close() //nolint:errcheck
+			}
+		}()
 
 		signedProv, err := attest.Sign(string(unsignedProv))
 		if err != nil {
@@ -154,8 +260,35 @@ func doCheckLevelProv(checkLevelProvArgs *checkLevelProvOpts) error {
 			return err
 		}
 
-		if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
-			return fmt.Errorf("writing bundle data: %w", err)
+		// If a file was specified, write the attestations
+		if f != nil {
+			if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
+				return fmt.Errorf("writing bundle data: %w", err)
+			}
+		}
+
+		cl, err := checkLevelProvArgs.GetCollectorAgent(checkLevelProvArgs.commitOptions, t)
+		if err != nil {
+			return fmt.Errorf("creating storage repositories: %w", err)
+		}
+
+		// If there are any storage repositories configured, push the attestations
+		if cl != nil {
+			// Parse the attestations into envelopes
+			envProv, err := envelope.Parsers.Parse(strings.NewReader(signedProv))
+			if err != nil || len(envProv) == 0 {
+				return fmt.Errorf("parsing provenance: %w", err)
+			}
+			envVsa, err := envelope.Parsers.Parse(strings.NewReader(signedVsa))
+			if err != nil || len(envVsa) == 0 {
+				return fmt.Errorf("parsing VSA: %w", err)
+			}
+
+			// And store them
+			err = cl.Store(ctx, []attestation.Envelope{envProv[0], envVsa[0]})
+			if err != nil {
+				return fmt.Errorf("storing attestations: %w", err)
+			}
 		}
 	default:
 		log.Printf("unsigned prov: %s\n", unsignedProv)
