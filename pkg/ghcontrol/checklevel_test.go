@@ -350,7 +350,7 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
 
-			controlNames := []slsa.ControlName{}
+			controlNames := make([]slsa.ControlName, 0, len(controlStatus.Controls))
 			for _, control := range controlStatus.Controls {
 				controlNames = append(controlNames, slsa.ControlName(control.GetName()))
 				if !control.GetSince().AsTime().Equal(priorTime) {

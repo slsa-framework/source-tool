@@ -321,7 +321,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 }
 
 func createVsaSummary(ref string, verifiedLevels []slsa.ControlName) *provenance.VsaSummary {
-	lvls := []string{}
+	lvls := make([]string, 0, len(verifiedLevels))
 	for _, l := range verifiedLevels {
 		lvls = append(lvls, l.String())
 	}
