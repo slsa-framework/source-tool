@@ -18,6 +18,8 @@ import (
 )
 
 const (
+	ActionsOrg     = "slsa-framework"
+	ActionsRepo    = "source-actions"
 	workflowPath   = ".github/workflows/compute_slsa_source.yaml"
 	workflowSource = "git+https://github.com/slsa-"
 
@@ -46,7 +48,7 @@ jobs:
     permissions:
       contents: write # needed for storing the vsa in the repo.
       id-token: write # meeded to mint yokens for signing
-    uses: slsa-framework/source-actions/.github/workflows/compute_slsa_source.yml@main
+    uses: %s/%s/.github/workflows/compute_slsa_source.yml@%s # %s
 
 `
 )
@@ -87,12 +89,21 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 		return nil, err
 	}
 
+	// Get the actions repo tag
+	actionsTag, actionsHash, err := b.GetLatestActionsTag()
+	if err != nil {
+		return nil, fmt.Errorf("getting latest actions tag: %w", err)
+	}
+
 	// Populate the branches in the workflow template
 	quotedBranchesList := []string{}
 	for _, b := range branches {
 		quotedBranchesList = append(quotedBranchesList, fmt.Sprintf("%q", b.Name))
 	}
-	workflowYAML := fmt.Sprintf(workflowData, strings.Join(quotedBranchesList, ", "))
+	workflowYAML := fmt.Sprintf(
+		workflowData, strings.Join(quotedBranchesList, ", "),
+		ActionsOrg, ActionsRepo, actionsHash, actionsTag,
+	)
 
 	// We need to determine if the user needs a fork
 	hasPush, err := b.checkPushAccess(r)
@@ -350,4 +361,35 @@ func (b *Backend) ConfigureControls(r *models.Repository, branches []*models.Bra
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// GetLatestActionsTag queries GitHub and fetches the latest tag and digest
+// of the slsa-framework/source-actions repository.
+func (b *Backend) GetLatestActionsTag() (tag, digest string, err error) {
+	client, err := b.authenticator.GetGitHubClient()
+	if err != nil {
+		return "", "", fmt.Errorf("getting GitHub client: %w", err)
+	}
+
+	// List tags from slsa-framework/source-actions
+	tags, _, err := client.Repositories.ListTags(
+		context.Background(), ActionsOrg, ActionsRepo,
+		&github.ListOptions{
+			Page:    1,
+			PerPage: 1,
+		},
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("listing tags: %w", err)
+	}
+
+	if len(tags) == 0 {
+		return "", "", errors.New("no tags found in slsa-framework/source-actions")
+	}
+
+	latestTag := tags[0]
+	tagName := latestTag.GetName()
+	commitSHA := latestTag.GetCommit().GetSHA()
+
+	return tagName, commitSHA, nil
 }
