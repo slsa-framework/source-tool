@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/carabiner-dev/attestation v0.2.0
 	github.com/carabiner-dev/collector v0.2.7
-	github.com/carabiner-dev/signer v0.3.5
+	github.com/carabiner-dev/signer v0.3.6
 	github.com/carabiner-dev/vcslocator v0.3.3-0.20260110024210-a5602e9845b5
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-billy/v6 v6.0.0-20250627091229-31e2a16eef30
@@ -151,7 +151,7 @@ require (
 	golang.org/x/oauth2 v0.33.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/term v0.38.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
