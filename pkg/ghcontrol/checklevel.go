@@ -101,7 +101,7 @@ func (ghc *GitHubConnection) ruleMeetsRequiresReview(rule *github.PullRequestBra
 }
 
 // Computes the continuity control returning nil if it's not enabled.
-func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, rules *github.BranchRules) (*provenance.Control, error) {
+func (ghc *GitHubConnection) computeRepoContinuityControl(ctx context.Context, rules *github.BranchRules) (*provenance.Control, error) {
 	oldestDeletion, err := ghc.getOldestActiveRule(ctx, rules.Deletion)
 	if err != nil {
 		return nil, fmt.Errorf("looking for oldest branch delete protection: %w", err)
@@ -122,9 +122,11 @@ func (ghc *GitHubConnection) computeContinuityControl(ctx context.Context, rules
 		newestRule = oldestNoFf
 	}
 
-	return &provenance.Control{Name: string(slsa.ContinuityEnforced), Since: timestamppb.New(newestRule.UpdatedAt.Time)}, nil
+	return &provenance.Control{Name: string(slsa.SLSA_SOURCE_SCS_CONTINUITY), Since: timestamppb.New(newestRule.UpdatedAt.Time)}, nil
 }
 
+// enforcesTagHygiene checks a repository ruleset to understand if it is
+// configured to protect the branch
 func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
 	if ruleset.Rules != nil &&
 		ruleset.Rules.Update != nil &&
@@ -138,6 +140,7 @@ func enforcesTagHygiene(ruleset *github.RepositoryRuleset) bool {
 	return false
 }
 
+// computeTagHygieneControl
 func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, allRulesets []*github.RepositoryRuleset) (*provenance.Control, error) {
 	var validRuleset *github.RepositoryRuleset
 	for _, ruleset := range allRulesets {
@@ -168,7 +171,10 @@ func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, allRu
 		return nil, nil
 	}
 
-	return &provenance.Control{Name: slsa.TagHygiene.String(), Since: timestamppb.New(validRuleset.UpdatedAt.Time)}, nil
+	return &provenance.Control{
+		Name:  slsa.SLSA_SOURCE_SCS_PROTECTED_REFS.String(),
+		Since: timestamppb.New(validRuleset.UpdatedAt.Time),
+	}, nil
 }
 
 // Computes the review control returning nil if it's not enabled.
@@ -189,7 +195,10 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 	}
 
 	if oldestActive != nil {
-		return &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: timestamppb.New(oldestActive.UpdatedAt.Time)}, nil
+		return &provenance.Control{
+			Name:  slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW.String(),
+			Since: timestamppb.New(oldestActive.UpdatedAt.Time),
+		}, nil
 	}
 
 	return nil, nil
@@ -356,7 +365,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, ref string) 
 	}
 
 	// Compute the controls enforced.
-	continuityControl, err := ghc.computeContinuityControl(ctx, branchRules)
+	continuityControl, err := ghc.computeRepoContinuityControl(ctx, branchRules)
 	if err != nil {
 		return nil, fmt.Errorf("could not populate ContinuityControl: %w", err)
 	}

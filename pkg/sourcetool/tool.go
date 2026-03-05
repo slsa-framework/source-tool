@@ -223,7 +223,7 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 	}
 
 	// If the controls returned
-	tagHygiene := controls.GetActiveControls().GetControl(slsa.TagHygiene)
+	tagHygiene := controls.GetActiveControls().GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS)
 	if tagHygiene != nil {
 		p.ProtectedTag = &policy.ProtectedTag{
 			Since:      tagHygiene.GetSince(),
