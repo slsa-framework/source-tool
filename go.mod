@@ -1,6 +1,6 @@
 module github.com/slsa-framework/source-tool
 
-go 1.25.5
+go 1.25.7
 
 require (
 	github.com/carabiner-dev/attestation v0.2.0
