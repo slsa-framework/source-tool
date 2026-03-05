@@ -87,6 +87,9 @@ func doCheckLevel(cla *checkLevelOpts) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("Controls salieron:\n%v\n", controlStatus)
+
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = cla.useLocalPolicy
 	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, cla.GetRepository(), cla.GetBranch(), controlStatus)

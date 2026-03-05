@@ -363,7 +363,9 @@ func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls s
 			"policy sets target level %s which requires %v, but branch is only eligible for %s because it only has %v",
 			branchPolicy.GetTargetSlsaSourceLevel(),
 			slsa.GetRequiredControlsForLevel(slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel())),
-			eligibleLevel, controls.Names())
+			eligibleLevel,
+			controls.Names(),
+		)
 	}
 
 	// Check to see when this branch became eligible for the current target level.

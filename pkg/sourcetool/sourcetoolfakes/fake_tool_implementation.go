@@ -92,13 +92,12 @@ type FakeToolImplementation struct {
 		result1 models.AttestationStorageReader
 		result2 error
 	}
-	GetBranchControlsStub        func(context.Context, models.VcsBackend, *models.Repository, *models.Branch) (*slsa.ControlSetStatus, error)
+	GetBranchControlsStub        func(context.Context, models.VcsBackend, *models.Branch) (*slsa.ControlSetStatus, error)
 	getBranchControlsMutex       sync.RWMutex
 	getBranchControlsArgsForCall []struct {
 		arg1 context.Context
 		arg2 models.VcsBackend
-		arg3 *models.Repository
-		arg4 *models.Branch
+		arg3 *models.Branch
 	}
 	getBranchControlsReturns struct {
 		result1 *slsa.ControlSetStatus
@@ -560,21 +559,20 @@ func (fake *FakeToolImplementation) GetAttestationReaderReturnsOnCall(i int, res
 	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) GetBranchControls(arg1 context.Context, arg2 models.VcsBackend, arg3 *models.Repository, arg4 *models.Branch) (*slsa.ControlSetStatus, error) {
+func (fake *FakeToolImplementation) GetBranchControls(arg1 context.Context, arg2 models.VcsBackend, arg3 *models.Branch) (*slsa.ControlSetStatus, error) {
 	fake.getBranchControlsMutex.Lock()
 	ret, specificReturn := fake.getBranchControlsReturnsOnCall[len(fake.getBranchControlsArgsForCall)]
 	fake.getBranchControlsArgsForCall = append(fake.getBranchControlsArgsForCall, struct {
 		arg1 context.Context
 		arg2 models.VcsBackend
-		arg3 *models.Repository
-		arg4 *models.Branch
-	}{arg1, arg2, arg3, arg4})
+		arg3 *models.Branch
+	}{arg1, arg2, arg3})
 	stub := fake.GetBranchControlsStub
 	fakeReturns := fake.getBranchControlsReturns
-	fake.recordInvocation("GetBranchControls", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("GetBranchControls", []interface{}{arg1, arg2, arg3})
 	fake.getBranchControlsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -588,17 +586,17 @@ func (fake *FakeToolImplementation) GetBranchControlsCallCount() int {
 	return len(fake.getBranchControlsArgsForCall)
 }
 
-func (fake *FakeToolImplementation) GetBranchControlsCalls(stub func(context.Context, models.VcsBackend, *models.Repository, *models.Branch) (*slsa.ControlSetStatus, error)) {
+func (fake *FakeToolImplementation) GetBranchControlsCalls(stub func(context.Context, models.VcsBackend, *models.Branch) (*slsa.ControlSetStatus, error)) {
 	fake.getBranchControlsMutex.Lock()
 	defer fake.getBranchControlsMutex.Unlock()
 	fake.GetBranchControlsStub = stub
 }
 
-func (fake *FakeToolImplementation) GetBranchControlsArgsForCall(i int) (context.Context, models.VcsBackend, *models.Repository, *models.Branch) {
+func (fake *FakeToolImplementation) GetBranchControlsArgsForCall(i int) (context.Context, models.VcsBackend, *models.Branch) {
 	fake.getBranchControlsMutex.RLock()
 	defer fake.getBranchControlsMutex.RUnlock()
 	argsForCall := fake.getBranchControlsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeToolImplementation) GetBranchControlsReturns(result1 *slsa.ControlSetStatus, result2 error) {

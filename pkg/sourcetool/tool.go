@@ -52,21 +52,25 @@ type Tool struct {
 }
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
-func (t *Tool) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
-	backend, err := t.impl.GetVcsBackend(r)
+func (t *Tool) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSetStatus, error) {
+	if branch.Repository == nil {
+		return nil, fmt.Errorf("repositoryu not specified in branch")
+	}
+
+	backend, err := t.impl.GetVcsBackend(branch.Repository)
 	if err != nil {
 		return nil, fmt.Errorf("getting VCS backend: %w", err)
 	}
 
 	// Get the control status in the branch. Backends are expected to
 	// return the full SLSA Source control catalog
-	controls, err := t.impl.GetBranchControls(ctx, backend, r, branch)
+	controls, err := t.impl.GetBranchControls(ctx, backend, branch)
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
 
 	// We also abstract the repository policy as a control to report its status
-	status, err := t.impl.GetPolicyStatus(ctx, t.Authenticator, &t.Options, r)
+	status, err := t.impl.GetPolicyStatus(ctx, t.Authenticator, &t.Options, branch.Repository)
 	if err != nil {
 		return nil, fmt.Errorf("reading policy status: %w", err)
 	}
@@ -185,7 +189,7 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 		return nil, fmt.Errorf("getting backend: %w", err)
 	}
 
-	controls, err := t.impl.GetBranchControls(ctx, backend, r, branches[0])
+	controls, err := t.impl.GetBranchControls(ctx, backend, branches[0])
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}

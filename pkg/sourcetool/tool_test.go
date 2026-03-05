@@ -35,11 +35,11 @@ func TestGetBranchControls(t *testing.T) {
 		tool := &Tool{
 			impl: i,
 		}
-		res, err := tool.GetBranchControls(t.Context(), &models.Repository{}, &models.Branch{})
+		res, err := tool.GetBranchControls(t.Context(), &models.Branch{Repository: &models.Repository{}})
+		require.NoError(t, err)
 		require.NotNil(t, res)
 		// This always has one more as we add the synyhetic policy check
 		require.Len(t, res.Controls, 2)
-		require.NoError(t, err)
 	})
 	t.Run("GetActiveControls-fails", func(t *testing.T) {
 		t.Parallel()
@@ -48,7 +48,7 @@ func TestGetBranchControls(t *testing.T) {
 		tool := &Tool{
 			impl: i,
 		}
-		_, err := tool.GetBranchControls(t.Context(), &models.Repository{}, &models.Branch{})
+		_, err := tool.GetBranchControls(t.Context(), &models.Branch{})
 		require.Error(t, err)
 	})
 }
