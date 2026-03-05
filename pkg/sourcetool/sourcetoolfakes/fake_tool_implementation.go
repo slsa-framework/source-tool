@@ -107,6 +107,22 @@ type FakeToolImplementation struct {
 		result1 *slsa.ControlSetStatus
 		result2 error
 	}
+	GetBranchControlsAtCommitStub        func(context.Context, models.VcsBackend, *models.Branch, *models.Commit) (*slsa.ControlSetStatus, error)
+	getBranchControlsAtCommitMutex       sync.RWMutex
+	getBranchControlsAtCommitArgsForCall []struct {
+		arg1 context.Context
+		arg2 models.VcsBackend
+		arg3 *models.Branch
+		arg4 *models.Commit
+	}
+	getBranchControlsAtCommitReturns struct {
+		result1 *slsa.ControlSetStatus
+		result2 error
+	}
+	getBranchControlsAtCommitReturnsOnCall map[int]struct {
+		result1 *slsa.ControlSetStatus
+		result2 error
+	}
 	GetPolicyStatusStub        func(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.ControlStatus, error)
 	getPolicyStatusMutex       sync.RWMutex
 	getPolicyStatusArgsForCall []struct {
@@ -620,6 +636,73 @@ func (fake *FakeToolImplementation) GetBranchControlsReturnsOnCall(i int, result
 		})
 	}
 	fake.getBranchControlsReturnsOnCall[i] = struct {
+		result1 *slsa.ControlSetStatus
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeToolImplementation) GetBranchControlsAtCommit(arg1 context.Context, arg2 models.VcsBackend, arg3 *models.Branch, arg4 *models.Commit) (*slsa.ControlSetStatus, error) {
+	fake.getBranchControlsAtCommitMutex.Lock()
+	ret, specificReturn := fake.getBranchControlsAtCommitReturnsOnCall[len(fake.getBranchControlsAtCommitArgsForCall)]
+	fake.getBranchControlsAtCommitArgsForCall = append(fake.getBranchControlsAtCommitArgsForCall, struct {
+		arg1 context.Context
+		arg2 models.VcsBackend
+		arg3 *models.Branch
+		arg4 *models.Commit
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.GetBranchControlsAtCommitStub
+	fakeReturns := fake.getBranchControlsAtCommitReturns
+	fake.recordInvocation("GetBranchControlsAtCommit", []interface{}{arg1, arg2, arg3, arg4})
+	fake.getBranchControlsAtCommitMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeToolImplementation) GetBranchControlsAtCommitCallCount() int {
+	fake.getBranchControlsAtCommitMutex.RLock()
+	defer fake.getBranchControlsAtCommitMutex.RUnlock()
+	return len(fake.getBranchControlsAtCommitArgsForCall)
+}
+
+func (fake *FakeToolImplementation) GetBranchControlsAtCommitCalls(stub func(context.Context, models.VcsBackend, *models.Branch, *models.Commit) (*slsa.ControlSetStatus, error)) {
+	fake.getBranchControlsAtCommitMutex.Lock()
+	defer fake.getBranchControlsAtCommitMutex.Unlock()
+	fake.GetBranchControlsAtCommitStub = stub
+}
+
+func (fake *FakeToolImplementation) GetBranchControlsAtCommitArgsForCall(i int) (context.Context, models.VcsBackend, *models.Branch, *models.Commit) {
+	fake.getBranchControlsAtCommitMutex.RLock()
+	defer fake.getBranchControlsAtCommitMutex.RUnlock()
+	argsForCall := fake.getBranchControlsAtCommitArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *FakeToolImplementation) GetBranchControlsAtCommitReturns(result1 *slsa.ControlSetStatus, result2 error) {
+	fake.getBranchControlsAtCommitMutex.Lock()
+	defer fake.getBranchControlsAtCommitMutex.Unlock()
+	fake.GetBranchControlsAtCommitStub = nil
+	fake.getBranchControlsAtCommitReturns = struct {
+		result1 *slsa.ControlSetStatus
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeToolImplementation) GetBranchControlsAtCommitReturnsOnCall(i int, result1 *slsa.ControlSetStatus, result2 error) {
+	fake.getBranchControlsAtCommitMutex.Lock()
+	defer fake.getBranchControlsAtCommitMutex.Unlock()
+	fake.GetBranchControlsAtCommitStub = nil
+	if fake.getBranchControlsAtCommitReturnsOnCall == nil {
+		fake.getBranchControlsAtCommitReturnsOnCall = make(map[int]struct {
+			result1 *slsa.ControlSetStatus
+			result2 error
+		})
+	}
+	fake.getBranchControlsAtCommitReturnsOnCall[i] = struct {
 		result1 *slsa.ControlSetStatus
 		result2 error
 	}{result1, result2}

@@ -38,6 +38,7 @@ type toolImplementation interface {
 	GetVcsBackend(*models.Repository) (models.VcsBackend, error)
 	GetAttestationReader(*models.Repository) (models.AttestationStorageReader, error)
 	GetBranchControls(context.Context, models.VcsBackend, *models.Branch) (*slsa.ControlSetStatus, error)
+	GetBranchControlsAtCommit(context.Context, models.VcsBackend, *models.Branch, *models.Commit) (*slsa.ControlSetStatus, error)
 	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
 	GetPolicyStatus(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.ControlStatus, error)
 	CreateRepositoryFork(context.Context, *auth.Authenticator, *models.Repository, string) error
@@ -56,6 +57,12 @@ func (impl *defaultToolImplementation) GetBranchControls(
 	ctx context.Context, backend models.VcsBackend, branch *models.Branch,
 ) (*slsa.ControlSetStatus, error) {
 	return backend.GetBranchControls(ctx, branch)
+}
+
+func (impl *defaultToolImplementation) GetBranchControlsAtCommit(
+	ctx context.Context, backend models.VcsBackend, branch *models.Branch, commit *models.Commit,
+) (*slsa.ControlSetStatus, error) {
+	return backend.GetBranchControlsAtCommit(ctx, branch, commit)
 }
 
 // GetAttestationReader returns the att reader object
