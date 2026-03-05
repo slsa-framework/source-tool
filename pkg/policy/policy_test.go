@@ -148,17 +148,35 @@ func validateMockServerRequestPath(t *testing.T, r *http.Request, expectedPolicy
 	}
 }
 
+// controlsForLevel creates a slsa.Controls collection with all required controls
+// for the given SLSA level, each with the given Since timestamp.
+func controlsForLevel(level slsa.SlsaSourceLevel, since *timestamppb.Timestamp) slsa.Controls {
+	required := slsa.GetRequiredControlsForLevel(level)
+	controls := slsa.Controls{}
+	for _, name := range required {
+		controls.AddControl(&provenance.Control{Name: name.String(), Since: since})
+	}
+	return controls
+}
+
+// controlsForLevelWith creates controls for a level plus additional controls.
+func controlsForLevelWith(level slsa.SlsaSourceLevel, since *timestamppb.Timestamp, extra ...*provenance.Control) slsa.Controls {
+	controls := controlsForLevel(level, since)
+	controls.AddControl(extra...)
+	return controls
+}
+
 func TestEvaluateSourceProv_Success(t *testing.T) {
-	// Controls for mock provenance
-	continuityEnforcedEarlier := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: earlierFixedTime}
-	provenanceAvailableEarlier := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: earlierFixedTime}
-	reviewEnforcedEarlier := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: earlierFixedTime}
-	tagHygieneEarlier := &provenance.Control{Name: slsa.TagHygiene.String(), Since: earlierFixedTime}
 	orgTestControl := &provenance.Control{Name: "GH_REQUIRED_CHECK_test", Since: earlierFixedTime}
 
-	// Valid Provenance Predicate (attest.SourceProvenancePred)
+	// Valid Provenance Predicate with L3 controls + review + tag hygiene + org control
+	l3Controls := controlsForLevelWith(slsa.SlsaSourceLevel3, earlierFixedTime,
+		&provenance.Control{Name: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW.String(), Since: earlierFixedTime},
+		orgTestControl,
+	)
+
 	validProvPredicateL3Controls := provenance.SourceProvenancePred{
-		Controls: slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
+		Controls: l3Controls,
 	}
 
 	provenanceStatement := createStatementForTest(t, &validProvPredicateL3Controls, provenance.SourceProvPredicateType)
@@ -193,19 +211,13 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	if policyPath != expectedPolicyFilePath {
 		t.Errorf("EvaluateSourceProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
 	}
-	expectedLevels := slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.ReviewEnforced, slsa.TagHygiene, "ORG_SOURCE_TESTED"}
+	expectedLevels := slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW, slsa.SLSA_SOURCE_SCS_PROTECTED_REFS, "ORG_SOURCE_TESTED"}
 	if !slices.Equal(verifiedLevels, expectedLevels) {
 		t.Errorf("EvaluateSourceProv() verifiedLevels = %v, want %v", verifiedLevels, expectedLevels)
 	}
 }
 
 func TestEvaluateSourceProv_Failure(t *testing.T) {
-	// Controls for mock provenance
-	continuityEnforcedEarlier := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: earlierFixedTime}
-	provenanceAvailableEarlier := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: earlierFixedTime}
-	reviewEnforcedEarlier := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: earlierFixedTime}
-	tagHygieneEarlier := &provenance.Control{Name: slsa.TagHygiene.String(), Since: earlierFixedTime}
-
 	// Policies
 	policyL3ReviewTagsNow := RepoPolicy{
 		ProtectedBranches: []*ProtectedBranch{
@@ -213,19 +225,19 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 		},
 		ProtectedTag: &ProtectedTag{Since: fixedTime, TagHygiene: true},
 	}
-	policyL1NoExtrasNow := RepoPolicy{ // Policy for default/branch not found cases
+	policyL1NoExtrasNow := RepoPolicy{
 		ProtectedBranches: []*ProtectedBranch{
 			{Name: "otherbranch", TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel1), Since: fixedTime},
 		},
 		ProtectedTag: nil,
 	}
 
-	// Valid Provenance Predicate (attest.SourceProvenancePred)
+	// Valid Provenance Predicates
 	validProvPredicateL3Controls := provenance.SourceProvenancePred{
-		Controls: slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+		Controls: controlsForLevel(slsa.SlsaSourceLevel3, earlierFixedTime),
 	}
 	validProvPredicateL2Controls := provenance.SourceProvenancePred{
-		Controls: slsa.Controls{continuityEnforcedEarlier, tagHygieneEarlier, reviewEnforcedEarlier}, // Missing provenanceAvailable for L3
+		Controls: controlsForLevel(slsa.SlsaSourceLevel2, earlierFixedTime),
 	}
 
 	tests := []struct {
@@ -240,7 +252,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 			policyContent:         &policyL3ReviewTagsNow,                                                                       // Expects L3
 			provenanceStatement:   createStatementForTest(t, &validProvPredicateL2Controls, provenance.SourceProvPredicateType), // Prov only has L2 controls
 			ghConnBranch:          "main",
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3 which requires [CONTINUITY_ENFORCED TAG_HYGIENE PROVENANCE_AVAILABLE], but branch is only eligible for SLSA_SOURCE_LEVEL_2 because it only has [CONTINUITY_ENFORCED TAG_HYGIENE REVIEW_ENFORCED]",
+			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_2",
 		},
 		{
 			name:                  "Malformed Policy JSON -> Error",
@@ -333,9 +345,9 @@ func createVsaSummary(ref string, verifiedLevels []slsa.ControlName) *provenance
 
 func TestEvaluateTagProv_Success(t *testing.T) {
 	// Controls for mock provenance
-	tagHygieneEarlier := provenance.Control{Name: slsa.TagHygiene.String(), Since: earlierFixedTime}
+	tagHygieneEarlier := provenance.Control{Name: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS.String(), Since: earlierFixedTime}
 	origL2ReviewedSummary := createVsaSummary("refs/heads/orig", []slsa.ControlName{
-		slsa.ControlName(slsa.SlsaSourceLevel2), slsa.ReviewEnforced,
+		slsa.ControlName(slsa.SlsaSourceLevel2), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 	})
 	mainL3Summary := createVsaSummary("refs/heads/main", []slsa.ControlName{
 		slsa.ControlName(slsa.SlsaSourceLevel3),
@@ -354,7 +366,7 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 				TagHygiene: true,
 			},
 			vsaSummaries:   []*provenance.VsaSummary{origL2ReviewedSummary},
-			expectedLevels: slsa.SourceVerifiedLevels{slsa.ReviewEnforced, slsa.ControlName(slsa.SlsaSourceLevel2)},
+			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel2), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW},
 		},
 		{
 			name: "Policy has protected_tag setting, and multiple summaries",
@@ -365,7 +377,7 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 			vsaSummaries: []*provenance.VsaSummary{origL2ReviewedSummary, mainL3Summary},
 			// The spec says we MUST NOT return multiple levels per track in a VSA...
 			expectedLevels: slsa.SourceVerifiedLevels{
-				slsa.ReviewEnforced, slsa.ControlName(slsa.SlsaSourceLevel3),
+				slsa.ControlName(slsa.SlsaSourceLevel3), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 			},
 		},
 		{
@@ -436,12 +448,9 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 }
 
 func TestEvaluateControl_Success(t *testing.T) {
-	// Controls
-	continuityEnforcedEarlier := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: earlierFixedTime}
-	provenanceAvailableEarlier := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: earlierFixedTime}
-	reviewEnforcedEarlier := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: earlierFixedTime}
-	tagHygieneEarlier := &provenance.Control{Name: slsa.TagHygiene.String(), Since: earlierFixedTime}
 	orgTestControl := &provenance.Control{Name: "GH_REQUIRED_CHECK_test", Since: earlierFixedTime}
+	reviewControl := &provenance.Control{Name: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW.String(), Since: earlierFixedTime}
+	l3ControlsWithExtras := controlsForLevelWith(slsa.SlsaSourceLevel3, earlierFixedTime, reviewControl, orgTestControl)
 
 	// Policies
 	fullPolicy := RepoPolicy{
@@ -483,33 +492,33 @@ func TestEvaluateControl_Success(t *testing.T) {
 			name:          "Commit time before policy Since -> SLSA Level 1",
 			policyContent: &fullPolicy,
 			controlStatus: &ghcontrol.GhControlStatus{
-				CommitPushTime: earlierFixedTime.AsTime(), // Commit time before policyL3ReviewTagsNow.Since (now)
-				Controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
+				CommitPushTime: earlierFixedTime.AsTime(),
+				Controls:       l3ControlsWithExtras,
 			},
 			ghConnBranch:       "main",
-			expectedLevels:     slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)}, // Expect L1 because commit time is before policy enforcement
-			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",                                            // Placeholder, will be replaced by actual temp file path
+			expectedLevels:     slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
+			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",
 		},
 		{
 			name:          "Commit time after policy Since, controls meet policy -> Expected levels",
 			policyContent: &fullPolicy,
 			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: laterFixedTime.AsTime(),
-				Controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
+				Controls:       l3ControlsWithExtras,
 			},
 			ghConnBranch:       "main",
-			expectedLevels:     slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.ReviewEnforced, slsa.TagHygiene, "ORG_SOURCE_TESTED"},
+			expectedLevels:     slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW, slsa.SLSA_SOURCE_SCS_PROTECTED_REFS, "ORG_SOURCE_TESTED"},
 			expectedPolicyPath: "TEMP_POLICY_FILE_PATH",
 		},
 		{
 			name:          "Branch not in policy, commit after default policy since -> Default policy (SLSA L1)",
-			policyContent: &basicPolicy, // main is in policy, but we test "develop"
+			policyContent: &basicPolicy,
 			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: laterFixedTime.AsTime(),
-				Controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier, orgTestControl},
+				Controls:       l3ControlsWithExtras,
 			},
-			ghConnBranch:       "develop",                                                          // Testing "develop" branch
-			expectedLevels:     slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)}, // Default is L1
+			ghConnBranch:       "develop",
+			expectedLevels:     slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
 			expectedPolicyPath: "DEFAULT",
 		},
 	}
@@ -556,10 +565,6 @@ func TestEvaluateControl_Failure(t *testing.T) {
 	earlier := timestamppb.New(time.Now().Add(-time.Hour))
 	later := timestamppb.New(time.Now().Add(time.Hour))
 
-	// Controls
-	continuityEnforcedEarlier := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: earlier}
-	tagHygieneEarlier := &provenance.Control{Name: slsa.TagHygiene.String(), Since: earlier}
-
 	// Policies
 	policyL3Review := RepoPolicy{
 		ProtectedBranches: []*ProtectedBranch{
@@ -569,17 +574,17 @@ func TestEvaluateControl_Failure(t *testing.T) {
 
 	tests := []struct {
 		name                  string
-		policyContent         any // RepoPolicy or string for malformed
+		policyContent         any
 		controlStatus         *ghcontrol.GhControlStatus
-		ghConnBranch          string // Branch for GitHub connection
+		ghConnBranch          string
 		expectedErrorContains string
 	}{
 		{
 			name:          "Commit time after policy Since, controls DO NOT meet policy -> Error",
-			policyContent: &policyL3Review, // Requires L3, Review, Tags
+			policyContent: &policyL3Review,
 			controlStatus: &ghcontrol.GhControlStatus{
 				CommitPushTime: later.AsTime(),
-				Controls:       slsa.Controls{continuityEnforcedEarlier, tagHygieneEarlier}, // Only meets L2
+				Controls:       controlsForLevel(slsa.SlsaSourceLevel2, earlier),
 			},
 			ghConnBranch:          "main",
 			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_2",
@@ -710,40 +715,34 @@ const (
 )
 
 func TestComputeEligibleSlsaLevel(t *testing.T) {
-	continuityEnforcedControl := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: fixedTime}
-	provenanceAvailableControl := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: fixedTime}
-	reviewEnforcedControl := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: fixedTime}
-	tagHygieneControl := &provenance.Control{Name: slsa.TagHygiene.String(), Since: fixedTime}
-
 	tests := []struct {
-		name           string
-		controls       slsa.Controls
-		expectedLevel  slsa.SlsaSourceLevel
-		expectedReason string
+		name          string
+		controls      slsa.Controls
+		expectedLevel slsa.SlsaSourceLevel
 	}{
 		{
 			name:          "SLSA Level 4",
-			controls:      slsa.Controls{continuityEnforcedControl, provenanceAvailableControl, reviewEnforcedControl, tagHygieneControl},
+			controls:      controlsForLevel(slsa.SlsaSourceLevel4, fixedTime),
 			expectedLevel: slsa.SlsaSourceLevel4,
 		},
 		{
 			name:          "SLSA Level 3",
-			controls:      slsa.Controls{continuityEnforcedControl, provenanceAvailableControl, tagHygieneControl},
+			controls:      controlsForLevel(slsa.SlsaSourceLevel3, fixedTime),
 			expectedLevel: slsa.SlsaSourceLevel3,
 		},
 		{
 			name:          "SLSA Level 2",
-			controls:      slsa.Controls{continuityEnforcedControl, tagHygieneControl},
+			controls:      controlsForLevel(slsa.SlsaSourceLevel2, fixedTime),
 			expectedLevel: slsa.SlsaSourceLevel2,
 		},
 		{
-			name:          "SLSA Level 1 - ProvenanceAvailable only",
-			controls:      slsa.Controls{provenanceAvailableControl},
+			name:          "SLSA Level 1 - partial controls only",
+			controls:      slsa.Controls{&provenance.Control{Name: slsa.SLSA_SOURCE_SCS_CONTINUITY.String(), Since: fixedTime}},
 			expectedLevel: slsa.SlsaSourceLevel1,
 		},
 		{
-			name:          "SLSA Level 1 - ContinuityEnforced control absent",
-			controls:      nil, // Represents absence of ContinuityEnforced; could also use slsa.Controls{}
+			name:          "SLSA Level 1 - no controls",
+			controls:      nil,
 			expectedLevel: slsa.SlsaSourceLevel1,
 		},
 	}
@@ -759,12 +758,8 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 }
 
 func TestEvaluateBranchControls(t *testing.T) {
-	// Controls
-	continuityEnforcedEarlier := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: earlierFixedTime}
-	provenanceAvailableEarlier := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: earlierFixedTime}
-	reviewEnforcedEarlier := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: earlierFixedTime}
-	tagHygieneEarlier := &provenance.Control{Name: slsa.TagHygiene.String(), Since: earlierFixedTime}
-	tagHygieneNow := &provenance.Control{Name: slsa.TagHygiene.String(), Since: fixedTime}
+	reviewEarlier := &provenance.Control{Name: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW.String(), Since: earlierFixedTime}
+	tagHygieneNow := &provenance.Control{Name: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS.String(), Since: fixedTime}
 
 	// Branch Policies
 	policyL3Review := ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), RequireReview: true, Since: fixedTime}
@@ -793,15 +788,15 @@ func TestEvaluateBranchControls(t *testing.T) {
 			name:           "Success - L3, Review, Tags",
 			branchPolicy:   &policyL3Review,
 			tagPolicy:      &tagHygienePolicy,
-			controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
-			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.ReviewEnforced, slsa.TagHygiene},
+			controls:       controlsForLevelWith(slsa.SlsaSourceLevel3, earlierFixedTime, reviewEarlier),
+			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW, slsa.SLSA_SOURCE_SCS_PROTECTED_REFS},
 			expectError:    false,
 		},
 		{
 			name:           "Success - L1",
 			branchPolicy:   &policyL1NoExtras,
 			tagPolicy:      &noTagHygienePolicy,
-			controls:       slsa.Controls{}, // L1 is met by default if policy targets L1 and other conditions pass
+			controls:       controlsForLevel(slsa.SlsaSourceLevel1, earlierFixedTime),
 			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
 			expectError:    false,
 		},
@@ -809,59 +804,61 @@ func TestEvaluateBranchControls(t *testing.T) {
 			name:           "Success - L2 & Review",
 			branchPolicy:   &policyL2Review,
 			tagPolicy:      &noTagHygienePolicy,
-			controls:       slsa.Controls{continuityEnforcedEarlier, reviewEnforcedEarlier, tagHygieneEarlier}, // Provenance not needed for L2
-			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel2), slsa.ReviewEnforced},
+			controls:       controlsForLevelWith(slsa.SlsaSourceLevel2, earlierFixedTime, reviewEarlier),
+			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel2), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW},
 			expectError:    false,
 		},
 		{
-			name:           "Success - L2 & Tags",
-			branchPolicy:   &policyL2NoReview,
-			tagPolicy:      &tagHygienePolicy,
-			controls:       slsa.Controls{continuityEnforcedEarlier, tagHygieneEarlier}, // Provenance not needed for L2
-			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel2), slsa.TagHygiene},
+			name:         "Success - L2 & Tags",
+			branchPolicy: &policyL2NoReview,
+			tagPolicy:    &tagHygienePolicy,
+			controls: controlsForLevelWith(slsa.SlsaSourceLevel2, earlierFixedTime,
+				&provenance.Control{Name: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS.String(), Since: earlierFixedTime},
+			),
+			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel2), slsa.SLSA_SOURCE_SCS_PROTECTED_REFS},
 			expectError:    false,
 		},
 		{
 			name:           "Success - L4",
 			branchPolicy:   &policyL4,
 			tagPolicy:      &tagHygienePolicy,
-			controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
-			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel4), slsa.TagHygiene},
+			controls:       controlsForLevel(slsa.SlsaSourceLevel4, earlierFixedTime),
+			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel4), slsa.SLSA_SOURCE_SCS_PROTECTED_REFS},
 			expectError:    false,
 		},
 		{
 			name:                  "Error - computeSlsaLevel Fails (Policy L3, Controls L1)",
-			branchPolicy:          &policyL3Review, // Wants L3
+			branchPolicy:          &policyL3Review,
 			tagPolicy:             &noTagHygienePolicy,
-			controls:              slsa.Controls{}, // Only eligible for L1
+			controls:              slsa.Controls{},
 			expectedLevels:        slsa.SourceVerifiedLevels{},
 			expectError:           true,
 			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 		{
 			name:                  "Error - computeReviewEnforced Fails (Policy L2+Review, Review control missing)",
-			branchPolicy:          &policyL2Review, // Wants L2 & Review
+			branchPolicy:          &policyL2Review,
 			tagPolicy:             &noTagHygienePolicy,
-			controls:              slsa.Controls{continuityEnforcedEarlier, tagHygieneEarlier}, // Eligible for L2, but Review control missing
+			controls:              controlsForLevel(slsa.SlsaSourceLevel2, earlierFixedTime),
 			expectedLevels:        slsa.SourceVerifiedLevels{},
 			expectError:           true,
 			expectedErrorContains: "policy requires review, but that control is not enabled",
 		},
 		{
 			name:                  "Error - computeTagHygiene Fails (Policy L1+Tags, Tag control Since later than Policy Since)",
-			branchPolicy:          &policyL1Earlier, // Wants L1 & Tags, Policy.Since = earlier
+			branchPolicy:          &policyL1Earlier,
 			tagPolicy:             &ProtectedTag{Since: earlierFixedTime, TagHygiene: true},
-			controls:              slsa.Controls{continuityEnforcedEarlier, tagHygieneNow}, // Eligible L1, Tag.Since = now
+			controls:              controlsForLevelWith(slsa.SlsaSourceLevel1, earlierFixedTime, tagHygieneNow),
 			expectedLevels:        slsa.SourceVerifiedLevels{},
 			expectError:           true,
-			expectedErrorContains: "policy requires tag hygiene since", // ... but that control has only been enabled since ...
+			expectedErrorContains: "policy requires tag hygiene since",
 		},
 		{
 			name:           "Success - Mixed Requirements (L3, Review, No Tags)",
 			branchPolicy:   &policyL3Review,
 			tagPolicy:      &noTagHygienePolicy,
-			controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
-			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.ReviewEnforced},
+			controls:       controlsForLevelWith(slsa.SlsaSourceLevel3, earlierFixedTime, reviewEarlier),
+			expectedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW},
 			expectError:    false,
 		},
 	}
@@ -918,7 +915,7 @@ func TestComputeTagHygiene(t *testing.T) {
 	policyNotRequiresTagHygiene := ProtectedTag{TagHygiene: false, Since: now}
 
 	// Controls
-	tagHygieneControlEnabledNow := &provenance.Control{Name: slsa.TagHygiene.String(), Since: now}
+	tagHygieneControlEnabledNow := &provenance.Control{Name: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS.String(), Since: now}
 
 	tests := []struct {
 		name                  string
@@ -932,7 +929,7 @@ func TestComputeTagHygiene(t *testing.T) {
 			name:             "Policy requires tag hygiene, control compliant (Policy.Since >= Control.Since)",
 			tagPolicy:        &policyRequiresTagHygieneNow,
 			controls:         slsa.Controls{tagHygieneControlEnabledNow}, // Policy.Since == Control.Since
-			expectedControls: []slsa.ControlName{slsa.TagHygiene},
+			expectedControls: []slsa.ControlName{slsa.SLSA_SOURCE_SCS_PROTECTED_REFS},
 			expectError:      false,
 		},
 		{
@@ -993,7 +990,7 @@ func TestComputeReviewEnforced(t *testing.T) {
 	policyNotRequiresReview := ProtectedBranch{RequireReview: false, Since: now}
 
 	// Controls
-	reviewControlEnabledNow := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: now}
+	reviewControlEnabledNow := &provenance.Control{Name: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW.String(), Since: now}
 
 	tests := []struct {
 		name                  string
@@ -1007,7 +1004,7 @@ func TestComputeReviewEnforced(t *testing.T) {
 			name:             "Policy requires review, control compliant (Policy.Since >= Control.Since)",
 			branchPolicy:     &policyRequiresReviewNow,
 			controls:         slsa.Controls{reviewControlEnabledNow}, // Policy.Since == Control.Since
-			expectedControls: []slsa.ControlName{slsa.ReviewEnforced},
+			expectedControls: []slsa.ControlName{slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW},
 			expectError:      false,
 		},
 		{
@@ -1156,16 +1153,6 @@ func TestComputeSlsaLevel(t *testing.T) {
 	now := timestamppb.Now()
 	earlier := timestamppb.New(time.Now().Add(-time.Hour))
 
-	// Controls
-	continuityEnforcedNow := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: now}
-	provenanceAvailableNow := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: now}
-	reviewEnforcedNow := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: now}
-	tagHygieneNow := &provenance.Control{Name: slsa.TagHygiene.String(), Since: now}
-	continuityEnforcedEarlier := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: earlier}
-	provenanceAvailableEarlier := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: earlier}
-	reviewEnforcedEarlier := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: earlier}
-	tagHygieneEarlier := &provenance.Control{Name: slsa.TagHygiene.String(), Since: earlier}
-
 	// Branch Policies
 	policyL4Now := ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel4), Since: now}
 	policyL3Now := ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), Since: now}
@@ -1183,44 +1170,44 @@ func TestComputeSlsaLevel(t *testing.T) {
 		{
 			name:           "Controls L4-eligible (since 'earlier'), Policy L4 (since 'now'): success",
 			branchPolicy:   &policyL4Now,
-			controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, reviewEnforcedEarlier, tagHygieneEarlier},
+			controls:       controlsForLevel(slsa.SlsaSourceLevel4, earlier),
 			expectedLevels: []slsa.ControlName{slsa.ControlName(slsa.SlsaSourceLevel4)},
 			expectError:    false,
 		},
 		{
 			name:           "Controls L3-eligible (since 'earlier'), Policy L2 (since 'now'): success",
-			branchPolicy:   &policyL2Now,                                                                            // Policy L2, Since 'now'
-			controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, tagHygieneEarlier}, // Eligible L3 since 'earlier'
+			branchPolicy:   &policyL2Now,
+			controls:       controlsForLevel(slsa.SlsaSourceLevel3, earlier),
 			expectedLevels: []slsa.ControlName{slsa.ControlName(slsa.SlsaSourceLevel2)},
 			expectError:    false,
 		},
 		{
 			name:                  "Controls L1-eligible, Policy L2: fail (eligibility)",
-			branchPolicy:          &policyL2Now,    // Policy L2
-			controls:              slsa.Controls{}, // Eligible L1
+			branchPolicy:          &policyL2Now,
+			controls:              slsa.Controls{},
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
 		},
 		{
 			name:           "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): compliant Policy.Since",
-			branchPolicy:   &policyL3Now,                                                                            // Policy L3, Since 'now'
-			controls:       slsa.Controls{continuityEnforcedEarlier, provenanceAvailableEarlier, tagHygieneEarlier}, // Eligible L3 since 'earlier'
-			expectedLevels: []slsa.ControlName{slsa.ControlName(slsa.SlsaSourceLevel3)},                             // Policy.Since ('now') is not before EligibleSince ('earlier')
+			branchPolicy:   &policyL3Now,
+			controls:       controlsForLevel(slsa.SlsaSourceLevel3, earlier),
+			expectedLevels: []slsa.ControlName{slsa.ControlName(slsa.SlsaSourceLevel3)},
 			expectError:    false,
 		},
 		{
 			name:                  "Controls L4-eligible (since 'now'), Policy L4 (since 'earlier'): fail (Policy.Since too early)",
 			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel4), Since: earlier},
-			controls:              slsa.Controls{continuityEnforcedNow, provenanceAvailableNow, reviewEnforcedNow, tagHygieneNow},
+			controls:              controlsForLevel(slsa.SlsaSourceLevel4, now),
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_4 since", // ...but it has only been eligible for that level since...
+			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_4 since",
 		},
 		{
 			name:                  "Controls L3-eligible (since 'now'), Policy L3 (since 'earlier'): fail (Policy.Since too early)",
-			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), Since: earlier}, // Policy L3, Since 'earlier'
-			controls:              slsa.Controls{continuityEnforcedNow, provenanceAvailableNow, tagHygieneNow},            // Eligible L3 since 'now'
+			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), Since: earlier},
+			controls:              controlsForLevel(slsa.SlsaSourceLevel3, now),
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3 since",
@@ -1228,27 +1215,23 @@ func TestComputeSlsaLevel(t *testing.T) {
 		{
 			name:                  "Controls L2-eligible (since 'now'), Policy L2 (since 'earlier'): fail (Policy.Since too early)",
 			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel2), Since: earlier},
-			controls:              slsa.Controls{continuityEnforcedEarlier, tagHygieneNow},
+			controls:              controlsForLevel(slsa.SlsaSourceLevel2, now),
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_2 since",
 		},
 		{
 			name:                  "Policy L?'UNKNOWN' (controls L3-eligible): fail (policy target unknown)",
-			branchPolicy:          &policyUnknownLevel,                                          // Policy "UNKNOWN_LEVEL"
-			controls:              slsa.Controls{continuityEnforcedNow, provenanceAvailableNow}, // Eligible L3
+			branchPolicy:          &policyUnknownLevel,
+			controls:              controlsForLevel(slsa.SlsaSourceLevel3, now),
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy sets target level UNKNOWN_LEVEL",
 		},
-		// This single case covers eligibility failure where target > eligible.
-		// It replaces the two previous similar cases:
-		// "computeEligibleSince returns nil (controls insufficient for target level)" which was L2 controls for L3 policy
-		// "Controls for L1, Policy L3, computeEligibleSince for L3 returns nil" which was L1 controls for L3 policy
 		{
 			name:                  "Controls L1-eligible, Policy L3: fail (eligibility)",
-			branchPolicy:          &policyL3Now,    // Policy L3
-			controls:              slsa.Controls{}, // Eligible L1
+			branchPolicy:          &policyL3Now,
+			controls:              slsa.Controls{},
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
@@ -1278,21 +1261,22 @@ func TestComputeSlsaLevel(t *testing.T) {
 	}
 }
 
+// controlsForLevelWithOverride creates controls for a level, then overrides the
+// Since timestamp for a specific control name.
+func controlsForLevelWithOverride(level slsa.SlsaSourceLevel, baseSince *timestamppb.Timestamp, overrides map[slsa.ControlName]*timestamppb.Timestamp) slsa.Controls {
+	controls := controlsForLevel(level, baseSince)
+	for i, c := range controls {
+		if since, ok := overrides[slsa.ControlName(c.GetName())]; ok {
+			controls[i] = &provenance.Control{Name: c.GetName(), Since: since}
+		}
+	}
+	return controls
+}
+
 func TestComputeEligibleSince(t *testing.T) {
 	time1 := timestamppb.Now()
 	time2 := timestamppb.New(time.Now().Add(time.Hour))
 	zeroTime := timestamppb.New(time.Time{})
-
-	continuityEnforcedT1 := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: time1}
-	provenanceAvailableT1 := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: time1}
-	reviewEnforcedT1 := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: time1}
-	tagHygieneT1 := &provenance.Control{Name: slsa.TagHygiene.String(), Since: time1}
-	continuityEnforcedT2 := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: time2}
-	provenanceAvailableT2 := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: time2}
-	reviewEnforcedT2 := &provenance.Control{Name: slsa.ReviewEnforced.String(), Since: time2}
-	tagHygieneZero := &provenance.Control{Name: slsa.TagHygiene.String(), Since: zeroTime}
-	continuityEnforcedZero := &provenance.Control{Name: slsa.ContinuityEnforced.String(), Since: zeroTime}
-	provenanceAvailableZero := &provenance.Control{Name: slsa.ProvenanceAvailable.String(), Since: zeroTime}
 
 	tests := []struct {
 		name          string
@@ -1303,57 +1287,66 @@ func TestComputeEligibleSince(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:         "L4 eligible (prov, review later)",
-			controls:     slsa.Controls{continuityEnforcedT1, provenanceAvailableT2, reviewEnforcedT2, tagHygieneT1},
+			name: "L4 eligible (two controls later)",
+			controls: controlsForLevelWithOverride(slsa.SlsaSourceLevel4, time1, map[slsa.ControlName]*timestamppb.Timestamp{
+				slsa.SLSA_SOURCE_SCS_PROVENANCE:       time2,
+				slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW: time2,
+			}),
 			level:        slsa.SlsaSourceLevel4,
 			expectedTime: time2,
 			expectError:  false,
 		},
 		{
-			name:         "L4 eligible (continuity later)",
-			controls:     slsa.Controls{continuityEnforcedT2, provenanceAvailableT1, reviewEnforcedT1, tagHygieneT1},
+			name: "L4 eligible (one control later)",
+			controls: controlsForLevelWithOverride(slsa.SlsaSourceLevel4, time1, map[slsa.ControlName]*timestamppb.Timestamp{
+				slsa.SLSA_SOURCE_SCS_CONTINUITY: time2,
+			}),
 			level:        slsa.SlsaSourceLevel4,
 			expectedTime: time2,
 			expectError:  false,
 		},
 		{
-			name:         "L3 eligible (ProvLater), L3 requested: expect Prov.Since",
-			controls:     slsa.Controls{continuityEnforcedT1, provenanceAvailableT2, tagHygieneT1},
+			name: "L3 eligible (ProvLater), L3 requested: expect Prov.Since",
+			controls: controlsForLevelWithOverride(slsa.SlsaSourceLevel3, time1, map[slsa.ControlName]*timestamppb.Timestamp{
+				slsa.SLSA_SOURCE_SCS_PROVENANCE: time2,
+			}),
 			level:        slsa.SlsaSourceLevel3,
 			expectedTime: time2,
 			expectError:  false,
 		},
 		{
-			name:         "L3 eligible (ContLater), L3 requested: expect Cont.Since",
-			controls:     slsa.Controls{continuityEnforcedT2, provenanceAvailableT1, tagHygieneT1},
+			name: "L3 eligible (ContLater), L3 requested: expect Cont.Since",
+			controls: controlsForLevelWithOverride(slsa.SlsaSourceLevel3, time1, map[slsa.ControlName]*timestamppb.Timestamp{
+				slsa.SLSA_SOURCE_SCS_CONTINUITY: time2,
+			}),
 			level:        slsa.SlsaSourceLevel3,
 			expectedTime: time2,
 			expectError:  false,
 		},
 		{
-			name:         "L2 eligible (Cont&HygieneOnly), L2 requested: expect Cont.Since", // Was: "Eligible for SLSA Level 2"
-			controls:     slsa.Controls{continuityEnforcedT1, tagHygieneT1},
+			name:         "L2 eligible, L2 requested: expect base time",
+			controls:     controlsForLevel(slsa.SlsaSourceLevel2, time1),
 			level:        slsa.SlsaSourceLevel2,
 			expectedTime: time1,
 			expectError:  false,
 		},
 		{
-			name:         "L1 eligible (NoControls), L1 requested: expect ZeroTime", // Was: "Eligible for SLSA Level 1"
-			controls:     slsa.Controls{},
+			name:         "L1 eligible, L1 requested: expect ZeroTime",
+			controls:     controlsForLevel(slsa.SlsaSourceLevel1, zeroTime),
 			level:        slsa.SlsaSourceLevel1,
 			expectedTime: zeroTime,
 			expectError:  false,
 		},
 		{
-			name:         "L3 eligible, L2 requested: expect Cont.Since",
-			controls:     slsa.Controls{continuityEnforcedT1, provenanceAvailableT2, tagHygieneT1},
+			name:         "L3 eligible, L2 requested: expect base time",
+			controls:     controlsForLevel(slsa.SlsaSourceLevel3, time1),
 			level:        slsa.SlsaSourceLevel2,
 			expectedTime: time1,
 			expectError:  false,
 		},
 		{
 			name:         "L2 eligible, L3 requested: expect nil, no error",
-			controls:     slsa.Controls{continuityEnforcedT1, tagHygieneT1},
+			controls:     controlsForLevel(slsa.SlsaSourceLevel2, time1),
 			level:        slsa.SlsaSourceLevel3,
 			expectedTime: nil,
 			expectError:  false,
@@ -1366,22 +1359,26 @@ func TestComputeEligibleSince(t *testing.T) {
 			expectError:  false,
 		},
 		{
-			name:         "L3 eligible (ContZero, ProvNonZero, TagNoZero), L3 requested: expect Prov.Since",
-			controls:     slsa.Controls{continuityEnforcedZero, provenanceAvailableT2, tagHygieneT1},
+			name: "L3 eligible (ContZero, ProvNonZero), L3 requested: expect Prov.Since",
+			controls: controlsForLevelWithOverride(slsa.SlsaSourceLevel3, zeroTime, map[slsa.ControlName]*timestamppb.Timestamp{
+				slsa.SLSA_SOURCE_SCS_PROVENANCE: time2,
+			}),
 			level:        slsa.SlsaSourceLevel3,
 			expectedTime: time2,
 			expectError:  false,
 		},
 		{
-			name:         "L3 eligible (ContNonZero, ProvZero, TagNoZero), L3 requested: expect Cont.Since",
-			controls:     slsa.Controls{continuityEnforcedT1, provenanceAvailableZero, tagHygieneT1},
+			name: "L3 eligible (ContNonZero, ProvZero), L3 requested: expect Cont.Since",
+			controls: controlsForLevelWithOverride(slsa.SlsaSourceLevel3, zeroTime, map[slsa.ControlName]*timestamppb.Timestamp{
+				slsa.SLSA_SOURCE_SCS_CONTINUITY: time1,
+			}),
 			level:        slsa.SlsaSourceLevel3,
 			expectedTime: time1,
 			expectError:  false,
 		},
 		{
 			name:         "L3 eligible (AllZero), L3 requested: expect ZeroTime",
-			controls:     slsa.Controls{continuityEnforcedZero, provenanceAvailableZero, tagHygieneZero},
+			controls:     controlsForLevel(slsa.SlsaSourceLevel3, zeroTime),
 			level:        slsa.SlsaSourceLevel3,
 			expectedTime: zeroTime,
 			expectError:  false,
