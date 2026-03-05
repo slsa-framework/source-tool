@@ -241,17 +241,17 @@ func TestBuiltinBranchControls(t *testing.T) {
 		{
 			branchRules:     createContinuityBranchRules(),
 			rulesetRules:    rulesForBranchContinuity(),
-			expectedControl: slsa.ContinuityEnforced,
+			expectedControl: slsa.SLSA_SOURCE_SCS_CONTINUITY,
 		},
 		{
 			branchRules:     createReviewBranchRules(),
 			rulesetRules:    rulesForReviewEnforced(),
-			expectedControl: slsa.ReviewEnforced,
+			expectedControl: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 		},
 		{
 			branchRules:     createTagHygieneRules(),
 			rulesetRules:    rulesForTagHygiene(),
-			expectedControl: slsa.TagHygiene,
+			expectedControl: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS,
 		},
 	}
 	for _, tt := range tests {
@@ -285,17 +285,17 @@ func TestBuiltinBranchControlsEnabledLater(t *testing.T) {
 		{
 			branchRules:  createContinuityBranchRules(),
 			rulesetRules: rulesForBranchContinuity(),
-			name:         slsa.ContinuityEnforced,
+			name:         slsa.SLSA_SOURCE_SCS_CONTINUITY,
 		},
 		{
 			branchRules:  createReviewBranchRules(),
 			rulesetRules: rulesForReviewEnforced(),
-			name:         slsa.ReviewEnforced,
+			name:         slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 		},
 		{
 			branchRules:  createTagHygieneRules(),
 			rulesetRules: rulesForTagHygiene(),
-			name:         slsa.TagHygiene,
+			name:         slsa.SLSA_SOURCE_SCS_PROTECTED_REFS,
 		},
 	}
 	for _, tt := range tests {

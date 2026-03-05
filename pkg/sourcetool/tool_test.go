@@ -26,7 +26,7 @@ func TestGetBranchControls(t *testing.T) {
 			Branch:  "main",
 			Controls: []slsa.ControlStatus{
 				{
-					Name:    slsa.ContinuityEnforced,
+					Name:    slsa.SLSA_SOURCE_SCS_CONTINUITY,
 					State:   slsa.StateNotEnabled,
 					Message: "Continuity enforced",
 				},

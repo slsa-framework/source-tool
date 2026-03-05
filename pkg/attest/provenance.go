@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -150,11 +149,27 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	// See https://github.com/slsa-framework/source-tool/issues/272
 	curProvPred.AddControl(
 		&provenance.Control{
-			Name: slsa.ProvenanceAvailable.String(),
+			Name: slsa.SLSA_SOURCE_SCS_PROVENANCE.String(),
 		},
 	)
 
 	return addPredToStatement(&curProvPred, provenance.SourceProvPredicateType, commit)
+}
+
+// GetVSA returns the revision VSA
+func (pa ProvenanceAttestor) GetVSA(ctx context.Context, commit, ref string) (*spb.Statement, *v1.VerificationSummary, error) {
+	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
+	if notes == "" {
+		Debugf("didn't find notes for commit %s", commit)
+		return nil, nil, nil
+	}
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching notes from commit: %w", err)
+	}
+
+	bundleReader := NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verifier)
+	return getVsaFromReader(bundleReader, commit, ref, "")
 }
 
 // Gets provenance for the commit from git notes.
@@ -166,7 +181,7 @@ func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit, ref stri
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil, fmt.Errorf("fetching notes from commit: %w", err)
 	}
 
 	bundleReader := NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verifier)

@@ -160,7 +160,7 @@ func getVsaFromReader(reader *BundleReader, commit, ref, repoUri string) (*spb.S
 		// Does repo match?
 		// remove git+http:// from resourceUri
 		cleanResourceUri := strings.TrimPrefix(vsaPred.GetResourceUri(), "git+")
-		if cleanResourceUri != repoUri {
+		if repoUri != "" && cleanResourceUri != repoUri {
 			Debugf("ResourceUri is %s but we want %s", cleanResourceUri, repoUri)
 			continue
 		}

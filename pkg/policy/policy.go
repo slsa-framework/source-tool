@@ -279,7 +279,7 @@ func (pe *PolicyEvaluator) CreateLocalPolicy(ctx context.Context, repo *models.R
 
 	// If the controls returned
 	controls := slsa.Controls(provPred.GetControls())
-	tagHygiene := controls.GetControl(slsa.TagHygiene)
+	tagHygiene := controls.GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS)
 	if tagHygiene != nil {
 		p.ProtectedTag = &ProtectedTag{
 			Since:      tagHygiene.GetSince(),
@@ -387,7 +387,7 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, contr
 		return []slsa.ControlName{}, nil
 	}
 
-	reviewControl := controls.GetControl(slsa.ReviewEnforced)
+	reviewControl := controls.GetControl(slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW)
 	if reviewControl == nil {
 		return []slsa.ControlName{}, fmt.Errorf("policy requires review, but that control is not enabled")
 	}
@@ -396,29 +396,36 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, contr
 		return []slsa.ControlName{}, fmt.Errorf("policy requires review since %v, but that control has only been enabled since %v", branchPolicy.GetSince(), reviewControl.GetSince())
 	}
 
-	return []slsa.ControlName{slsa.ReviewEnforced}, nil
+	return []slsa.ControlName{slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW}, nil
 }
 
+// computeTagHygiene checks if the current state of the protected refs
+// matches what we see in the policy  policy has SLSA_SOURCE_SCS_PROTECTED_REFS
 func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls slsa.Controls) ([]slsa.ControlName, error) {
 	if tagPolicy == nil {
 		// There is no tag policy, so the control isn't met, but it's not an error.
 		return []slsa.ControlName{}, nil
 	}
 
+	// The tag entry in the policy does not have tag_hygiene
 	if !tagPolicy.GetTagHygiene() {
 		return []slsa.ControlName{}, nil
 	}
 
-	tagHygiene := controls.GetControl(slsa.TagHygiene)
+	// Get the current state of protected refs
+	tagHygiene := controls.GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS)
+
+	// Tags are not protected. Policy fails
 	if tagHygiene == nil {
 		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene, but that control is not enabled")
 	}
 
+	// Tags were protected later than the policy date. Fail. mmmh..
 	if tagPolicy.GetSince().AsTime().Before(tagHygiene.GetSince().AsTime()) {
 		return []slsa.ControlName{}, fmt.Errorf("policy requires tag hygiene since %v, but that control has only been enabled since %v", tagPolicy.GetSince(), tagHygiene.GetSince())
 	}
 
-	return []slsa.ControlName{slsa.TagHygiene}, nil
+	return []slsa.ControlName{slsa.SLSA_SOURCE_SCS_PROTECTED_REFS}, nil
 }
 
 func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls slsa.Controls) ([]slsa.ControlName, error) {
