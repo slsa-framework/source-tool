@@ -35,7 +35,7 @@ func TestGetBranchControls(t *testing.T) {
 		tool := &Tool{
 			impl: i,
 		}
-		res, err := tool.GetBranchControls(&models.Repository{}, &models.Branch{})
+		res, err := tool.GetBranchControls(t.Context(), &models.Repository{}, &models.Branch{})
 		require.NotNil(t, res)
 		// This always has one more as we add the synyhetic policy check
 		require.Len(t, res.Controls, 2)
@@ -48,7 +48,7 @@ func TestGetBranchControls(t *testing.T) {
 		tool := &Tool{
 			impl: i,
 		}
-		_, err := tool.GetBranchControls(&models.Repository{}, &models.Branch{})
+		_, err := tool.GetBranchControls(t.Context(), &models.Repository{}, &models.Branch{})
 		require.Error(t, err)
 	})
 }
@@ -121,7 +121,7 @@ func TestConfigureControls(t *testing.T) {
 				impl: i,
 			}
 
-			err := tool.ConfigureControls(&models.Repository{}, []*models.Branch{{}}, tc.controls)
+			err := tool.ConfigureControls(t.Context(), &models.Repository{}, []*models.Branch{{}}, tc.controls)
 			if tc.mustErr {
 				require.Error(t, err)
 				return
@@ -195,7 +195,7 @@ func TestFindPolicyPR(t *testing.T) {
 				impl: tc.prepare(t),
 			}
 
-			prd, err := tool.FindPolicyPR(&models.Repository{})
+			prd, err := tool.FindPolicyPR(t.Context(), &models.Repository{})
 			if tc.mustErr {
 				require.Error(t, err)
 				return
@@ -241,7 +241,7 @@ func TestCheckPolicyFork(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tool := Tool{impl: tc.prepare(t)}
-			found, err := tool.CheckPolicyRepoFork()
+			found, err := tool.CheckPolicyRepoFork(t.Context())
 			if tc.mustErr {
 				require.Error(t, err)
 				return
@@ -335,7 +335,7 @@ func TestOnboardRepository(t *testing.T) {
 			tool, err := New()
 			require.NoError(t, err)
 			tool.impl = impl
-			err = tool.OnboardRepository(&models.Repository{Path: "example/repo"}, []*models.Branch{{Name: "main"}})
+			err = tool.OnboardRepository(t.Context(), &models.Repository{Path: "example/repo"}, []*models.Branch{{Name: "main"}})
 			if tt.mustErr {
 				require.Error(t, err)
 				return

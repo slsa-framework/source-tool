@@ -9,5 +9,6 @@ import (
 )
 
 func Debugf(format string, args ...any) {
+	//nolint:gosec // G706 This is feneral purpose logger
 	slog.Debug(fmt.Sprintf(format, args...))
 }

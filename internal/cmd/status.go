@@ -110,7 +110,7 @@ sourcetool status myorg/myrepo@mybranch
 			}
 
 			// Get the active repository controls
-			controls, err := srctool.GetBranchControls(opts.GetRepository(), opts.GetBranch())
+			controls, err := srctool.GetBranchControls(cmd.Context(), opts.GetRepository(), opts.GetBranch())
 			if err != nil {
 				return fmt.Errorf("fetching active controls: %w", err)
 			}

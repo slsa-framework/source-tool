@@ -311,7 +311,7 @@ func displayPolicy(opts repoOptions, pcy *policy.RepoPolicy) error {
 // ensureOrCreatePolicyFork checks the user has a fork of the policy repo.
 // In case they do not, asks to create a fork in their GitHub account.
 func ensureOrCreatePolicyFork(srctool *sourcetool.Tool) error {
-	found, err := srctool.CheckPolicyRepoFork()
+	found, err := srctool.CheckPolicyRepoFork(context.Background())
 	if err != nil {
 		return fmt.Errorf("checking for policy repo fork: %w", err)
 	}

@@ -52,13 +52,14 @@ type Tool struct {
 }
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
-func (t *Tool) GetBranchControls(r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
-	ctx := context.Background()
+func (t *Tool) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
 	backend, err := t.impl.GetVcsBackend(r)
 	if err != nil {
 		return nil, fmt.Errorf("getting VCS backend: %w", err)
 	}
 
+	// Get the control status in the branch. Backends are expected to
+	// return the full SLSA Source control catalog
 	controls, err := t.impl.GetBranchControls(ctx, backend, r, branch)
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
@@ -77,7 +78,7 @@ func (t *Tool) GetBranchControls(r *models.Repository, branch *models.Branch) (*
 
 // OnboardRepository configures a repository to set up the required controls
 // to meet SLSA Source L3.
-func (t *Tool) OnboardRepository(repo *models.Repository, branches []*models.Branch) error {
+func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, branches []*models.Branch) error {
 	backend, err := t.impl.GetVcsBackend(repo)
 	if err != nil {
 		return fmt.Errorf("getting VCS backend: %w", err)
@@ -99,7 +100,7 @@ func (t *Tool) OnboardRepository(repo *models.Repository, branches []*models.Bra
 }
 
 // ConfigureControls sets up a control in the repo
-func (t *Tool) ConfigureControls(repo *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
+func (t *Tool) ConfigureControls(ctx context.Context, repo *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
 	backend, err := t.impl.GetVcsBackend(repo)
 	if err != nil {
 		return fmt.Errorf("getting VCS backend: %w", err)
@@ -112,7 +113,7 @@ func (t *Tool) ConfigureControls(repo *models.Repository, branches []*models.Bra
 		}
 
 		// Build the policy here:
-		pcy, err := t.CreateBranchPolicy(context.Background(), repo, branches)
+		pcy, err := t.CreateBranchPolicy(ctx, repo, branches)
 		if err != nil {
 			return fmt.Errorf("creating policy for: %w", err)
 		}
@@ -135,7 +136,7 @@ func (t *Tool) ControlConfigurationDescr(branch *models.Branch, config models.Co
 	return backend.ControlConfigurationDescr(branch, config)
 }
 
-func (t *Tool) FindPolicyPR(repo *models.Repository) (*models.PullRequest, error) {
+func (t *Tool) FindPolicyPR(ctx context.Context, repo *models.Repository) (*models.PullRequest, error) {
 	policyRepoOwner := policy.SourcePolicyRepoOwner
 	policyRepoRepo := policy.SourcePolicyRepo
 	o, r, ok := strings.Cut(t.Options.PolicyRepo, "/")
@@ -144,7 +145,7 @@ func (t *Tool) FindPolicyPR(repo *models.Repository) (*models.PullRequest, error
 		policyRepoRepo = r
 	}
 
-	pr, err := t.impl.SearchPullRequest(context.Background(), t.Authenticator, &models.Repository{
+	pr, err := t.impl.SearchPullRequest(ctx, t.Authenticator, &models.Repository{
 		Hostname: "github.com",
 		Path:     fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoRepo),
 	}, fmt.Sprintf("Add %s SLSA Source policy file", repo.Path))
@@ -157,7 +158,7 @@ func (t *Tool) FindPolicyPR(repo *models.Repository) (*models.PullRequest, error
 
 // CheckPolicyRepoFork checks that the logged in user has a fork
 // of the configured policy repo.
-func (t *Tool) CheckPolicyRepoFork() (bool, error) {
+func (t *Tool) CheckPolicyRepoFork(_ context.Context) (bool, error) {
 	if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
 		if strings.Contains(err.Error(), "404 Not Found") {
 			return false, nil
@@ -277,7 +278,7 @@ func (t *Tool) CreatePolicyRepoFork(ctx context.Context) error {
 // Backend may optionally return a remediation function to correct the
 // prerequisite which the CLI can before attempting to enable the control.
 func (t *Tool) ControlPrecheck(
-	r *models.Repository, branches []*models.Branch, config models.ControlConfiguration,
+	_ context.Context, r *models.Repository, branches []*models.Branch, config models.ControlConfiguration,
 ) (ok bool, remediationMessage string, remediateFn models.ControlPreRemediationFn, err error) {
 	backend, err := t.impl.GetVcsBackend(r)
 	if err != nil {
