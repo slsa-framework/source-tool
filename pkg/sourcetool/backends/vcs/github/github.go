@@ -107,7 +107,10 @@ func (b *Backend) getGitHubConnection(repository *models.Repository, ref string)
 	return ghcontrol.NewGhConnectionWithClient(owner, name, ref, client), nil
 }
 
-func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
+func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSetStatus, error) {
+	if branch.Repository == nil {
+		return nil, fmt.Errorf("branch has no repository")
+	}
 	// get latest commit
 	ghc, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
 	if err != nil {
@@ -120,11 +123,15 @@ func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, b
 		return nil, fmt.Errorf("fetching latest commit from %q: %w", branch.FullRef(), err)
 	}
 
-	return b.GetBranchControlsAtCommit(ctx, r, branch, &models.Commit{SHA: commit})
+	return b.GetBranchControlsAtCommit(ctx, branch, &models.Commit{SHA: commit})
 }
 
 // GetBranchControlsAtCommit
-func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repository, branch *models.Branch, commit *models.Commit) (*slsa.ControlSetStatus, error) {
+func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.ControlSetStatus, error) {
+	if branch.Repository == nil {
+		return nil, fmt.Errorf("branch has no repository")
+	}
+
 	if commit == nil {
 		return nil, errors.New("commit is not set")
 	}
@@ -213,7 +220,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 	switchProvCtlToInProgress := false
 	var provenanceMessage string
 	if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE); c == nil {
-		pr, err := b.FindWorkflowPR(ctx, r)
+		pr, err := b.FindWorkflowPR(ctx, branch.Repository)
 		if err != nil {
 			return nil, fmt.Errorf("looking for provenance workflow pull request: %w", err)
 		}
@@ -232,7 +239,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 			status.Controls[i].State = slsa.StateInProgress
 			status.Controls[i].Message = provenanceMessage
 		}
-		action := b.getRecommendedAction(r, branch, status.Controls[i].Name, status.Controls[i].State)
+		action := b.getRecommendedAction(branch.Repository, branch, status.Controls[i].Name, status.Controls[i].State)
 		status.Controls[i].RecommendedAction = action
 	}
 

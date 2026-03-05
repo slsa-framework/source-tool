@@ -55,7 +55,7 @@ func (impl *defaultToolImplementation) ConfigureControls(
 func (impl *defaultToolImplementation) GetBranchControls(
 	ctx context.Context, backend models.VcsBackend, branch *models.Branch,
 ) (*slsa.ControlSetStatus, error) {
-	return backend.GetBranchControls(ctx, branch.Repository, branch)
+	return backend.GetBranchControls(ctx, branch)
 }
 
 // GetAttestationReader returns the att reader object
