@@ -158,7 +158,7 @@ Alternatively, to enable each control individually use: sourcetool setup control
 				models.CONFIG_TAG_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_BRANCH_RULES,
 			} {
 				ok, actionDescr, remediateFn, err := srctool.ControlPrecheck(
-					opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc,
+					cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc,
 				)
 				if err != nil {
 					return fmt.Errorf("checking prerequisites for %s: %w", cc, err)
@@ -217,7 +217,7 @@ sourcetool is about to perform the following actions on your behalf:
 			}
 
 			err = srctool.OnboardRepository(
-				opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()},
+				cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()},
 			)
 			if err != nil {
 				return fmt.Errorf("onboarding repo: %w", err)
@@ -371,7 +371,7 @@ a fork of the repository you want to protect.
 
 					// Check the control prerequisites
 					ok, actionDescr, remediateFn, err := srctool.ControlPrecheck(
-						opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc,
+						cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc,
 					)
 					if err != nil {
 						return fmt.Errorf("checking prerequisites for %s: %w", cc, err)
@@ -426,7 +426,9 @@ a fork of the repository you want to protect.
 				for _, c := range opts.configs {
 					cc := models.ControlConfiguration(c)
 					// Run the prerequisites and run any remediations
-					ok, _, remediateFn, err := srctool.ControlPrecheck(opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc)
+					ok, _, remediateFn, err := srctool.ControlPrecheck(
+						cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cc,
+					)
 					if err != nil {
 						return fmt.Errorf("checking prerequisites for %q: %w", cc, err)
 					}
@@ -441,7 +443,7 @@ a fork of the repository you want to protect.
 				}
 			}
 			err = srctool.ConfigureControls(
-				opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cs,
+				cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cs,
 			)
 			if err != nil {
 				// if strings.Contains(err.Error(), models.ErrProtectionAlreadyInPlace.Error()) {

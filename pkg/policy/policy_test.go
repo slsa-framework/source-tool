@@ -692,12 +692,12 @@ func assertProtectedBranchEquals(t *testing.T, got, expected *ProtectedBranch, i
 
 	if !reflect.DeepEqual(&actualCopy, &expectedCopy) || !sinceMatch {
 		var errorMessage strings.Builder
-		errorMessage.WriteString(fmt.Sprintf("ProtectedBranch structs not equal:\nExpected: %+v\nGot:      %+v", expected, actual))
+		fmt.Fprintf(&errorMessage, "ProtectedBranch structs not equal:\nExpected: %+v\nGot:      %+v", expected, actual)
 		if !sinceMatch {
-			errorMessage.WriteString(fmt.Sprintf("\nSpecifically, 'Since' fields were not equal (Expected.Since: %v, Got.Since: %v)", expected.GetSince(), actual.GetSince()))
+			fmt.Fprintf(&errorMessage, "\nSpecifically, 'Since' fields were not equal (Expected.Since: %v, Got.Since: %v)", expected.GetSince(), actual.GetSince())
 		}
 		if ignoreSince && actual.GetSince().AsTime() != (time.Time{}) { // Add note only if Since was ignored AND original got.Since was not zero
-			errorMessage.WriteString(fmt.Sprintf("\n(Note: 'Since' field was ignored in comparison as requested. Original Expected.Since: %v, Original Got.Since: %v)", expected.GetSince(), actual.GetSince()))
+			fmt.Fprintf(&errorMessage, "\n(Note: 'Since' field was ignored in comparison as requested. Original Expected.Since: %v, Original Got.Since: %v)", expected.GetSince(), actual.GetSince())
 		}
 		t.Error(errorMessage.String())
 	}

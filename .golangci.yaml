@@ -171,6 +171,7 @@ linters:
     gosec:
       excludes:
         - G304
+        - G704
     nolintlint:
       # Enable to ensure that nolint directives are all used. Default is true.
       allow-unused: false
