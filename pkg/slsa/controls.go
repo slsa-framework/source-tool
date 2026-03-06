@@ -9,8 +9,8 @@ type (
 	ControlName  string
 	ControlState string
 
-	// ControlSet is a list of controls
-	ControlSet []ControlName
+	// ControlNameSet is a list of control names
+	ControlNameSet []ControlName
 )
 
 func (c ControlName) String() string {
@@ -49,7 +49,7 @@ const (
 )
 
 // AllLevelControls is a set holding all controls of the SLSA Source spec
-var AllLevelControls = ControlSet{
+var AllLevelControls = ControlNameSet{
 	SLSA_SOURCE_ORG_SCS,
 	SLSA_SOURCE_ORG_ACCESS_CONTROL,
 	SLSA_SOURCE_ORG_SAFE_EXPUNGE,
@@ -66,7 +66,7 @@ var AllLevelControls = ControlSet{
 	SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 }
 
-func (cs ControlSet) GetControl(ctrl ControlName) ControlName {
+func (cs ControlNameSet) GetControl(ctrl ControlName) ControlName {
 	if slices.Contains(cs, ctrl) {
 		return ctrl
 	}

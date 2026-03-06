@@ -19,7 +19,7 @@ import (
 
 // InherentControls are the controls that are always true because we are
 // in git and/org GitHub.
-var InherentControls = slsa.ControlSet{
+var InherentControls = slsa.ControlNameSet{
 	// GitHub uses git
 	slsa.SLSA_SOURCE_ORG_SCS,
 

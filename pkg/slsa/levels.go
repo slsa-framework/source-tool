@@ -16,12 +16,12 @@ const (
 
 type Level struct {
 	Level    uint8
-	Controls ControlSet
+	Controls ControlNameSet
 }
 
-var Level0 = ControlSet{}
+var Level0 = ControlNameSet{}
 
-var Level1 = ControlSet{
+var Level1 = ControlNameSet{
 	SLSA_SOURCE_ORG_SCS,
 	SLSA_SOURCE_SCS_REPO_ID,
 	SLSA_SOURCE_SCS_REVISION_ID,
@@ -29,7 +29,7 @@ var Level1 = ControlSet{
 	SLSA_SOURCE_SCS_VSA,
 }
 
-var Level2 = ControlSet{
+var Level2 = ControlNameSet{
 	SLSA_SOURCE_ORG_SCS,
 	SLSA_SOURCE_ORG_ACCESS_CONTROL,
 	SLSA_SOURCE_ORG_SAFE_EXPUNGE,
@@ -43,7 +43,7 @@ var Level2 = ControlSet{
 	SLSA_SOURCE_SCS_PROVENANCE,
 }
 
-var Level3 = ControlSet{
+var Level3 = ControlNameSet{
 	SLSA_SOURCE_ORG_SCS,
 	SLSA_SOURCE_ORG_ACCESS_CONTROL,
 	SLSA_SOURCE_ORG_SAFE_EXPUNGE,
@@ -59,7 +59,7 @@ var Level3 = ControlSet{
 	SLSA_SOURCE_SCS_PROTECTED_REFS,
 }
 
-var Level4 = ControlSet{
+var Level4 = ControlNameSet{
 	SLSA_SOURCE_ORG_SCS,
 	SLSA_SOURCE_ORG_ACCESS_CONTROL,
 	SLSA_SOURCE_ORG_SAFE_EXPUNGE,
