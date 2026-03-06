@@ -79,7 +79,7 @@ type GhControlStatus struct {
 	ActivityType string
 	// The controls that are enabled according to the GitHub API.
 	// May not include other controls like if we have provenance.
-	Controls *slsa.ControlSetStatus
+	Controls *slsa.ControlSet
 }
 
 // Adds the control, but only if it existed when the commit was pushed.
@@ -348,13 +348,13 @@ func (ghc *GitHubConnection) getOldestActiveRule(ctx context.Context, rules []*g
 // GetBranchControls returns a list of the controls enabled at present for a branch.
 // This function does not take into account a commit date, it just returns those controls
 // that are active when called.
-func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, ref string) (*slsa.ControlSetStatus, error) {
+func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, ref string) (*slsa.ControlSet, error) {
 	branch := GetBranchFromRef(ref)
 	if branch == "" {
 		return nil, fmt.Errorf("ref %s is not a branch", ref)
 	}
 
-	controls := &slsa.ControlSetStatus{}
+	controls := &slsa.ControlSet{}
 
 	// Do the branch specific stuff.
 	branchRules, _, err := ghc.Client().Repositories.GetRulesForBranch(ctx, ghc.Owner(), ghc.Repo(), branch)
@@ -409,7 +409,7 @@ func (ghc *GitHubConnection) GetBranchControlsAtCommit(ctx context.Context, comm
 		CommitPushTime: activity.Timestamp,
 		ActivityType:   activity.ActivityType,
 		ActorLogin:     activity.Actor.Login,
-		Controls:       &slsa.ControlSetStatus{},
+		Controls:       &slsa.ControlSet{},
 	}
 
 	activeControls, err := ghc.GetBranchControls(ctx, ref)
@@ -429,7 +429,7 @@ func (ghc *GitHubConnection) GetBranchControlsAtCommit(ctx context.Context, comm
 func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref string) (*GhControlStatus, error) {
 	controlStatus := GhControlStatus{
 		CommitPushTime: time.Now(),
-		Controls:       &slsa.ControlSetStatus{},
+		Controls:       &slsa.ControlSet{},
 	}
 
 	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)

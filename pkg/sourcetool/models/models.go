@@ -39,9 +39,9 @@ type AttestationStorageReader interface {
 //
 //counterfeiter:generate . VcsBackend
 type VcsBackend interface {
-	GetBranchControls(context.Context, *Branch) (*slsa.ControlSetStatus, error)
-	GetBranchControlsAtCommit(context.Context, *Branch, *Commit) (*slsa.ControlSetStatus, error)
-	GetTagControls(context.Context, *Tag) (*slsa.ControlSetStatus, error)
+	GetBranchControls(context.Context, *Branch) (*slsa.ControlSet, error)
+	GetBranchControlsAtCommit(context.Context, *Branch, *Commit) (*slsa.ControlSet, error)
+	GetTagControls(context.Context, *Tag) (*slsa.ControlSet, error)
 	ControlConfigurationDescr(*Branch, ControlConfiguration) string
 	ConfigureControls(*Repository, []*Branch, []ControlConfiguration) error
 	GetLatestCommit(context.Context, *Repository, *Branch) (*Commit, error)

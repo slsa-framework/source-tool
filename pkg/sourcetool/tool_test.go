@@ -21,7 +21,7 @@ func TestGetBranchControls(t *testing.T) {
 		t.Parallel()
 		i := &sourcetoolfakes.FakeToolImplementation{}
 		i.GetPolicyStatusReturns(&slsa.Control{}, nil)
-		i.GetBranchControlsReturns(&slsa.ControlSetStatus{
+		i.GetBranchControlsReturns(&slsa.ControlSet{
 			RepoUri: "github.com/ok/repo",
 			Branch:  "main",
 			Controls: []*slsa.Control{

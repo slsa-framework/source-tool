@@ -152,11 +152,11 @@ func validateMockServerRequestPath(t *testing.T, r *http.Request, expectedPolicy
 	}
 }
 
-// controlsForLevel creates a slsa.ControlSetStatus collection with all required controls
+// controlsForLevel creates a slsa.ControlSet collection with all required controls
 // for the given SLSA level, each with the given Since timestamp.
-func controlsForLevel(level slsa.SlsaSourceLevel, since *time.Time) *slsa.ControlSetStatus {
+func controlsForLevel(level slsa.SlsaSourceLevel, since *time.Time) *slsa.ControlSet {
 	required := slsa.GetRequiredControlsForLevel(level)
-	controls := &slsa.ControlSetStatus{}
+	controls := &slsa.ControlSet{}
 	for _, name := range required {
 		controls.AddControl(&slsa.Control{Name: name, Since: since, State: slsa.StateActive})
 	}
@@ -164,7 +164,7 @@ func controlsForLevel(level slsa.SlsaSourceLevel, since *time.Time) *slsa.Contro
 }
 
 // controlsForLevelWith creates controls for a level plus additional controls.
-func controlsForLevelWith(level slsa.SlsaSourceLevel, since *time.Time, extra ...*slsa.Control) *slsa.ControlSetStatus {
+func controlsForLevelWith(level slsa.SlsaSourceLevel, since *time.Time, extra ...*slsa.Control) *slsa.ControlSet {
 	controls := controlsForLevel(level, since)
 	controls.AddControl(extra...)
 	return controls
@@ -412,7 +412,7 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := slsa.ControlSetStatus{Controls: []*slsa.Control{tagHygieneEarlier}}
+			s := slsa.ControlSet{Controls: []*slsa.Control{tagHygieneEarlier}}
 			// Valid Provenance Predicate (attest.SourceProvenancePred)
 			tagProvPred := provenance.TagProvenancePred{
 				Controls:     s.ToProvenanceControls(),
@@ -488,7 +488,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 	tests := []struct {
 		name               string
 		policyContent      any // RepoPolicy or string for malformed
-		controlStatus      *slsa.ControlSetStatus
+		controlStatus      *slsa.ControlSet
 		ghConnBranch       string // Branch for GitHub connection
 		expectedLevels     slsa.SourceVerifiedLevels
 		expectedPolicyPath string
@@ -496,7 +496,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 		{
 			name:          "Commit time before policy Since -> SLSA Level 1",
 			policyContent: &fullPolicy,
-			controlStatus: &slsa.ControlSetStatus{
+			controlStatus: &slsa.ControlSet{
 				Time:     earlierFixedTime,
 				Controls: l3ControlsWithExtras.Controls,
 			},
@@ -507,7 +507,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 		{
 			name:          "Commit time after policy Since, controls meet policy -> Expected levels",
 			policyContent: &fullPolicy,
-			controlStatus: &slsa.ControlSetStatus{
+			controlStatus: &slsa.ControlSet{
 				Time:     laterFixedTime,
 				Controls: l3ControlsWithExtras.Controls,
 			},
@@ -518,7 +518,7 @@ func TestEvaluateControl_Success(t *testing.T) {
 		{
 			name:          "Branch not in policy, commit after default policy since -> Default policy (SLSA L1)",
 			policyContent: &basicPolicy,
-			controlStatus: &slsa.ControlSetStatus{
+			controlStatus: &slsa.ControlSet{
 				Time:     laterFixedTime,
 				Controls: l3ControlsWithExtras.Controls,
 			},
@@ -581,14 +581,14 @@ func TestEvaluateControl_Failure(t *testing.T) {
 	tests := []struct {
 		name                  string
 		policyContent         any
-		controlStatus         *slsa.ControlSetStatus
+		controlStatus         *slsa.ControlSet
 		ghConnBranch          string
 		expectedErrorContains string
 	}{
 		{
 			name:          "Commit time after policy Since, controls DO NOT meet policy -> Error",
 			policyContent: &policyL3Review,
-			controlStatus: &slsa.ControlSetStatus{
+			controlStatus: &slsa.ControlSet{
 				Time:     later.AsTime(),
 				Controls: controlsForLevel(slsa.SlsaSourceLevel2, &rearlier).Controls,
 			},
@@ -598,7 +598,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 		{
 			name:          "Malformed JSON -> Error",
 			policyContent: "not json",
-			controlStatus: &slsa.ControlSetStatus{
+			controlStatus: &slsa.ControlSet{
 				Time: later.AsTime(),
 			},
 			ghConnBranch:          "main",
@@ -722,7 +722,7 @@ const (
 func TestComputeEligibleSlsaLevel(t *testing.T) {
 	tests := []struct {
 		name          string
-		controls      *slsa.ControlSetStatus
+		controls      *slsa.ControlSet
 		expectedLevel slsa.SlsaSourceLevel
 	}{
 		{
@@ -742,7 +742,7 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 		},
 		{
 			name:          "SLSA Level 1 - partial controls only",
-			controls:      &slsa.ControlSetStatus{Controls: []*slsa.Control{&slsa.Control{Name: slsa.SLSA_SOURCE_SCS_CONTINUITY, Since: &fixedTime, State: slsa.StateActive}}},
+			controls:      &slsa.ControlSet{Controls: []*slsa.Control{&slsa.Control{Name: slsa.SLSA_SOURCE_SCS_CONTINUITY, Since: &fixedTime, State: slsa.StateActive}}},
 			expectedLevel: slsa.SlsaSourceLevel1,
 		},
 		{
@@ -784,7 +784,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 		name                  string
 		branchPolicy          *ProtectedBranch
 		tagPolicy             *ProtectedTag
-		controls              *slsa.ControlSetStatus
+		controls              *slsa.ControlSet
 		expectedLevels        slsa.SourceVerifiedLevels
 		expectError           bool
 		expectedErrorContains string
@@ -835,7 +835,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 			name:                  "Error - computeSlsaLevel Fails (Policy L3, Controls L1)",
 			branchPolicy:          &policyL3Review,
 			tagPolicy:             &noTagHygienePolicy,
-			controls:              &slsa.ControlSetStatus{},
+			controls:              &slsa.ControlSet{},
 			expectedLevels:        slsa.SourceVerifiedLevels{},
 			expectError:           true,
 			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
@@ -926,7 +926,7 @@ func TestComputeTagHygiene(t *testing.T) {
 	tests := []struct {
 		name                  string
 		tagPolicy             *ProtectedTag
-		controls              *slsa.ControlSetStatus
+		controls              *slsa.ControlSet
 		expectedControls      []slsa.ControlName
 		expectError           bool
 		expectedErrorContains string
@@ -934,21 +934,21 @@ func TestComputeTagHygiene(t *testing.T) {
 		{
 			name:             "Policy requires tag hygiene, control compliant (Policy.Since >= Control.Since)",
 			tagPolicy:        &policyRequiresTagHygieneNow,
-			controls:         &slsa.ControlSetStatus{Controls: []*slsa.Control{tagHygieneControlEnabledNow}}, // Policy.Since == Control.Since
+			controls:         &slsa.ControlSet{Controls: []*slsa.Control{tagHygieneControlEnabledNow}}, // Policy.Since == Control.Since
 			expectedControls: []slsa.ControlName{slsa.SLSA_SOURCE_SCS_PROTECTED_REFS},
 			expectError:      false,
 		},
 		{
 			name:             "Policy does not require tag hygiene - control state irrelevant",
 			tagPolicy:        &policyNotRequiresTagHygiene,
-			controls:         &slsa.ControlSetStatus{}, // Control state explicitly shown as irrelevant
+			controls:         &slsa.ControlSet{}, // Control state explicitly shown as irrelevant
 			expectedControls: []slsa.ControlName{},
 			expectError:      false,
 		},
 		{
 			name:                  "Policy requires tag hygiene, control not present: fail",
 			tagPolicy:             &policyRequiresTagHygieneNow,
-			controls:              &slsa.ControlSetStatus{}, // Tag Hygiene control missing
+			controls:              &slsa.ControlSet{}, // Tag Hygiene control missing
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires tag hygiene, but that control is not enabled",
@@ -956,7 +956,7 @@ func TestComputeTagHygiene(t *testing.T) {
 		{
 			name:                  "Policy requires tag hygiene, control enabled, Policy.Since < Control.Since: fail",
 			tagPolicy:             &policyRequiresTagHygieneEarlier,                                               // Policy.Since is 'earlier'
-			controls:              &slsa.ControlSetStatus{Controls: []*slsa.Control{tagHygieneControlEnabledNow}}, // Control.Since is 'now'
+			controls:              &slsa.ControlSet{Controls: []*slsa.Control{tagHygieneControlEnabledNow}}, // Control.Since is 'now'
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires tag hygiene since", // ...but that control has only been enabled since...
@@ -1002,7 +1002,7 @@ func TestComputeReviewEnforced(t *testing.T) {
 	tests := []struct {
 		name                  string
 		branchPolicy          *ProtectedBranch
-		controls              *slsa.ControlSetStatus
+		controls              *slsa.ControlSet
 		expectedControls      []slsa.ControlName
 		expectError           bool
 		expectedErrorContains string
@@ -1010,21 +1010,21 @@ func TestComputeReviewEnforced(t *testing.T) {
 		{
 			name:             "Policy requires review, control compliant (Policy.Since >= Control.Since)",
 			branchPolicy:     &policyRequiresReviewNow,
-			controls:         &slsa.ControlSetStatus{Controls: []*slsa.Control{reviewControlEnabledNow}}, // Policy.Since == Control.Since
+			controls:         &slsa.ControlSet{Controls: []*slsa.Control{reviewControlEnabledNow}}, // Policy.Since == Control.Since
 			expectedControls: []slsa.ControlName{slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW},
 			expectError:      false,
 		},
 		{
 			name:             "Policy does not require review - control state irrelevant",
 			branchPolicy:     &policyNotRequiresReview,
-			controls:         &slsa.ControlSetStatus{}, // Control state explicitly shown as irrelevant
+			controls:         &slsa.ControlSet{}, // Control state explicitly shown as irrelevant
 			expectedControls: []slsa.ControlName{},
 			expectError:      false,
 		},
 		{
 			name:                  "Policy requires review, control not present: fail",
 			branchPolicy:          &policyRequiresReviewNow,
-			controls:              &slsa.ControlSetStatus{}, // Review control missing
+			controls:              &slsa.ControlSet{}, // Review control missing
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires review, but that control is not enabled",
@@ -1032,7 +1032,7 @@ func TestComputeReviewEnforced(t *testing.T) {
 		{
 			name:                  "Policy requires review, control enabled, Policy.Since < Control.Since: fail",
 			branchPolicy:          &policyRequiresReviewEarlier,                                               // Policy.Since is 'earlier'
-			controls:              &slsa.ControlSetStatus{Controls: []*slsa.Control{reviewControlEnabledNow}}, // Control.Since is 'now'
+			controls:              &slsa.ControlSet{Controls: []*slsa.Control{reviewControlEnabledNow}}, // Control.Since is 'now'
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires review since", // ...but that control has only been enabled since...
@@ -1081,7 +1081,7 @@ func TestComputeOrgControls(t *testing.T) {
 	tests := []struct {
 		name                  string
 		orgCheckPolicies      []*OrgStatusCheckControl
-		controls              *slsa.ControlSetStatus
+		controls              *slsa.ControlSet
 		expectedControls      []slsa.ControlName
 		expectError           bool
 		expectedErrorContains string
@@ -1089,28 +1089,28 @@ func TestComputeOrgControls(t *testing.T) {
 		{
 			name:             "Single check handled",
 			orgCheckPolicies: []*OrgStatusCheckControl{testedControlPolicy},
-			controls:         &slsa.ControlSetStatus{Controls: []*slsa.Control{testedControl}},
+			controls:         &slsa.ControlSet{Controls: []*slsa.Control{testedControl}},
 			expectedControls: []slsa.ControlName{"ORG_SOURCE_TESTED"},
 			expectError:      false,
 		},
 		{
 			name:             "Multiple checks handled",
 			orgCheckPolicies: []*OrgStatusCheckControl{testedControlPolicy, lintedControlPolicy},
-			controls:         &slsa.ControlSetStatus{Controls: []*slsa.Control{testedControl, lintedControl}},
+			controls:         &slsa.ControlSet{Controls: []*slsa.Control{testedControl, lintedControl}},
 			expectedControls: []slsa.ControlName{"ORG_SOURCE_TESTED", "ORG_SOURCE_LINTED"},
 			expectError:      false,
 		},
 		{
 			name:             "Not configured control should not be returned",
 			orgCheckPolicies: []*OrgStatusCheckControl{testedControlPolicy},
-			controls:         &slsa.ControlSetStatus{Controls: []*slsa.Control{testedControl, notListedControl}},
+			controls:         &slsa.ControlSet{Controls: []*slsa.Control{testedControl, notListedControl}},
 			expectedControls: []slsa.ControlName{"ORG_SOURCE_TESTED"},
 			expectError:      false,
 		},
 		{
 			name:                  "Policy requires control but it is not present",
 			orgCheckPolicies:      []*OrgStatusCheckControl{testedControlPolicy, lintedControlPolicy},
-			controls:              &slsa.ControlSetStatus{Controls: []*slsa.Control{lintedControl}},
+			controls:              &slsa.ControlSet{Controls: []*slsa.Control{lintedControl}},
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires check 'test', but",
@@ -1118,7 +1118,7 @@ func TestComputeOrgControls(t *testing.T) {
 		{
 			name:                  "Control not enabled long enough fails",
 			orgCheckPolicies:      []*OrgStatusCheckControl{earlierTestedControlPolicy},
-			controls:              &slsa.ControlSetStatus{Controls: []*slsa.Control{testedControl}},
+			controls:              &slsa.ControlSet{Controls: []*slsa.Control{testedControl}},
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires check 'test' since",
@@ -1126,7 +1126,7 @@ func TestComputeOrgControls(t *testing.T) {
 		{
 			name:                  "Invalid property name fails",
 			orgCheckPolicies:      []*OrgStatusCheckControl{testedControlPolicy, invalidPropertyNameControlPolicy},
-			controls:              &slsa.ControlSetStatus{Controls: []*slsa.Control{testedControl}},
+			controls:              &slsa.ControlSet{Controls: []*slsa.Control{testedControl}},
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy specifies an invalid property name",
@@ -1173,7 +1173,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 	tests := []struct {
 		name                  string
 		branchPolicy          *ProtectedBranch
-		controls              *slsa.ControlSetStatus
+		controls              *slsa.ControlSet
 		expectedLevels        []slsa.ControlName
 		expectError           bool
 		expectedErrorContains string
@@ -1195,7 +1195,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 		{
 			name:                  "Controls L1-eligible, Policy L2: fail (eligibility)",
 			branchPolicy:          &policyL2Now,
-			controls:              &slsa.ControlSetStatus{},
+			controls:              &slsa.ControlSet{},
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
@@ -1242,7 +1242,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 		{
 			name:                  "Controls L1-eligible, Policy L3: fail (eligibility)",
 			branchPolicy:          &policyL3Now,
-			controls:              &slsa.ControlSetStatus{},
+			controls:              &slsa.ControlSet{},
 			expectedLevels:        []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
@@ -1274,7 +1274,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 
 // controlsForLevelWithOverride creates controls for a level, then overrides the
 // Since timestamp for a specific control name.
-func controlsForLevelWithOverride(level slsa.SlsaSourceLevel, baseSince *time.Time, overrides map[slsa.ControlName]time.Time) *slsa.ControlSetStatus {
+func controlsForLevelWithOverride(level slsa.SlsaSourceLevel, baseSince *time.Time, overrides map[slsa.ControlName]time.Time) *slsa.ControlSet {
 	controls := controlsForLevel(level, baseSince)
 	for i, c := range controls.Controls {
 		if since, ok := overrides[slsa.ControlName(c.GetName())]; ok {
@@ -1291,7 +1291,7 @@ func TestComputeEligibleSince(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		controls      *slsa.ControlSetStatus
+		controls      *slsa.ControlSet
 		level         slsa.SlsaSourceLevel
 		expectedTime  *time.Time
 		expectError   bool
@@ -1364,7 +1364,7 @@ func TestComputeEligibleSince(t *testing.T) {
 		},
 		{
 			name:         "Unknown level requested: expect nil, error",
-			controls:     &slsa.ControlSetStatus{},
+			controls:     &slsa.ControlSet{},
 			level:        slsa.SlsaSourceLevel("UNKNOWN_LEVEL"),
 			expectedTime: &zeroTime,
 			expectError:  false,

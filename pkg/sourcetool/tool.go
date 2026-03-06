@@ -52,7 +52,7 @@ type Tool struct {
 }
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
-func (t *Tool) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSetStatus, error) {
+func (t *Tool) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSet, error) {
 	if branch.Repository == nil {
 		return nil, fmt.Errorf("repositoryu not specified in branch")
 	}
@@ -81,7 +81,7 @@ func (t *Tool) GetBranchControls(ctx context.Context, branch *models.Branch) (*s
 }
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
-func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.ControlSetStatus, error) {
+func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.ControlSet, error) {
 	if branch.Repository == nil {
 		return nil, fmt.Errorf("repositoryu not specified in branch")
 	}
@@ -228,7 +228,7 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 
 // This function will be moved to the policy package once we start integrating
 // it with the global data models (if we do).
-func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.ControlSetStatus) (*policy.RepoPolicy, error) {
+func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.ControlSet) (*policy.RepoPolicy, error) {
 	// Default to SLSA1 since unset date
 	eligibleSince := &time.Time{}
 	eligibleLevel := slsa.SlsaSourceLevel1

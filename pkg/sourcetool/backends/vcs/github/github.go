@@ -106,7 +106,7 @@ func (b *Backend) getGitHubConnection(repository *models.Repository, ref string)
 	return ghcontrol.NewGhConnectionWithClient(owner, name, ref, client), nil
 }
 
-func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSetStatus, error) {
+func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSet, error) {
 	if branch.Repository == nil {
 		return nil, fmt.Errorf("branch has no repository")
 	}
@@ -126,7 +126,7 @@ func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) 
 }
 
 // GetBranchControlsAtCommit
-func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.ControlSetStatus, error) {
+func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.ControlSet, error) {
 	if branch.Repository == nil {
 		return nil, fmt.Errorf("branch has no repository")
 	}
@@ -170,9 +170,9 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		log.Printf("No provenance attestation found on %s", commit.SHA)
 	}
 
-	// NewControlSetStatus returns all the controls for the framework in
+	// NewControlSet returns all the controls for the framework in
 	// StateNotEnabled.
-	status := slsa.NewControlSetStatus()
+	status := slsa.NewControlSet()
 	sinceForever := time.Unix(1, 0)
 	for i, ctrl := range status.Controls {
 		// Check if it's an inherent control, turn it on  and don't look back
@@ -262,7 +262,7 @@ func (b *Backend) controlImplementationMessage(ctrlName slsa.ControlName) string
 	}
 }
 
-func (b *Backend) GetTagControls(context.Context, *models.Tag) (*slsa.ControlSetStatus, error) {
+func (b *Backend) GetTagControls(context.Context, *models.Tag) (*slsa.ControlSet, error) {
 	return nil, fmt.Errorf("not yet implemented")
 }
 

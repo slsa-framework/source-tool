@@ -68,8 +68,8 @@ func ControlNamesToStrings(controlNames []ControlName) []string {
 	return strs
 }
 
-func NewControlSetFromProvanenaceControls(provControls []*provenance.Control) *ControlSetStatus {
-	set := &ControlSetStatus{
+func NewControlSetFromProvanenaceControls(provControls []*provenance.Control) *ControlSet {
+	set := &ControlSet{
 		Controls: []*Control{},
 	}
 
@@ -86,8 +86,8 @@ func NewControlSetFromProvanenaceControls(provControls []*provenance.Control) *C
 
 // NewControlStatus returns a new control status object initialized with
 // all existing controls in not_enabled state.
-func NewControlSetStatus() *ControlSetStatus {
-	status := &ControlSetStatus{
+func NewControlSet() *ControlSet {
+	status := &ControlSet{
 		Time:     time.Now(),
 		Controls: []*Control{},
 	}
@@ -102,9 +102,9 @@ func NewControlSetStatus() *ControlSetStatus {
 	return status
 }
 
-// ControlSetStatus is a snapshot of the status of SLSA controls in a branch at
+// ControlSet is a snapshot of the status of SLSA controls in a branch at
 // a point in time.
-type ControlSetStatus struct {
+type ControlSet struct {
 	RepoUri  string
 	Branch   string
 	Time     time.Time
@@ -137,8 +137,8 @@ type ControlRecommendedAction struct {
 
 // GetActiveControls returns a Controls collection with all the controls
 // which are active in the set.
-func (cs *ControlSetStatus) GetActiveControls() *ControlSetStatus {
-	ret := ControlSetStatus{}
+func (cs *ControlSet) GetActiveControls() *ControlSet {
+	ret := ControlSet{}
 	if cs == nil {
 		return &ret
 	}
@@ -151,7 +151,7 @@ func (cs *ControlSetStatus) GetActiveControls() *ControlSetStatus {
 }
 
 // SetControlState sets the state of a control in the set by name.
-func (cs *ControlSetStatus) SetControlState(ctrlName ControlName, state ControlState) {
+func (cs *ControlSet) SetControlState(ctrlName ControlName, state ControlState) {
 	for i := range cs.Controls {
 		if cs.Controls[i].Name == ctrlName {
 			cs.Controls[i].State = state
@@ -162,9 +162,9 @@ func (cs *ControlSetStatus) SetControlState(ctrlName ControlName, state ControlS
 
 // Adds the control to the list. Ignores nil controls.
 // Does not check for duplicate controls.
-func (cs *ControlSetStatus) AddControl(newControls ...*Control) {
+func (cs *ControlSet) AddControl(newControls ...*Control) {
 	if cs == nil {
-		cs = &ControlSetStatus{}
+		cs = &ControlSet{}
 	}
 	for _, c := range newControls {
 		if c == nil {
@@ -175,7 +175,7 @@ func (cs *ControlSetStatus) AddControl(newControls ...*Control) {
 }
 
 // Gets the control with the corresponding name, returns nil if not found.
-func (cs *ControlSetStatus) GetControl(name ControlName) *Control {
+func (cs *ControlSet) GetControl(name ControlName) *Control {
 	for _, control := range cs.Controls {
 		if control.GetName() == name {
 			return control
@@ -186,7 +186,7 @@ func (cs *ControlSetStatus) GetControl(name ControlName) *Control {
 
 // This checks if the controls are present in the array. But As we merged the
 // controls array with the struct we also check if they are all active
-func (cs *ControlSetStatus) AreControlsAvailable(names []ControlName) bool {
+func (cs *ControlSet) AreControlsAvailable(names []ControlName) bool {
 	for _, name := range names {
 		ctl := cs.GetControl(name)
 		if ctl == nil || ctl.State != StateActive {
@@ -197,7 +197,7 @@ func (cs *ControlSetStatus) AreControlsAvailable(names []ControlName) bool {
 }
 
 // Returns the names of the controls.
-func (cs *ControlSetStatus) Names() []ControlName {
+func (cs *ControlSet) Names() []ControlName {
 	names := make([]ControlName, len(cs.Controls))
 	for i := range cs.Controls {
 		names[i] = cs.Controls[i].GetName()
@@ -205,7 +205,7 @@ func (cs *ControlSetStatus) Names() []ControlName {
 	return names
 }
 
-func (cs *ControlSetStatus) ToProvenanceControls() []*provenance.Control {
+func (cs *ControlSet) ToProvenanceControls() []*provenance.Control {
 	var ret = []*provenance.Control{}
 	for _, ctl := range cs.Controls {
 		if ctl.State != StateActive {

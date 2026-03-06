@@ -302,14 +302,14 @@ func (pe *PolicyEvaluator) CreateLocalPolicy(ctx context.Context, repo *models.R
 	return path, nil
 }
 
-func computeEligibleForLevel(controls *slsa.ControlSetStatus, level slsa.SlsaSourceLevel) bool {
+func computeEligibleForLevel(controls *slsa.ControlSet, level slsa.SlsaSourceLevel) bool {
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
 	return controls.AreControlsAvailable(requiredControls)
 }
 
 // Computes the eligible SLSA level, and when they started being eligible for it,
 // if only they had a policy.  Also returns a rationale for why it's eligible for this level.
-func ComputeEligibleSlsaLevel(controls *slsa.ControlSetStatus) slsa.SlsaSourceLevel {
+func ComputeEligibleSlsaLevel(controls *slsa.ControlSet) slsa.SlsaSourceLevel {
 	if controls == nil {
 		return slsa.SlsaSourceLevel1
 	}
@@ -338,7 +338,7 @@ func laterTime(time1, time2 time.Time) time.Time {
 }
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
-func ComputeEligibleSince(controls *slsa.ControlSetStatus, level slsa.SlsaSourceLevel) (*time.Time, error) {
+func ComputeEligibleSince(controls *slsa.ControlSet, level slsa.SlsaSourceLevel) (*time.Time, error) {
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
 	var newestTime time.Time
 	for _, rc := range requiredControls {
@@ -360,9 +360,9 @@ func ComputeEligibleSince(controls *slsa.ControlSetStatus, level slsa.SlsaSource
 }
 
 // Every function that determines properties to include in the result & VSA implements this interface.
-type computePolicyResult func(*ProtectedBranch, *ProtectedTag, *slsa.ControlSetStatus) ([]slsa.ControlName, error)
+type computePolicyResult func(*ProtectedBranch, *ProtectedTag, *slsa.ControlSet) ([]slsa.ControlName, error)
 
-func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSetStatus) ([]slsa.ControlName, error) {
+func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSet) ([]slsa.ControlName, error) {
 	eligibleLevel := ComputeEligibleSlsaLevel(controls)
 
 	if !slsa.IsLevelHigherOrEqualTo(eligibleLevel, slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel())) {
@@ -391,7 +391,7 @@ func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *
 	return []slsa.ControlName{slsa.ControlName(branchPolicy.GetTargetSlsaSourceLevel())}, nil
 }
 
-func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSetStatus) ([]slsa.ControlName, error) {
+func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSet) ([]slsa.ControlName, error) {
 	if !branchPolicy.GetRequireReview() {
 		return []slsa.ControlName{}, nil
 	}
@@ -410,7 +410,7 @@ func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, contr
 
 // computeTagHygiene checks if the current state of the protected refs
 // matches what we see in the policy  policy has SLSA_SOURCE_SCS_PROTECTED_REFS
-func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls *slsa.ControlSetStatus) ([]slsa.ControlName, error) {
+func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls *slsa.ControlSet) ([]slsa.ControlName, error) {
 	if tagPolicy == nil {
 		// There is no tag policy, so the control isn't met, but it's not an error.
 		return []slsa.ControlName{}, nil
@@ -437,7 +437,7 @@ func computeTagHygiene(_ *ProtectedBranch, tagPolicy *ProtectedTag, controls *sl
 	return []slsa.ControlName{slsa.SLSA_SOURCE_SCS_PROTECTED_REFS}, nil
 }
 
-func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSetStatus) ([]slsa.ControlName, error) {
+func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSet) ([]slsa.ControlName, error) {
 	controlNames := []slsa.ControlName{}
 	for _, rc := range branchPolicy.GetOrgStatusCheckControls() {
 		if !strings.HasPrefix(rc.GetPropertyName(), slsa.AllowedOrgPropPrefix) {
@@ -458,7 +458,7 @@ func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls
 }
 
 // Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a branch.
-func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls *slsa.ControlSetStatus) (slsa.SourceVerifiedLevels, error) {
+func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls *slsa.ControlSet) (slsa.SourceVerifiedLevels, error) {
 	policyComputers := []computePolicyResult{
 		computeSlsaLevel,      // Add the SLSA Level to the VSA
 		computeReviewEnforced, // Stamp if reviews are enforced
@@ -549,7 +549,7 @@ func NewPolicyEvaluator() *PolicyEvaluator {
 }
 
 // EvaluateControl checks the control against the policy and returns the resulting source level and policy path.
-func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Repository, branch *models.Branch, controlStatus *slsa.ControlSetStatus) (slsa.SourceVerifiedLevels, string, error) {
+func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Repository, branch *models.Branch, controlStatus *slsa.ControlSet) (slsa.SourceVerifiedLevels, string, error) {
 	// We want to check to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
 	rp, policyPath, err := pe.GetPolicy(ctx, repo)
