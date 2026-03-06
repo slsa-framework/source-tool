@@ -352,7 +352,7 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 
 			controlNames := make([]slsa.ControlName, 0, len(controlStatus.Controls.Controls))
 			for _, control := range controlStatus.Controls.Controls {
-				controlNames = append(controlNames, slsa.ControlName(control.GetName()))
+				controlNames = append(controlNames, control.GetName())
 				if !control.GetSince().Equal(priorTime) {
 					t.Errorf("Expected control.Since %v, got %v", priorTime, control.GetSince())
 				}

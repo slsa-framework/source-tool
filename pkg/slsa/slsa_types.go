@@ -7,8 +7,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/slsa-framework/source-tool/pkg/provenance"
 )
 
 const (
@@ -74,9 +75,9 @@ func NewControlSetFromProvanenaceControls(provControls []*provenance.Control) *C
 	}
 
 	for _, ctl := range provControls {
-		t := ctl.Since.AsTime()
+		t := ctl.GetSince().AsTime()
 		set.Controls = append(set.Controls, &Control{
-			Name:  ControlName(ctl.Name),
+			Name:  ControlName(ctl.GetName()),
 			State: StateActive,
 			Since: &t,
 		})
@@ -206,7 +207,7 @@ func (cs *ControlSet) Names() []ControlName {
 }
 
 func (cs *ControlSet) ToProvenanceControls() []*provenance.Control {
-	var ret = []*provenance.Control{}
+	ret := []*provenance.Control{}
 	for _, ctl := range cs.Controls {
 		if ctl.State != StateActive {
 			continue

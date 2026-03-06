@@ -742,7 +742,7 @@ func TestComputeEligibleSlsaLevel(t *testing.T) {
 		},
 		{
 			name:          "SLSA Level 1 - partial controls only",
-			controls:      &slsa.ControlSet{Controls: []*slsa.Control{&slsa.Control{Name: slsa.SLSA_SOURCE_SCS_CONTINUITY, Since: &fixedTime, State: slsa.StateActive}}},
+			controls:      &slsa.ControlSet{Controls: []*slsa.Control{{Name: slsa.SLSA_SOURCE_SCS_CONTINUITY, Since: &fixedTime, State: slsa.StateActive}}},
 			expectedLevel: slsa.SlsaSourceLevel1,
 		},
 		{
@@ -910,78 +910,82 @@ func TestEvaluateBranchControls(t *testing.T) {
 	}
 }
 
+// assertControlResult is a shared helper for testing computePolicyResult functions.
+func assertControlResult(t *testing.T, fnName string, gotControls []slsa.ControlName, err error, expectedControls []slsa.ControlName, expectError bool, expectedErrorContains string) {
+	t.Helper()
+	if expectError {
+		if err == nil {
+			t.Errorf("%s() error = nil, want non-nil error containing %q", fnName, expectedErrorContains)
+		} else if !strings.Contains(err.Error(), expectedErrorContains) {
+			t.Errorf("%s() error = %q, want error containing %q", fnName, err.Error(), expectedErrorContains)
+		}
+	} else {
+		if err != nil {
+			t.Errorf("%s() error = %v, want nil", fnName, err)
+		}
+	}
+	if !slices.Equal(gotControls, expectedControls) {
+		t.Errorf("%s() gotControls = %v, want %v", fnName, gotControls, expectedControls)
+	}
+}
+
 func TestComputeTagHygiene(t *testing.T) {
 	now := timestamppb.Now()
 	tnow := now.AsTime()
 	earlier := timestamppb.New(time.Now().Add(-time.Hour))
 
-	// Branch Policies
 	policyRequiresTagHygieneNow := ProtectedTag{TagHygiene: true, Since: now}
 	policyRequiresTagHygieneEarlier := ProtectedTag{TagHygiene: true, Since: earlier}
 	policyNotRequiresTagHygiene := ProtectedTag{TagHygiene: false, Since: now}
-
-	// Controls
 	tagHygieneControlEnabledNow := &slsa.Control{Name: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS, Since: &tnow, State: slsa.StateActive}
 
 	tests := []struct {
 		name                  string
 		tagPolicy             *ProtectedTag
-		controls              *slsa.ControlSet
+		computeFn             func() ([]slsa.ControlName, error)
 		expectedControls      []slsa.ControlName
 		expectError           bool
 		expectedErrorContains string
 	}{
 		{
-			name:             "Policy requires tag hygiene, control compliant (Policy.Since >= Control.Since)",
-			tagPolicy:        &policyRequiresTagHygieneNow,
-			controls:         &slsa.ControlSet{Controls: []*slsa.Control{tagHygieneControlEnabledNow}}, // Policy.Since == Control.Since
+			name:      "Policy requires tag hygiene, control compliant (Policy.Since >= Control.Since)",
+			tagPolicy: &policyRequiresTagHygieneNow,
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeTagHygiene(nil, &policyRequiresTagHygieneNow, &slsa.ControlSet{Controls: []*slsa.Control{tagHygieneControlEnabledNow}})
+			},
 			expectedControls: []slsa.ControlName{slsa.SLSA_SOURCE_SCS_PROTECTED_REFS},
-			expectError:      false,
 		},
 		{
-			name:             "Policy does not require tag hygiene - control state irrelevant",
-			tagPolicy:        &policyNotRequiresTagHygiene,
-			controls:         &slsa.ControlSet{}, // Control state explicitly shown as irrelevant
+			name: "Policy does not require tag hygiene - control state irrelevant",
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeTagHygiene(nil, &policyNotRequiresTagHygiene, &slsa.ControlSet{})
+			},
 			expectedControls: []slsa.ControlName{},
-			expectError:      false,
 		},
 		{
-			name:                  "Policy requires tag hygiene, control not present: fail",
-			tagPolicy:             &policyRequiresTagHygieneNow,
-			controls:              &slsa.ControlSet{}, // Tag Hygiene control missing
+			name: "Policy requires tag hygiene, control not present: fail",
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeTagHygiene(nil, &policyRequiresTagHygieneNow, &slsa.ControlSet{})
+			},
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires tag hygiene, but that control is not enabled",
 		},
 		{
-			name:                  "Policy requires tag hygiene, control enabled, Policy.Since < Control.Since: fail",
-			tagPolicy:             &policyRequiresTagHygieneEarlier,                                               // Policy.Since is 'earlier'
-			controls:              &slsa.ControlSet{Controls: []*slsa.Control{tagHygieneControlEnabledNow}}, // Control.Since is 'now'
+			name: "Policy requires tag hygiene, control enabled, Policy.Since < Control.Since: fail",
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeTagHygiene(nil, &policyRequiresTagHygieneEarlier, &slsa.ControlSet{Controls: []*slsa.Control{tagHygieneControlEnabledNow}})
+			},
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
-			expectedErrorContains: "policy requires tag hygiene since", // ...but that control has only been enabled since...
+			expectedErrorContains: "policy requires tag hygiene since",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotControls, err := computeTagHygiene(nil, tt.tagPolicy, tt.controls)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("computeTagHygiene() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
-				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
-					t.Errorf("computeTagHygiene() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("computeTagHygiene() error = %v, want nil", err)
-				}
-			}
-
-			if !slices.Equal(gotControls, tt.expectedControls) {
-				t.Errorf("computeTagHygiene() gotControls = %v, want %v", gotControls, tt.expectedControls)
-			}
+			gotControls, err := tt.computeFn()
+			assertControlResult(t, "computeTagHygiene", gotControls, err, tt.expectedControls, tt.expectError, tt.expectedErrorContains)
 		})
 	}
 }
@@ -991,73 +995,56 @@ func TestComputeReviewEnforced(t *testing.T) {
 	tnow := now.AsTime()
 	earlier := timestamppb.New(time.Now().Add(-time.Hour))
 
-	// Branch Policies
 	policyRequiresReviewNow := ProtectedBranch{RequireReview: true, Since: now}
 	policyRequiresReviewEarlier := ProtectedBranch{RequireReview: true, Since: earlier}
 	policyNotRequiresReview := ProtectedBranch{RequireReview: false, Since: now}
-
-	// Controls
 	reviewControlEnabledNow := &slsa.Control{Name: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW, Since: &tnow, State: slsa.StateActive}
 
 	tests := []struct {
 		name                  string
-		branchPolicy          *ProtectedBranch
-		controls              *slsa.ControlSet
+		computeFn             func() ([]slsa.ControlName, error)
 		expectedControls      []slsa.ControlName
 		expectError           bool
 		expectedErrorContains string
 	}{
 		{
-			name:             "Policy requires review, control compliant (Policy.Since >= Control.Since)",
-			branchPolicy:     &policyRequiresReviewNow,
-			controls:         &slsa.ControlSet{Controls: []*slsa.Control{reviewControlEnabledNow}}, // Policy.Since == Control.Since
+			name: "Policy requires review, control compliant (Policy.Since >= Control.Since)",
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeReviewEnforced(&policyRequiresReviewNow, nil, &slsa.ControlSet{Controls: []*slsa.Control{reviewControlEnabledNow}})
+			},
 			expectedControls: []slsa.ControlName{slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW},
-			expectError:      false,
 		},
 		{
-			name:             "Policy does not require review - control state irrelevant",
-			branchPolicy:     &policyNotRequiresReview,
-			controls:         &slsa.ControlSet{}, // Control state explicitly shown as irrelevant
+			name: "Policy does not require review - control state irrelevant",
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeReviewEnforced(&policyNotRequiresReview, nil, &slsa.ControlSet{})
+			},
 			expectedControls: []slsa.ControlName{},
-			expectError:      false,
 		},
 		{
-			name:                  "Policy requires review, control not present: fail",
-			branchPolicy:          &policyRequiresReviewNow,
-			controls:              &slsa.ControlSet{}, // Review control missing
+			name: "Policy requires review, control not present: fail",
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeReviewEnforced(&policyRequiresReviewNow, nil, &slsa.ControlSet{})
+			},
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
 			expectedErrorContains: "policy requires review, but that control is not enabled",
 		},
 		{
-			name:                  "Policy requires review, control enabled, Policy.Since < Control.Since: fail",
-			branchPolicy:          &policyRequiresReviewEarlier,                                               // Policy.Since is 'earlier'
-			controls:              &slsa.ControlSet{Controls: []*slsa.Control{reviewControlEnabledNow}}, // Control.Since is 'now'
+			name: "Policy requires review, control enabled, Policy.Since < Control.Since: fail",
+			computeFn: func() ([]slsa.ControlName, error) {
+				return computeReviewEnforced(&policyRequiresReviewEarlier, nil, &slsa.ControlSet{Controls: []*slsa.Control{reviewControlEnabledNow}})
+			},
 			expectedControls:      []slsa.ControlName{},
 			expectError:           true,
-			expectedErrorContains: "policy requires review since", // ...but that control has only been enabled since...
+			expectedErrorContains: "policy requires review since",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotControls, err := computeReviewEnforced(tt.branchPolicy, nil, tt.controls)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("computeReviewEnforced() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
-				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
-					t.Errorf("computeReviewEnforced() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("computeReviewEnforced() error = %v, want nil", err)
-				}
-			}
-
-			if !slices.Equal(gotControls, tt.expectedControls) {
-				t.Errorf("computeReviewEnforced() gotEnforced = %v, want %v", gotControls, tt.expectedControls)
-			}
+			gotControls, err := tt.computeFn()
+			assertControlResult(t, "computeReviewEnforced", gotControls, err, tt.expectedControls, tt.expectError, tt.expectedErrorContains)
 		})
 	}
 }
@@ -1158,7 +1145,6 @@ func TestComputeOrgControls(t *testing.T) {
 }
 
 func TestComputeSlsaLevel(t *testing.T) {
-	//now := timestamppb.Now()
 	rnow := time.Now()
 	now := &rnow
 	rearlier := time.Now().Add(-time.Hour)
@@ -1277,7 +1263,7 @@ func TestComputeSlsaLevel(t *testing.T) {
 func controlsForLevelWithOverride(level slsa.SlsaSourceLevel, baseSince *time.Time, overrides map[slsa.ControlName]time.Time) *slsa.ControlSet {
 	controls := controlsForLevel(level, baseSince)
 	for i, c := range controls.Controls {
-		if since, ok := overrides[slsa.ControlName(c.GetName())]; ok {
+		if since, ok := overrides[c.GetName()]; ok {
 			controls.Controls[i] = &slsa.Control{Name: c.GetName(), Since: &since, State: slsa.StateActive}
 		}
 	}

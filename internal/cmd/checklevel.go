@@ -90,8 +90,6 @@ This is meant to be run within the corresponding GitHub Actions workflow.`,
 				return err
 			}
 
-			// fmt.Printf("Controles: %+v\n", controlStatus)
-
 			pe := policy.NewPolicyEvaluator()
 			pe.UseLocalPolicy = opts.useLocalPolicy
 			verifiedLevels, policyPath, err := pe.EvaluateControl(cmd.Context(), opts.GetRepository(), opts.GetBranch(), controlStatus)
@@ -105,8 +103,13 @@ This is meant to be run within the corresponding GitHub Actions workflow.`,
 				}
 			}
 
-			// unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), opts.commit, verifiedLevels, policyPath)
-			unsignedVsa, err := attest.CreateUnsignedSourceVsa(opts.GetRepository().GetHttpURL(), opts.GetBranch().FullRef(), opts.commit, verifiedLevels, policyPath)
+			unsignedVsa, err := attest.CreateUnsignedSourceVsa(
+				opts.GetRepository().GetHttpURL(),
+				opts.GetBranch().FullRef(),
+				opts.commit,
+				verifiedLevels,
+				policyPath,
+			)
 			if err != nil {
 				return err
 			}

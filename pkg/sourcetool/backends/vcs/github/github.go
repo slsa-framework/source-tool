@@ -187,7 +187,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		if c := activeControls.GetControl(ctrl.Name); c != nil {
 			status.Controls[i].Since = ctrl.Since
 			status.Controls[i].State = slsa.StateActive
-			status.Controls[i].Message = b.controlImplementationMessage(slsa.ControlName(c.GetName()))
+			status.Controls[i].Message = b.controlImplementationMessage(c.GetName())
 		}
 
 		// Enable ORG_SAFE_EXPUNGE when branch protection (protected refs) is active.
