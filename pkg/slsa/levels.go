@@ -3,6 +3,17 @@
 
 package slsa
 
+type (
+	SlsaSourceLevel ControlName
+)
+
+const (
+	SlsaSourceLevel1 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
+	SlsaSourceLevel2 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_2"
+	SlsaSourceLevel3 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_3"
+	SlsaSourceLevel4 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_4"
+)
+
 type Level struct {
 	Level    uint8
 	Controls ControlSet

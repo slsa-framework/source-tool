@@ -20,11 +20,11 @@ func TestGetBranchControls(t *testing.T) {
 	t.Run("GetActiveControls-success", func(t *testing.T) {
 		t.Parallel()
 		i := &sourcetoolfakes.FakeToolImplementation{}
-		i.GetPolicyStatusReturns(&slsa.ControlStatus{}, nil)
+		i.GetPolicyStatusReturns(&slsa.Control{}, nil)
 		i.GetBranchControlsReturns(&slsa.ControlSetStatus{
 			RepoUri: "github.com/ok/repo",
 			Branch:  "main",
-			Controls: []slsa.ControlStatus{
+			Controls: []*slsa.Control{
 				{
 					Name:    slsa.SLSA_SOURCE_SCS_CONTINUITY,
 					State:   slsa.StateNotEnabled,

@@ -7,25 +7,11 @@ import (
 	"slices"
 	"time"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"github.com/slsa-framework/source-tool/pkg/provenance"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-type (
-	SlsaSourceLevel ControlName
-)
-
-func (c ControlName) String() string {
-	return string(c)
-}
 
 const (
-	SlsaSourceLevel1 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
-	SlsaSourceLevel2 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_2"
-	SlsaSourceLevel3 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_3"
-	SlsaSourceLevel4 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_4"
-
 	SourceBranchesAnnotation = "source_branches"
 	SourceRefsAnnotation     = "source_refs"
 	AllowedOrgPropPrefix     = "ORG_SOURCE_"
@@ -46,50 +32,6 @@ func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {
 	// There's probably some fancy stuff we can get in to, but...
 	// it just so happens that these level strings should sort the way we want.
 	return level1 >= level2
-}
-
-type Controls []*provenance.Control
-
-// Adds the control to the list. Ignores nil controls.
-// Does not check for duplicate controls.
-func (controls *Controls) AddControl(newControls ...*provenance.Control) {
-	if controls == nil {
-		controls = &Controls{}
-	}
-	for _, c := range newControls {
-		if c == nil {
-			continue
-		}
-		*controls = append(*controls, c)
-	}
-}
-
-// Gets the control with the corresponding name, returns nil if not found.
-func (controls *Controls) GetControl(name ControlName) *provenance.Control {
-	for _, control := range *controls {
-		if control.GetName() == name.String() {
-			return control
-		}
-	}
-	return nil
-}
-
-func (controls *Controls) AreControlsAvailable(names []ControlName) bool {
-	for _, name := range names {
-		if controls.GetControl(name) == nil {
-			return false
-		}
-	}
-	return true
-}
-
-// Returns the names of the controls.
-func (controls *Controls) Names() []ControlName {
-	names := make([]ControlName, len(*controls))
-	for i := range *controls {
-		names[i] = ControlName((*controls)[i].GetName())
-	}
-	return names
 }
 
 // These can be any string, not just SlsaLevels
@@ -126,16 +68,32 @@ func ControlNamesToStrings(controlNames []ControlName) []string {
 	return strs
 }
 
+func NewControlSetFromProvanenaceControls(provControls []*provenance.Control) *ControlSetStatus {
+	set := &ControlSetStatus{
+		Controls: []*Control{},
+	}
+
+	for _, ctl := range provControls {
+		t := ctl.Since.AsTime()
+		set.Controls = append(set.Controls, &Control{
+			Name:  ControlName(ctl.Name),
+			State: StateActive,
+			Since: &t,
+		})
+	}
+	return set
+}
+
 // NewControlStatus returns a new control status object initialized with
 // all existing controls in not_enabled state.
 func NewControlSetStatus() *ControlSetStatus {
 	status := &ControlSetStatus{
 		Time:     time.Now(),
-		Controls: []ControlStatus{},
+		Controls: []*Control{},
 	}
 
 	for _, c := range AllLevelControls {
-		status.Controls = append(status.Controls, ControlStatus{
+		status.Controls = append(status.Controls, &Control{
 			Name:  c,
 			State: StateNotEnabled,
 		})
@@ -150,16 +108,24 @@ type ControlSetStatus struct {
 	RepoUri  string
 	Branch   string
 	Time     time.Time
-	Controls []ControlStatus
+	Controls []*Control
 }
 
-// ControlStatus captures the status of a control as seen from a VCS system
-type ControlStatus struct {
+// Control captures the status of a control as seen from a VCS system
+type Control struct {
 	Name              ControlName
 	State             ControlState `json:"control_state"`
 	Since             *time.Time   `json:"since,omitempty"`
 	Message           string
 	RecommendedAction *ControlRecommendedAction
+}
+
+func (cs *Control) GetName() ControlName {
+	return cs.Name
+}
+
+func (cs *Control) GetSince() *time.Time {
+	return cs.Since
 }
 
 // ControlRecommendedAction captures the recommended action to complete
@@ -171,16 +137,14 @@ type ControlRecommendedAction struct {
 
 // GetActiveControls returns a Controls collection with all the controls
 // which are active in the set.
-func (cs *ControlSetStatus) GetActiveControls() *Controls {
-	ret := Controls{}
+func (cs *ControlSetStatus) GetActiveControls() *ControlSetStatus {
+	ret := ControlSetStatus{}
 	if cs == nil {
 		return &ret
 	}
 	for _, c := range cs.Controls {
 		if c.State == StateActive {
-			ret.AddControl(&provenance.Control{
-				Name: c.Name.String(), Since: timestamppb.New(*c.Since),
-			})
+			ret.AddControl(c)
 		}
 	}
 	return &ret
@@ -194,4 +158,64 @@ func (cs *ControlSetStatus) SetControlState(ctrlName ControlName, state ControlS
 			return
 		}
 	}
+}
+
+// Adds the control to the list. Ignores nil controls.
+// Does not check for duplicate controls.
+func (cs *ControlSetStatus) AddControl(newControls ...*Control) {
+	if cs == nil {
+		cs = &ControlSetStatus{}
+	}
+	for _, c := range newControls {
+		if c == nil {
+			continue
+		}
+		cs.Controls = append(cs.Controls, c)
+	}
+}
+
+// Gets the control with the corresponding name, returns nil if not found.
+func (cs *ControlSetStatus) GetControl(name ControlName) *Control {
+	for _, control := range cs.Controls {
+		if control.GetName() == name {
+			return control
+		}
+	}
+	return nil
+}
+
+// This checks if the controls are present in the array. But As we merged the
+// controls array with the struct we also check if they are all active
+func (cs *ControlSetStatus) AreControlsAvailable(names []ControlName) bool {
+	for _, name := range names {
+		ctl := cs.GetControl(name)
+		if ctl == nil || ctl.State != StateActive {
+			return false
+		}
+	}
+	return true
+}
+
+// Returns the names of the controls.
+func (cs *ControlSetStatus) Names() []ControlName {
+	names := make([]ControlName, len(cs.Controls))
+	for i := range cs.Controls {
+		names[i] = cs.Controls[i].GetName()
+	}
+	return names
+}
+
+func (cs *ControlSetStatus) ToProvenanceControls() []*provenance.Control {
+	var ret = []*provenance.Control{}
+	for _, ctl := range cs.Controls {
+		if ctl.State != StateActive {
+			continue
+		}
+		c := &provenance.Control{
+			Name:  ctl.Name.String(),
+			Since: timestamppb.New(*ctl.Since),
+		}
+		ret = append(ret, c)
+	}
+	return ret
 }

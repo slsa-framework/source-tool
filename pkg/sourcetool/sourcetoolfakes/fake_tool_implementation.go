@@ -123,7 +123,7 @@ type FakeToolImplementation struct {
 		result1 *slsa.ControlSetStatus
 		result2 error
 	}
-	GetPolicyStatusStub        func(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.ControlStatus, error)
+	GetPolicyStatusStub        func(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.Control, error)
 	getPolicyStatusMutex       sync.RWMutex
 	getPolicyStatusArgsForCall []struct {
 		arg1 context.Context
@@ -132,11 +132,11 @@ type FakeToolImplementation struct {
 		arg4 *models.Repository
 	}
 	getPolicyStatusReturns struct {
-		result1 *slsa.ControlStatus
+		result1 *slsa.Control
 		result2 error
 	}
 	getPolicyStatusReturnsOnCall map[int]struct {
-		result1 *slsa.ControlStatus
+		result1 *slsa.Control
 		result2 error
 	}
 	GetVcsBackendStub        func(*models.Repository) (models.VcsBackend, error)
@@ -708,7 +708,7 @@ func (fake *FakeToolImplementation) GetBranchControlsAtCommitReturnsOnCall(i int
 	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) GetPolicyStatus(arg1 context.Context, arg2 *auth.Authenticator, arg3 *options.Options, arg4 *models.Repository) (*slsa.ControlStatus, error) {
+func (fake *FakeToolImplementation) GetPolicyStatus(arg1 context.Context, arg2 *auth.Authenticator, arg3 *options.Options, arg4 *models.Repository) (*slsa.Control, error) {
 	fake.getPolicyStatusMutex.Lock()
 	ret, specificReturn := fake.getPolicyStatusReturnsOnCall[len(fake.getPolicyStatusArgsForCall)]
 	fake.getPolicyStatusArgsForCall = append(fake.getPolicyStatusArgsForCall, struct {
@@ -736,7 +736,7 @@ func (fake *FakeToolImplementation) GetPolicyStatusCallCount() int {
 	return len(fake.getPolicyStatusArgsForCall)
 }
 
-func (fake *FakeToolImplementation) GetPolicyStatusCalls(stub func(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.ControlStatus, error)) {
+func (fake *FakeToolImplementation) GetPolicyStatusCalls(stub func(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.Control, error)) {
 	fake.getPolicyStatusMutex.Lock()
 	defer fake.getPolicyStatusMutex.Unlock()
 	fake.GetPolicyStatusStub = stub
@@ -749,28 +749,28 @@ func (fake *FakeToolImplementation) GetPolicyStatusArgsForCall(i int) (context.C
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *FakeToolImplementation) GetPolicyStatusReturns(result1 *slsa.ControlStatus, result2 error) {
+func (fake *FakeToolImplementation) GetPolicyStatusReturns(result1 *slsa.Control, result2 error) {
 	fake.getPolicyStatusMutex.Lock()
 	defer fake.getPolicyStatusMutex.Unlock()
 	fake.GetPolicyStatusStub = nil
 	fake.getPolicyStatusReturns = struct {
-		result1 *slsa.ControlStatus
+		result1 *slsa.Control
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) GetPolicyStatusReturnsOnCall(i int, result1 *slsa.ControlStatus, result2 error) {
+func (fake *FakeToolImplementation) GetPolicyStatusReturnsOnCall(i int, result1 *slsa.Control, result2 error) {
 	fake.getPolicyStatusMutex.Lock()
 	defer fake.getPolicyStatusMutex.Unlock()
 	fake.GetPolicyStatusStub = nil
 	if fake.getPolicyStatusReturnsOnCall == nil {
 		fake.getPolicyStatusReturnsOnCall = make(map[int]struct {
-			result1 *slsa.ControlStatus
+			result1 *slsa.Control
 			result2 error
 		})
 	}
 	fake.getPolicyStatusReturnsOnCall[i] = struct {
-		result1 *slsa.ControlStatus
+		result1 *slsa.Control
 		result2 error
 	}{result1, result2}
 }

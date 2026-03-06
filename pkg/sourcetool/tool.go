@@ -75,7 +75,7 @@ func (t *Tool) GetBranchControls(ctx context.Context, branch *models.Branch) (*s
 		return nil, fmt.Errorf("reading policy status: %w", err)
 	}
 
-	controls.Controls = append(controls.Controls, *status)
+	controls.Controls = append(controls.Controls, status)
 
 	return controls, err
 }
@@ -104,7 +104,7 @@ func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Bra
 		return nil, fmt.Errorf("reading policy status: %w", err)
 	}
 
-	controls.Controls = append(controls.Controls, *status)
+	controls.Controls = append(controls.Controls, status)
 
 	return controls, err
 }
@@ -237,8 +237,8 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
 	if controls != nil {
-		eligibleLevel = policy.ComputeEligibleSlsaLevel(*controls.GetActiveControls())
-		eligibleSince, err = policy.ComputeEligibleSince(*controls.GetActiveControls(), eligibleLevel)
+		eligibleLevel = policy.ComputeEligibleSlsaLevel(controls.GetActiveControls())
+		eligibleSince, err = policy.ComputeEligibleSince(controls.GetActiveControls(), eligibleLevel)
 		if err != nil {
 			return nil, fmt.Errorf("could not compute eligible_since: %w", err)
 		}
@@ -259,7 +259,7 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 	tagHygiene := controls.GetActiveControls().GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS)
 	if tagHygiene != nil {
 		p.ProtectedTag = &policy.ProtectedTag{
-			Since:      tagHygiene.GetSince(),
+			Since:      timestamppb.New(*tagHygiene.GetSince()),
 			TagHygiene: true,
 		}
 	}

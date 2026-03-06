@@ -98,18 +98,18 @@ type FakeVcsBackend struct {
 		result1 *models.Commit
 		result2 error
 	}
-	GetTagControlsStub        func(context.Context, *models.Tag) (*slsa.Controls, error)
+	GetTagControlsStub        func(context.Context, *models.Tag) (*slsa.ControlSetStatus, error)
 	getTagControlsMutex       sync.RWMutex
 	getTagControlsArgsForCall []struct {
 		arg1 context.Context
 		arg2 *models.Tag
 	}
 	getTagControlsReturns struct {
-		result1 *slsa.Controls
+		result1 *slsa.ControlSetStatus
 		result2 error
 	}
 	getTagControlsReturnsOnCall map[int]struct {
-		result1 *slsa.Controls
+		result1 *slsa.ControlSetStatus
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -525,7 +525,7 @@ func (fake *FakeVcsBackend) GetLatestCommitReturnsOnCall(i int, result1 *models.
 	}{result1, result2}
 }
 
-func (fake *FakeVcsBackend) GetTagControls(arg1 context.Context, arg2 *models.Tag) (*slsa.Controls, error) {
+func (fake *FakeVcsBackend) GetTagControls(arg1 context.Context, arg2 *models.Tag) (*slsa.ControlSetStatus, error) {
 	fake.getTagControlsMutex.Lock()
 	ret, specificReturn := fake.getTagControlsReturnsOnCall[len(fake.getTagControlsArgsForCall)]
 	fake.getTagControlsArgsForCall = append(fake.getTagControlsArgsForCall, struct {
@@ -551,7 +551,7 @@ func (fake *FakeVcsBackend) GetTagControlsCallCount() int {
 	return len(fake.getTagControlsArgsForCall)
 }
 
-func (fake *FakeVcsBackend) GetTagControlsCalls(stub func(context.Context, *models.Tag) (*slsa.Controls, error)) {
+func (fake *FakeVcsBackend) GetTagControlsCalls(stub func(context.Context, *models.Tag) (*slsa.ControlSetStatus, error)) {
 	fake.getTagControlsMutex.Lock()
 	defer fake.getTagControlsMutex.Unlock()
 	fake.GetTagControlsStub = stub
@@ -564,28 +564,28 @@ func (fake *FakeVcsBackend) GetTagControlsArgsForCall(i int) (context.Context, *
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeVcsBackend) GetTagControlsReturns(result1 *slsa.Controls, result2 error) {
+func (fake *FakeVcsBackend) GetTagControlsReturns(result1 *slsa.ControlSetStatus, result2 error) {
 	fake.getTagControlsMutex.Lock()
 	defer fake.getTagControlsMutex.Unlock()
 	fake.GetTagControlsStub = nil
 	fake.getTagControlsReturns = struct {
-		result1 *slsa.Controls
+		result1 *slsa.ControlSetStatus
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeVcsBackend) GetTagControlsReturnsOnCall(i int, result1 *slsa.Controls, result2 error) {
+func (fake *FakeVcsBackend) GetTagControlsReturnsOnCall(i int, result1 *slsa.ControlSetStatus, result2 error) {
 	fake.getTagControlsMutex.Lock()
 	defer fake.getTagControlsMutex.Unlock()
 	fake.GetTagControlsStub = nil
 	if fake.getTagControlsReturnsOnCall == nil {
 		fake.getTagControlsReturnsOnCall = make(map[int]struct {
-			result1 *slsa.Controls
+			result1 *slsa.ControlSetStatus
 			result2 error
 		})
 	}
 	fake.getTagControlsReturnsOnCall[i] = struct {
-		result1 *slsa.Controls
+		result1 *slsa.ControlSetStatus
 		result2 error
 	}{result1, result2}
 }

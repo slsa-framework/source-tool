@@ -13,6 +13,10 @@ type (
 	ControlSet []ControlName
 )
 
+func (c ControlName) String() string {
+	return string(c)
+}
+
 const (
 	// Control constants
 	DEPRECATED_ContinuityEnforced  ControlName = "CONTINUITY_ENFORCED"

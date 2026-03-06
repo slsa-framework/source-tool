@@ -180,7 +180,7 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 				},
 				GhPriorCommit: "def456",
 				GhControlStatus: &ghcontrol.GhControlStatus{
-					Controls: slsa.Controls{},
+					Controls: &slsa.ControlSetStatus{},
 				},
 			},
 			mode: AuditModeFull,
@@ -192,7 +192,7 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 					VerifiedLevels:    []string{"SLSA_SOURCE_LEVEL_3"},
 					PrevCommitMatches: &matches,
 					ProvControls:      []*provenance.Control{{Name: "test_control"}},
-					GhControls:        slsa.Controls{},
+					GhControls:        slsa.ControlSetStatus{},
 					PrevCommit:        "def456",
 					GhPriorCommit:     "def456",
 					Link:              "https://github.com/test-owner/test-repo/commit/def456",

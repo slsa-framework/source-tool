@@ -13,7 +13,6 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
-	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
@@ -159,13 +158,13 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		return nil, fmt.Errorf("attempting to read provenance from commit %q: %w", commit.SHA, err)
 	}
 	if attestation != nil {
-		activeControls.AddControl(&provenance.Control{
-			Name: slsa.SLSA_SOURCE_SCS_PROVENANCE.String(),
+		activeControls.AddControl(&slsa.Control{
+			Name: slsa.SLSA_SOURCE_SCS_PROVENANCE,
 		})
 
 		// If we got the provenance attestaion, we assume we also have a VSA
-		activeControls.AddControl(&provenance.Control{
-			Name: slsa.SLSA_SOURCE_SCS_VSA.String(),
+		activeControls.AddControl(&slsa.Control{
+			Name: slsa.SLSA_SOURCE_SCS_VSA,
 		})
 	} else {
 		log.Printf("No provenance attestation found on %s", commit.SHA)
@@ -186,8 +185,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 
 		// Check if it's one of the active controls
 		if c := activeControls.GetControl(ctrl.Name); c != nil {
-			t := c.GetSince().AsTime()
-			status.Controls[i].Since = &t
+			status.Controls[i].Since = ctrl.Since
 			status.Controls[i].State = slsa.StateActive
 			status.Controls[i].Message = b.controlImplementationMessage(slsa.ControlName(c.GetName()))
 		}
@@ -196,8 +194,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		// Without force push, content cannot be expunged.
 		if ctrl.Name == slsa.SLSA_SOURCE_ORG_SAFE_EXPUNGE {
 			if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS); c != nil {
-				t := c.GetSince().AsTime()
-				status.Controls[i].Since = &t
+				status.Controls[i].Since = ctrl.Since
 				status.Controls[i].State = slsa.StateActive
 				status.Controls[i].Message = b.controlImplementationMessage(ctrl.Name)
 			}
@@ -206,8 +203,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		// Enable ORG_CONTINUITY when SCS branch continuity is active.
 		if ctrl.Name == slsa.SLSA_SOURCE_ORG_CONTINUITY {
 			if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_CONTINUITY); c != nil {
-				t := c.GetSince().AsTime()
-				status.Controls[i].Since = &t
+				status.Controls[i].Since = ctrl.Since
 				status.Controls[i].State = slsa.StateActive
 				status.Controls[i].Message = b.controlImplementationMessage(ctrl.Name)
 			}
@@ -266,7 +262,7 @@ func (b *Backend) controlImplementationMessage(ctrlName slsa.ControlName) string
 	}
 }
 
-func (b *Backend) GetTagControls(context.Context, *models.Tag) (*slsa.Controls, error) {
+func (b *Backend) GetTagControls(context.Context, *models.Tag) (*slsa.ControlSetStatus, error) {
 	return nil, fmt.Errorf("not yet implemented")
 }
 

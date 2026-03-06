@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,8 +11,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/slsa-framework/source-tool/pkg/attest"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
 	"github.com/slsa-framework/source-tool/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type checkLevelOpts struct {
@@ -71,54 +72,65 @@ This is meant to be run within the corresponding GitHub Actions workflow.`,
 				return err
 			}
 
-			return doCheckLevel(&opts)
+			authenticator, err := CheckAuth()
+			if err != nil {
+				return err
+			}
+
+			// Create a new sourcetool object
+			srctool, err := sourcetool.New(
+				sourcetool.WithAuthenticator(authenticator),
+			)
+			if err != nil {
+				return err
+			}
+
+			controlStatus, err := srctool.GetBranchControlsAtCommit(cmd.Context(), opts.GetBranch(), &models.Commit{SHA: opts.commit})
+			if err != nil {
+				return err
+			}
+
+			// fmt.Printf("Controles: %+v\n", controlStatus)
+
+			pe := policy.NewPolicyEvaluator()
+			pe.UseLocalPolicy = opts.useLocalPolicy
+			verifiedLevels, policyPath, err := pe.EvaluateControl(cmd.Context(), opts.GetRepository(), opts.GetBranch(), controlStatus)
+			if err != nil {
+				return err
+			}
+			for _, level := range verifiedLevels {
+				if slsa.IsSlsaSourceLevel(level) {
+					fmt.Print(level)
+					break
+				}
+			}
+
+			// unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), opts.commit, verifiedLevels, policyPath)
+			unsignedVsa, err := attest.CreateUnsignedSourceVsa(opts.GetRepository().GetHttpURL(), opts.GetBranch().FullRef(), opts.commit, verifiedLevels, policyPath)
+			if err != nil {
+				return err
+			}
+			if opts.outputUnsignedVsa != "" {
+				if err := os.WriteFile(opts.outputUnsignedVsa, []byte(unsignedVsa), 0o644); err != nil { //nolint:gosec
+					return err
+				}
+			}
+
+			if opts.outputVsa != "" {
+				// This will output in the sigstore bundle format.
+				signedVsa, err := attest.Sign(unsignedVsa)
+				if err != nil {
+					return err
+				}
+				err = os.WriteFile(opts.outputVsa, []byte(signedVsa), 0o644) //nolint:gosec
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 	opts.AddFlags(checklevelCmd)
 	parentCmd.AddCommand(checklevelCmd)
-}
-
-func doCheckLevel(cla *checkLevelOpts) error {
-	ghconnection := ghcontrol.NewGhConnection(cla.owner, cla.repository, ghcontrol.BranchToFullRef(cla.branch)).WithAuthToken(githubToken)
-	ghconnection.Options.AllowMergeCommits = cla.allowMergeCommits
-
-	ctx := context.Background()
-	controlStatus, err := ghconnection.GetBranchControlsAtCommit(ctx, cla.commit, ghconnection.GetFullRef())
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Controls salieron:\n%v\n", controlStatus)
-
-	pe := policy.NewPolicyEvaluator()
-	pe.UseLocalPolicy = cla.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateControl(ctx, cla.GetRepository(), cla.GetBranch(), controlStatus)
-	if err != nil {
-		return err
-	}
-	fmt.Print(verifiedLevels)
-
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), cla.commit, verifiedLevels, policyPath)
-	if err != nil {
-		return err
-	}
-	if cla.outputUnsignedVsa != "" {
-		if err := os.WriteFile(cla.outputUnsignedVsa, []byte(unsignedVsa), 0o644); err != nil { //nolint:gosec
-			return err
-		}
-	}
-
-	if cla.outputVsa != "" {
-		// This will output in the sigstore bundle format.
-		signedVsa, err := attest.Sign(unsignedVsa)
-		if err != nil {
-			return err
-		}
-		err = os.WriteFile(cla.outputVsa, []byte(signedVsa), 0o644) //nolint:gosec
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

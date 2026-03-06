@@ -141,7 +141,7 @@ func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit
 	curProvPred.ActivityType = controlStatus.ActivityType
 	curProvPred.Branch = ref
 	curProvPred.CreatedOn = timestamppb.New(curTime)
-	curProvPred.Controls = controlStatus.Controls
+	curProvPred.Controls = controlStatus.Controls.ToProvenanceControls()
 
 	// At the very least provenance is available starting now. :)
 	// ... indeed, but don't set the `since`` date because doing so breaks
@@ -319,7 +319,7 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 		Actor:     actor,
 		Tag:       ref,
 		CreatedOn: timestamppb.Now(),
-		Controls:  controlStatus.Controls,
+		Controls:  controlStatus.Controls.ToProvenanceControls(),
 		VsaSummaries: []*provenance.VsaSummary{
 			{
 				SourceRefs:     vsaRefs,
