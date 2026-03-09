@@ -106,9 +106,17 @@ func NewControlSet() *ControlSet {
 // ControlSet is a snapshot of the status of SLSA controls in a branch at
 // a point in time.
 type ControlSet struct {
-	RepoUri  string
-	Branch   string
-	Time     time.Time
+	RepoUri string
+	Branch  string
+	// The time we are observing the controls
+	Time time.Time
+	// The time the commit we're evaluating was pushed.
+	CommitPushTime time.Time
+	// The actor that pushed the commit.
+	ActorLogin string
+	// The type of activity that created the commit.
+	ActivityType string
+	// List of controls
 	Controls []*Control
 }
 
