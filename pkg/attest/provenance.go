@@ -1,44 +1,29 @@
-// SPDX-FileCopyrightText: Copyright 2025 The SLSA Authors
+// SPDX-FileCopyrightText: Copyright 2026 The SLSA Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package attest
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
-	v1 "github.com/in-toto/attestation/go/predicates/vsa/v1"
-	spb "github.com/in-toto/attestation/go/v1"
+	"github.com/carabiner-dev/attestation"
+	"github.com/carabiner-dev/collector"
+	"github.com/carabiner-dev/collector/filters"
+	vsa "github.com/in-toto/attestation/go/predicates/vsa/v1"
+	intoto "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
 	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
-type ProvenanceAttestorOptions struct {
-	VsaRetries uint8
-}
-
-type ProvenanceAttestor struct {
-	verifier      Verifier
-	gh_connection *ghcontrol.GitHubConnection
-	Options       ProvenanceAttestorOptions
-}
-
-func NewProvenanceAttestor(gh_connection *ghcontrol.GitHubConnection, verifier Verifier) *ProvenanceAttestor {
-	return &ProvenanceAttestor{verifier: verifier, gh_connection: gh_connection}
-}
-
-func GetSourceProvPred(statement *spb.Statement) (*provenance.SourceProvenancePred, error) {
+func GetSourceProvPred(statement *intoto.Statement) (*provenance.SourceProvenancePred, error) {
 	if statement == nil {
 		return nil, errors.New("nil statement")
 	}
@@ -65,7 +50,7 @@ func GetSourceProvPred(statement *spb.Statement) (*provenance.SourceProvenancePr
 	return &predStruct, nil
 }
 
-func GetTagProvPred(statement *spb.Statement) (*provenance.TagProvenancePred, error) {
+func GetTagProvPred(statement *intoto.Statement) (*provenance.TagProvenancePred, error) {
 	if statement == nil {
 		return nil, errors.New("nil statement")
 	}
@@ -92,164 +77,185 @@ func GetTagProvPred(statement *spb.Statement) (*provenance.TagProvenancePred, er
 	return &predStruct, nil
 }
 
-func addPredToStatement(provPred any, predicateType, commit string) (*spb.Statement, error) {
-	msg, ok := provPred.(proto.Message)
-	if !ok {
-		return nil, fmt.Errorf("unable to serialize predicate as proto message")
+func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error) {
+	if err := collector.LoadDefaultRepositoryTypes(); err != nil {
+		return nil, err
 	}
-	predJson, err := protojson.MarshalOptions{
-		Multiline: true,
-		Indent:    "  ",
-	}.Marshal(msg)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling predicate proto: %w", err)
-	}
-
-	sub := []*spb.ResourceDescriptor{{
-		Digest: map[string]string{"gitCommit": commit},
-	}}
-
-	var predPb structpb.Struct
-	err = protojson.Unmarshal(predJson, &predPb)
+	agent, err := collector.New()
 	if err != nil {
 		return nil, err
 	}
 
-	statementPb := spb.Statement{
-		Type:          spb.StatementTypeUri,
-		Subject:       sub,
-		PredicateType: predicateType,
-		Predicate:     &predPb,
+	if a.Options.InitNotesCollector {
+		if err := agent.AddRepositoryFromString(fmt.Sprintf("dnote:%s", branch.Repository.GetHttpURL())); err != nil {
+			return nil, err
+		}
 	}
 
-	return &statementPb, nil
+	if a.Options.InitGHCollector {
+		if err := agent.AddRepositoryFromString(fmt.Sprintf("github:%s", branch.Repository.Path)); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, initString := range a.Options.Repos {
+		if err := agent.AddRepositoryFromString(initString); err != nil {
+			return nil, err
+		}
+	}
+
+	return agent, nil
 }
 
-// Create provenance for the current commit without any context from the previous provenance (if any).
-func (pa ProvenanceAttestor) createCurrentProvenance(ctx context.Context, commit, prevCommit, ref string) (*spb.Statement, error) {
-	controlStatus, err := pa.gh_connection.GetBranchControlsAtCommit(ctx, commit, ref)
+// GetVSA returns a revision's VSA attestation
+func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, commit *models.Commit) (attestation.Envelope, *vsa.VerificationSummary, error) {
+	if commit == nil {
+		return nil, nil, errors.New("commit is nil")
+	}
+	c, err := a.getCollector(branch)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("unable to get collector: %w", err)
 	}
 
-	curTime := time.Now()
-
-	var curProvPred provenance.SourceProvenancePred
-	curProvPred.PrevCommit = prevCommit
-	curProvPred.RepoUri = pa.gh_connection.GetRepoUri()
-	curProvPred.Actor = controlStatus.ActorLogin
-	curProvPred.ActivityType = controlStatus.ActivityType
-	curProvPred.Branch = ref
-	curProvPred.CreatedOn = timestamppb.New(curTime)
-	curProvPred.Controls = controlStatus.Controls.ToProvenanceControls()
-
-	// At the very least provenance is available starting now. :)
-	// ... indeed, but don't set the `since`` date because doing so breaks
-	// checking against policies.
-	// See https://github.com/slsa-framework/source-tool/issues/272
-	curProvPred.AddControl(
-		&provenance.Control{
-			Name: slsa.SLSA_SOURCE_SCS_PROVENANCE.String(),
+	// Configure the matcher to filter all the predicate types of the provenance
+	matcher := &filters.PredicateTypeMatcher{
+		PredicateTypes: map[attestation.PredicateType]struct{}{
+			attestation.PredicateType("https://slsa.dev/verification_summary/v1"): {},
 		},
-	)
+	}
 
-	return addPredToStatement(&curProvPred, provenance.SourceProvPredicateType, commit)
-}
+	var attErr error
+	var atts []attestation.Envelope
+	for i := 0; i <= int(a.Options.Retries); i++ {
+		// Fetch the attestations from the configured repos
+		atts, attErr = c.FetchAttestationsBySubject(
+			ctx, []attestation.Subject{commit.ToResourceDescriptor()},
+			collector.WithQuery(attestation.NewQuery().WithFilter(matcher)),
+		)
+		if attErr == nil {
+			break
+		}
+		time.Sleep(time.Duration(i*5) * time.Second)
+	}
+	if attErr != nil {
+		return nil, nil, fmt.Errorf("fetching attestations: %w", err)
+	}
 
-// GetVSA returns the revision VSA
-func (pa ProvenanceAttestor) GetVSA(ctx context.Context, commit, ref string) (*spb.Statement, *v1.VerificationSummary, error) {
-	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
-	if notes == "" {
-		Debugf("didn't find notes for commit %s", commit)
+	if len(atts) == 0 {
+		Debugf("no attestations returned from collector")
 		return nil, nil, nil
 	}
 
-	if err != nil {
-		return nil, nil, fmt.Errorf("fetching notes from commit: %w", err)
-	}
-
-	bundleReader := NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verifier)
-	return getVsaFromReader(bundleReader, commit, ref, "")
-}
-
-// Gets provenance for the commit from git notes.
-func (pa ProvenanceAttestor) GetProvenance(ctx context.Context, commit, ref string) (*spb.Statement, *provenance.SourceProvenancePred, error) {
-	notes, err := pa.gh_connection.GetNotesForCommit(ctx, commit)
-	if notes == "" {
-		Debugf("didn't find notes for commit %s", commit)
-		return nil, nil, nil
-	}
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("fetching notes from commit: %w", err)
-	}
-
-	bundleReader := NewBundleReader(bufio.NewReader(strings.NewReader(notes)), pa.verifier)
-
-	return pa.getProvFromReader(bundleReader, commit, ref)
-}
-
-func (pa ProvenanceAttestor) getProvFromReader(reader *BundleReader, commit, ref string) (*spb.Statement, *provenance.SourceProvenancePred, error) {
-	for {
-		stmt, err := reader.ReadStatement(MatchesTypeAndCommit(provenance.SourceProvPredicateType, commit))
-		if err != nil {
-			// Ignore errors, we want to check all the lines.
-			Debugf("error while processing line: %v", err)
+	// Range the attestations and find and validate that it matches our repo
+	// and expected resources
+	for _, att := range atts {
+		predicate := att.GetPredicate().GetParsed()
+		vsaPred, ok := predicate.(*vsa.VerificationSummary)
+		if !ok {
+			// This should not happen
 			continue
 		}
 
-		if stmt == nil {
-			// No statements left.
+		// Check the verifier ID matches
+		if vsaPred.GetVerifier().GetId() != VsaVerifierId {
+			Debugf("VSA verfier ID does not match %s", VsaVerifierId)
+			continue
+		}
+
+		// Check the VSA resource to ensure it is our repo
+		cleanResourceUri := strings.TrimPrefix(vsaPred.GetResourceUri(), "git+")
+		if branch.Repository.GetHttpURL() != "" && cleanResourceUri != branch.Repository.GetHttpURL() {
+			Debugf("ResourceUri is %s but we want %s", cleanResourceUri, branch.Repository.GetHttpURL())
+			continue
+		}
+
+		// And the verification is passed
+		// 	// Is the result PASSED?
+		if vsaPred.GetVerificationResult() != "PASSED" {
+			Debugf("verificationResult is %s but must be 'PASSED'", vsaPred.GetVerificationResult())
+			continue
+		}
+
+		return att, vsaPred, nil
+	}
+
+	// None of the collected attestations are valid
+	return nil, nil, nil
+
+}
+
+// GetRevisionProvenance returns the provenance attestation for a commit by querying
+// the configured collectors.
+func (a *Attester) GetRevisionProvenance(ctx context.Context, branch *models.Branch, commit *models.Commit) (*provenance.SourceProvenancePred, error) {
+	c, err := a.getCollector(branch)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get collector: %w", err)
+	}
+
+	// Configure the matcher to filter all the predicate types of the provenance
+	matcher := &filters.PredicateTypeMatcher{
+		PredicateTypes: map[attestation.PredicateType]struct{}{
+			attestation.PredicateType(provenance.SourceProvPredicateType): {},
+		},
+	}
+
+	var attErr error
+	var atts []attestation.Envelope
+	for i := 0; i <= int(a.Options.Retries); i++ {
+		// Fetch the attestations from the configured repos
+		atts, attErr = c.FetchAttestationsBySubject(
+			ctx, []attestation.Subject{commit.ToResourceDescriptor()},
+			collector.WithQuery(attestation.NewQuery().WithFilter(matcher)),
+		)
+		if attErr == nil {
 			break
 		}
-
-		// We know the statement is good, what about the predicate?
-		provPred, err := GetSourceProvPred(stmt)
-		if err != nil {
-			return nil, nil, err
-		}
-		if pa.gh_connection.GetRepoUri() == provPred.GetRepoUri() && (ref == ghcontrol.AnyReference || provPred.GetBranch() == ref) {
-			// Should be good!
-			return stmt, provPred, nil
-		} else {
-			Debugf("prov '%v' does not reference commit '%s' for branch '%s', skipping", stmt, commit, ref)
-		}
+		time.Sleep(time.Duration(i*5) * time.Second)
+	}
+	if attErr != nil {
+		return nil, fmt.Errorf("fetching attestations: %w", attErr)
 	}
 
-	Debugf("didn't find commit %s for ref %s", commit, ref)
-	return nil, nil, nil
-}
-
-func (pa ProvenanceAttestor) getPrevProvenance(ctx context.Context, prevAttPath, prevCommit, ref string) (*spb.Statement, *provenance.SourceProvenancePred, error) {
-	if prevAttPath != "" {
-		f, err := os.Open(prevAttPath)
-		if err != nil {
-			return nil, nil, err
-		}
-		return pa.getProvFromReader(NewBundleReader(bufio.NewReader(f), pa.verifier), prevCommit, ref)
+	if len(atts) == 0 {
+		Debugf("no attestations returned from collector")
+		return nil, nil
 	}
 
-	// Try to get the previous bundle ourselves...
-	return pa.GetProvenance(ctx, prevCommit, ref)
+	// Now extract the provenance
+	for _, att := range atts {
+		pred := &provenance.SourceProvenancePred{}
+		if err = protojson.Unmarshal(att.GetPredicate().GetData(), pred); err == nil {
+			return pred, nil
+		}
+	}
+	return nil, fmt.Errorf("unable to parse predicate: %w", err)
 }
 
-func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAttPath, commit, prevCommit, ref string) (*spb.Statement, error) {
+// prevAttPath string
+func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Branch, commit *models.Commit) (*intoto.Statement, error) {
+	// Get the previous commit
+	prevCommit, err := a.backend.GetPreviousCommit(ctx, branch, commit)
+	if err != nil {
+		return nil, fmt.Errorf("getting previous commit: %w", err)
+	}
+
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
-
-	curProv, err := pa.createCurrentProvenance(ctx, commit, prevCommit, ref)
+	curProv, err := a.createCurrentProvenance(ctx, branch, commit, prevCommit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating provenance predicate: %w", err)
 	}
 
-	prevProvStmt, prevProvPred, err := pa.getPrevProvenance(ctx, prevAttPath, prevCommit, ref)
+	//prevProvStmt, prevProvPred, err := a.GetRevisionProvenance(ctx, branch, prevCommit)
+	prevProvPred, err := a.GetRevisionProvenance(ctx, branch, prevCommit)
 	if err != nil {
 		return nil, err
 	}
 
 	// No prior provenance found, so we just go with current.
-	if prevProvStmt == nil || prevProvPred == nil {
+	//if prevProvStmt == nil || prevProvPred == nil {
+	if prevProvPred == nil {
 		Debugf("No previous provenance found, have to bootstrap\n")
 		return curProv, nil
 	}
@@ -272,54 +278,47 @@ func (pa ProvenanceAttestor) CreateSourceProvenance(ctx context.Context, prevAtt
 		curProvPred.Controls[i] = curControl
 	}
 
-	return addPredToStatement(curProvPred, provenance.SourceProvPredicateType, commit)
+	return addPredToStatement(curProvPred, provenance.SourceProvPredicateType, commit.SHA)
 }
 
-func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, ref, actor string) (*spb.Statement, error) {
+// CreateTagProvenance creates a provenance statement for a tag.
+func (a Attester) CreateTagProvenance(ctx context.Context, branch *models.Branch, tag *models.Tag, actor string) (*intoto.Statement, error) {
+	if tag.Commit == nil {
+		return nil, fmt.Errorf("tag does not have its commit set")
+	}
+
 	// 1. Check that the tag hygiene control is still enabled and how long it's been enabled, store it in the prov.
 	// 2. Get a VSA associated with this commit, if any.
 	// 3. Record the levels and branches covered by that VSA in the provenance.
-
-	controlStatus, err := pa.gh_connection.GetTagControls(ctx, commit, ref)
+	controls, err := a.backend.GetTagControls(ctx, tag)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting tag controls: %w", err)
 	}
 
 	// Find the most recent VSA for this commit. Any reference is OK.
 	// TODO: in the future get all of them.
 	// TODO: we should actually verify this vsa: https://github.com/slsa-framework/source-tool/issues/148
-	var tries uint8
-	var vsaStatement *spb.Statement
-	var vsaPred *v1.VerificationSummary
-	for {
-		vsaStatement, vsaPred, err = GetVsa(ctx, pa.gh_connection, pa.verifier, commit, ghcontrol.AnyReference)
-		if err != nil {
-			return nil, fmt.Errorf("error fetching VSA when creating tag provenance %w", err)
-		}
-
-		tries++
-		if tries >= pa.Options.VsaRetries || vsaPred != nil {
-			break
-		}
-		time.Sleep(time.Duration(tries*5) * time.Second)
+	vsaAtt, vsaPred, err := a.GetRevisionVSA(ctx, branch, tag.Commit) // Aqui antes era: ghcontrol.AnyReference
+	if err != nil {
+		return nil, fmt.Errorf("error fetching VSA when creating tag provenance %w", err)
 	}
 
-	if vsaPred == nil {
-		// TODO: If there's not a VSA should we still issue provenance?
+	if vsaAtt == nil {
+		// TODO: If there's not a VSA, should we still issue provenance?
 		return nil, nil
 	}
 
-	vsaRefs, err := GetSourceRefsForCommit(vsaStatement, commit)
+	vsaRefs, err := GetSourceRefsForCommit(vsaAtt, tag.Commit)
 	if err != nil {
 		return nil, fmt.Errorf("error getting source refs from vsa %w", err)
 	}
 
 	curProvPred := provenance.TagProvenancePred{
-		RepoUri:   pa.gh_connection.GetRepoUri(),
+		RepoUri:   branch.Repository.GetHttpURL(),
 		Actor:     actor,
-		Tag:       ref,
+		Tag:       tag.Name,
 		CreatedOn: timestamppb.Now(),
-		Controls:  controlStatus.Controls.ToProvenanceControls(),
+		Controls:  controls.ToProvenanceControls(),
 		VsaSummaries: []*provenance.VsaSummary{
 			{
 				SourceRefs:     vsaRefs,
@@ -328,5 +327,5 @@ func (pa ProvenanceAttestor) CreateTagProvenance(ctx context.Context, commit, re
 		},
 	}
 
-	return addPredToStatement(&curProvPred, provenance.TagProvPredicateType, commit)
+	return addPredToStatement(&curProvPred, provenance.TagProvPredicateType, tag.Commit.SHA)
 }

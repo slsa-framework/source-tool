@@ -5,15 +5,14 @@ package attest
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"io"
-	"strings"
 
-	spb "github.com/in-toto/attestation/go/v1"
+	"github.com/carabiner-dev/attestation"
+	intoto "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type BundleReader struct {
@@ -25,43 +24,44 @@ func NewBundleReader(reader *bufio.Reader, verifier Verifier) *BundleReader {
 	return &BundleReader{reader: reader, verifier: verifier}
 }
 
-func (br *BundleReader) convertLineToStatement(line string) (*spb.Statement, error) {
-	// Is this a sigstore bundle with a statement?
-	// Verify will check the signature, but nothing else.
-	vr, err := br.verifier.Verify(line)
-	if err == nil {
-		// This is it.
-		return vr.Statement, nil
-	}
+// func (br *BundleReader) convertLineToStatement(line string) (*intoto.Statement, error) {
+// 	// Is this a sigstore bundle with a statement?
+// 	// Verify will check the signature, but nothing else.
+// 	vr, err := br.verifier.Verify(line)
+// 	if err == nil {
+// 		// This is it.
+// 		return vr.Statement, nil
+// 	}
 
-	// Compatibility hack bridging identities for repository migration
-	// See here for more info and when to drop:
-	//
-	//  https://github.com/slsa-framework/source-tool/issues/255
-	if strings.Contains(err.Error(), "no matching CertificateIdentity") && strings.Contains(err.Error(), OldExpectedSan) {
-		ver, err := (&BndVerifier{
-			Options: VerificationOptions{
-				ExpectedIssuer: ExpectedIssuer,
-				ExpectedSan:    OldExpectedSan,
-			},
-		}).Verify(line)
-		if err == nil {
-			Debugf("found statement signed with old identity")
-			return ver.Statement, nil
-		}
-	}
+// 	// Compatibility hack bridging identities for repository migration
+// 	// See here for more info and when to drop:
+// 	//
+// 	//  https://github.com/slsa-framework/source-tool/issues/255
+// 	if strings.Contains(err.Error(), "no matching CertificateIdentity") && strings.Contains(err.Error(), OldExpectedSan) {
+// 		ver, err := (&BndVerifier{
+// 			Options: VerificationOptions{
+// 				ExpectedIssuer: ExpectedIssuer,
+// 				ExpectedSan:    OldExpectedSan,
+// 			},
+// 		}).Verify(line)
+// 		if err == nil {
+// 			Debugf("found statement signed with old identity")
+// 			return ver.Statement, nil
+// 		}
+// 	}
 
-	Debugf("Line '%s' failed verification: %v", line, err)
+// 	Debugf("Line '%s' failed verification: %v", line, err)
 
-	// TODO: add support for 'regular' DSSEs.
+// 	// TODO: add support for 'regular' DSSEs.
 
-	return nil, fmt.Errorf("could not convert line to statement: '%s': %w", line, err)
-}
+// 	return nil, fmt.Errorf("could not convert line to statement: '%s': %w", line, err)
+// }
 
-func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]string, error) {
-	subject := GetSubjectForCommit(vsaStatement, commit)
+// GetSourceRefsForCommit returns the source branch annotations from the subject
+func GetSourceRefsForCommit(att attestation.Envelope, commit *models.Commit) ([]string, error) {
+	subject := GetSubjectForCommit(att, commit)
 	if subject == nil {
-		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", StatementToString(vsaStatement), commit)
+		return []string{}, fmt.Errorf("statement \n%v\n does not match commit %s", string(att.GetPredicate().GetData()), commit)
 	}
 	annotations := subject.GetAnnotations()
 	sourceRefs, ok := annotations.GetFields()[slsa.SourceRefsAnnotation]
@@ -82,78 +82,92 @@ func GetSourceRefsForCommit(vsaStatement *spb.Statement, commit string) ([]strin
 	return stringRefs, nil
 }
 
-type StatementMatcher func(*spb.Statement) bool
+// type StatementMatcher func(*intoto.Statement) bool
 
-func MatchesTypeAndCommit(predicateType, commit string) StatementMatcher {
-	return func(statement *spb.Statement) bool {
-		if statement.GetPredicateType() != predicateType {
-			Debugf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
-			return false
-		}
-		if !DoesSubjectIncludeCommit(statement, commit) {
-			Debugf("statement \n%v\n does not match commit %s", StatementToString(statement), commit)
-			return false
-		}
-		return true
-	}
-}
+// func MatchesTypeAndCommit(predicateType, commit string) StatementMatcher {
+// 	return func(statement *intoto.Statement) bool {
+// 		if statement.GetPredicateType() != predicateType {
+// 			Debugf("statement predicate type (%s) doesn't match %s", statement.GetPredicateType(), predicateType)
+// 			return false
+// 		}
+// 		if !DoesSubjectIncludeCommit(statement, commit) {
+// 			Debugf("statement \n%v\n does not match commit %s", StatementToString(att.GetStatement()), commit)
+// 			return false
+// 		}
+// 		return true
+// 	}
+// }
 
 // Reads all the statements that:
 // 1. Have a valid signature
 // 2. Have the specified predicate type.
 // 3. Have a subject that matches the specified git commit.
-func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*spb.Statement, error) {
-	// Read until we get a statement or end of file.
-	for {
-		line, err := br.reader.ReadString('\n')
-		if err != nil {
-			// Handle end of file gracefully
-			if !errors.Is(err, io.EOF) {
-				return nil, err
-			}
-			if line == "" {
-				// Nothing to see here.
-				break
-			}
-		}
-		if line == "\n" {
-			// skip empties
-			continue
-		}
-		statement, err := br.convertLineToStatement(line)
-		if err != nil {
-			// Ignore errors, the next line could be fine.
-			Debugf("problem converting line to statement line: '%s', error: %v", line, err)
-		}
-		if statement == nil {
-			// Not sure what this is, just continue
-			continue
-		}
-		if matcher(statement) {
-			return statement, nil
-		}
-		// If we loop again it's because that line didn't have a matching statement
-	}
-	return nil, nil
-}
+// func (br *BundleReader) ReadStatement(matcher StatementMatcher) (*intoto.Statement, error) {
+// 	// Read until we get a statement or end of file.
+// 	for {
+// 		line, err := br.reader.ReadString('\n')
+// 		if err != nil {
+// 			// Handle end of file gracefully
+// 			if !errors.Is(err, io.EOF) {
+// 				return nil, err
+// 			}
+// 			if line == "" {
+// 				// Nothing to see here.
+// 				break
+// 			}
+// 		}
+// 		if line == "\n" {
+// 			// skip empties
+// 			continue
+// 		}
+// 		statement, err := br.convertLineToStatement(line)
+// 		if err != nil {
+// 			// Ignore errors, the next line could be fine.
+// 			Debugf("problem converting line to statement line: '%s', error: %v", line, err)
+// 		}
+// 		if statement == nil {
+// 			// Not sure what this is, just continue
+// 			continue
+// 		}
+// 		if matcher(statement) {
+// 			return statement, nil
+// 		}
+// 		// If we loop again it's because that line didn't have a matching statement
+// 	}
+// 	return nil, nil
+// }
 
-func DoesSubjectIncludeCommit(statement *spb.Statement, commit string) bool {
-	return GetSubjectForCommit(statement, commit) != nil
-}
+// func DoesSubjectIncludeCommit(statement *intoto.Statement, commit string) bool {
+// 	return GetSubjectForCommit(statement, commit) != nil
+// }
 
 // Returns the _first_ subject that includes the commit.
 // TODO: add support for multiple subjects...
-func GetSubjectForCommit(statement *spb.Statement, commit string) *spb.ResourceDescriptor {
-	for _, subject := range statement.GetSubject() {
-		if subject.GetDigest()["gitCommit"] == commit {
-			return subject
+func GetSubjectForCommit(att attestation.Envelope, commit *models.Commit) *intoto.ResourceDescriptor {
+	var fromSha *intoto.ResourceDescriptor
+	for _, subject := range att.GetStatement().GetSubjects() {
+		rd, ok := subject.(*intoto.ResourceDescriptor)
+		if !ok {
+			continue
+		}
+		val, ok := rd.GetDigest()["gitCommit"]
+		if ok && val == commit.SHA {
+			return rd
+		}
+
+		val, ok = rd.GetDigest()["sha1"]
+		if rd.GetDigest()["sha1"] == commit.SHA {
+			return fromSha
 		}
 	}
-	return nil
+
+	// Prefer the gitCommit version, but if we saw a sha1 of the commit
+	// sha return the backup resource descriptor.
+	return fromSha
 }
 
 // Just make this easy for logging...
-func StatementToString(stmt *spb.Statement) string {
+func StatementToString(stmt *intoto.Statement) string {
 	if stmt == nil {
 		return "<nil>"
 	}
