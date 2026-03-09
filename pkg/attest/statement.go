@@ -155,9 +155,8 @@ func GetSubjectForCommit(att attestation.Envelope, commit *models.Commit) *intot
 			return rd
 		}
 
-		val, ok = rd.GetDigest()["sha1"]
-		if rd.GetDigest()["sha1"] == commit.SHA {
-			return fromSha
+		if val, ok = rd.GetDigest()["sha1"]; ok && val == commit.SHA {
+			fromSha = rd
 		}
 	}
 

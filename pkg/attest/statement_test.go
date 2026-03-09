@@ -70,6 +70,91 @@ func newMockEnvelope(commit string, annotation map[string]any) (attestation.Enve
 	}, nil
 }
 
+func newMockEnvelopeWithSubjects(subjects []attestation.Subject) attestation.Envelope {
+	return &mockEnvelope{
+		statement: &mockStatement{subjects: subjects},
+		predicate: &mockPredicate{data: []byte("{}")},
+	}
+}
+
+func TestGetSubjectForCommit(t *testing.T) {
+	commitSHA := "abc123"
+	commit := &models.Commit{SHA: commitSHA}
+
+	tests := []struct {
+		name     string
+		subjects []attestation.Subject
+		wantNil  bool
+	}{
+		{
+			name: "match by gitCommit",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"gitCommit": commitSHA},
+				},
+			},
+		},
+		{
+			name: "match by sha1 fallback",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"sha1": commitSHA},
+				},
+			},
+		},
+		{
+			name: "gitCommit preferred over sha1",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"sha1": commitSHA},
+					Name:   "sha1-subject",
+				},
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"gitCommit": commitSHA},
+					Name:   "gitCommit-subject",
+				},
+			},
+		},
+		{
+			name: "no match",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"gitCommit": "other"},
+				},
+			},
+			wantNil: true,
+		},
+		{
+			name:     "empty subjects",
+			subjects: nil,
+			wantNil:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newMockEnvelopeWithSubjects(tt.subjects)
+			got := GetSubjectForCommit(env, commit)
+
+			if tt.wantNil {
+				if got != nil {
+					t.Errorf("expected nil, got %v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("expected non-nil subject")
+			}
+
+			// For the "preferred" test, verify we got the gitCommit subject
+			if tt.name == "gitCommit preferred over sha1" {
+				if got.GetName() != "gitCommit-subject" {
+					t.Errorf("expected gitCommit-subject, got %s", got.GetName())
+				}
+			}
+		})
+	}
+}
+
 func stringToAnyArray(valArray []string) []any {
 	aa := make([]any, len(valArray))
 	for i := range valArray {
