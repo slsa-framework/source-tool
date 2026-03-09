@@ -148,12 +148,15 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 
 	// We need to manually check for PROVENANCE_AVAILABLE which is not
 	// handled by ghcontrol
-	attestor := attest.NewProvenanceAttestor(
-		ghc, attest.GetDefaultVerifier(),
+	attestor, err := attest.NewAttester(
+		attest.WithBackend(b), attest.WithVerifier(attest.GetDefaultVerifier()),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// Fetch the attestation. If found, then add the control:
-	attestation, _, err := attestor.GetProvenance(ctx, commit.SHA, branch.FullRef())
+	attestation, err := attestor.GetRevisionProvenance(ctx, branch, commit)
 	if err != nil {
 		return nil, fmt.Errorf("attempting to read provenance from commit %q: %w", commit.SHA, err)
 	}
@@ -355,4 +358,20 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 	default:
 		return nil
 	}
+}
+
+// GetPreviousCommit takes a commit in
+func (b *Backend) GetPreviousCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*models.Commit, error) {
+	ghx, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
+	if err != nil {
+		return nil, err
+	}
+	// TODO:IMPLEMENT
+	rawCommit, err := ghx.GetPriorCommit(ctx, commit.SHA)
+	if err != nil {
+		return nil, fmt.Errorf("fetching previous commit: %w", err)
+	}
+	return &models.Commit{
+		SHA: rawCommit,
+	}, nil
 }
