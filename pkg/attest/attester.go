@@ -13,13 +13,14 @@ import (
 	"github.com/carabiner-dev/attestation"
 	"github.com/carabiner-dev/collector"
 	intoto "github.com/in-toto/attestation/go/v1"
-	"github.com/slsa-framework/source-tool/pkg/provenance"
-	"github.com/slsa-framework/source-tool/pkg/slsa"
-	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/slsa-framework/source-tool/pkg/provenance"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type AttesterOptions struct {
@@ -97,7 +98,7 @@ func WithNotesCollector(yesno bool) optFn {
 
 // Validate checks that the attester configuration is complete
 func (a *Attester) Validate() error {
-	var errs = []error{}
+	errs := []error{}
 	if a.backend == nil {
 		errs = append(errs, errors.New("attester has no backend defined"))
 	}
@@ -147,7 +148,7 @@ func (a *Attester) createCurrentProvenance(ctx context.Context, branch *models.B
 	}
 
 	// Build the provenance predicate
-	var curProvPred = provenance.SourceProvenancePred{
+	curProvPred := provenance.SourceProvenancePred{
 		PrevCommit:   prevCommit.SHA,
 		RepoUri:      branch.Repository.GetHttpURL(),
 		ActivityType: controlStatus.ActivityType,

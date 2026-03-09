@@ -34,7 +34,6 @@ func (po *provOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&po.prevCommit, "prev_commit", "", "The commit prior to 'commit'.")
 }
 
-//nolint:dupl
 func addProv(parentCmd *cobra.Command) {
 	opts := provOptions{}
 	provCmd := &cobra.Command{

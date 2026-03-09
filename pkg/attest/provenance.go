@@ -181,7 +181,6 @@ func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, co
 
 	// None of the collected attestations are valid
 	return nil, nil, nil
-
 }
 
 // GetRevisionProvenance returns the provenance attestation for a commit by querying
@@ -247,14 +246,14 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 		return nil, fmt.Errorf("creating provenance predicate: %w", err)
 	}
 
-	//prevProvStmt, prevProvPred, err := a.GetRevisionProvenance(ctx, branch, prevCommit)
+	// prevProvStmt, prevProvPred, err := a.GetRevisionProvenance(ctx, branch, prevCommit)
 	prevProvPred, err := a.GetRevisionProvenance(ctx, branch, prevCommit)
 	if err != nil {
 		return nil, err
 	}
 
 	// No prior provenance found, so we just go with current.
-	//if prevProvStmt == nil || prevProvPred == nil {
+	// if prevProvStmt == nil || prevProvPred == nil {
 	if prevProvPred == nil {
 		Debugf("No previous provenance found, have to bootstrap\n")
 		return curProv, nil

@@ -21,7 +21,7 @@ const (
 	ActionsOrg   = "slsa-framework"
 	ActionsRepo  = "source-actions"
 	workflowPath = ".github/workflows/compute_slsa_source.yaml"
-	//workflowSource = "git+https://github.com/slsa-"
+	// workflowSource = "git+https://github.com/slsa-"
 
 	// workflowCommitMessage will be used as the commit message and the PR title
 	workflowCommitMessage = "Add SLSA Source Provenance Workflow"
