@@ -4,15 +4,13 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/slsa-framework/source-tool/pkg/attest"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 )
 
 type provOptions struct {
@@ -67,25 +65,43 @@ func addProv(parentCmd *cobra.Command) {
 			if err := opts.Validate(); err != nil {
 				return fmt.Errorf("validating options: %w", err)
 			}
-			return doProv(&opts)
+
+			authenticator, err := CheckAuth()
+			if err != nil {
+				return err
+			}
+
+			// Create a new sourcetool object
+			srctool, err := sourcetool.New(
+				sourcetool.WithAuthenticator(authenticator),
+			)
+			if err != nil {
+				return err
+			}
+
+			// var prevCommit *models.Commit
+			// if opts.prevCommit != "" {
+			// 	prevCommit = &models.Commit{SHA: opts.prevCommit}
+			// } else {
+			// 	prevCommit, err = srctool.GetPreviousCommit(cmd.Context(), opts.GetBranch(), opts.GetCommit())
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// }
+
+			// opts.prevAttPath,
+			newProv, err := srctool.Attester().CreateSourceProvenance(cmd.Context(), opts.GetBranch(), opts.GetCommit())
+			if err != nil {
+				return err
+			}
+			provStr, err := protojson.Marshal(newProv)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(provStr))
+			return nil
 		},
 	}
 	opts.AddFlags(provCmd)
 	parentCmd.AddCommand(provCmd)
-}
-
-func doProv(opts *provOptions) error {
-	ghconnection := ghcontrol.NewGhConnection(opts.owner, opts.repository, ghcontrol.BranchToFullRef(opts.branch)).WithAuthToken(githubToken)
-	ctx := context.Background()
-	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier(&opts.verifierOptions))
-	newProv, err := pa.CreateSourceProvenance(ctx, opts.prevAttPath, opts.commit, opts.prevCommit, ghconnection.GetFullRef())
-	if err != nil {
-		return err
-	}
-	provStr, err := protojson.Marshal(newProv)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(provStr))
-	return nil
 }

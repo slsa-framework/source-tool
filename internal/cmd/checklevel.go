@@ -104,11 +104,7 @@ This is meant to be run within the corresponding GitHub Actions workflow.`,
 			}
 
 			unsignedVsa, err := attest.CreateUnsignedSourceVsa(
-				opts.GetRepository().GetHttpURL(),
-				opts.GetBranch().FullRef(),
-				opts.commit,
-				verifiedLevels,
-				policyPath,
+				opts.GetBranch(), opts.GetCommit(), verifiedLevels, policyPath,
 			)
 			if err != nil {
 				return err

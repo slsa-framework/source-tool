@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -21,9 +20,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/slsa-framework/source-tool/pkg/attest"
-	"github.com/slsa-framework/source-tool/pkg/auth"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
 	"github.com/slsa-framework/source-tool/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 )
 
 type pushOptions struct {
@@ -184,130 +182,141 @@ and pushed to its remote (--push=note).
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doCheckLevelProv(opts)
+			authenticator, err := CheckAuth()
+			if err != nil {
+				return err
+			}
+
+			t, err := authenticator.ReadToken()
+			if err != nil {
+				return err
+			}
+
+			// Create a new sourcetool object
+			srctool, err := sourcetool.New(
+				sourcetool.WithAuthenticator(authenticator),
+			)
+			if err != nil {
+				return err
+			}
+
+			// TODO: Esto donde lo metemos
+			// ghconnection.Options.AllowMergeCommits = opts.allowMergeCommits
+
+			// var prevCommit *models.Commit
+			// if opts.prevCommit != "" {
+			// 	prevCommit = &models.Commit{SHA: opts.prevCommit}
+			// } else {
+			// 	prevCommit, err = srctool.GetPreviousCommit(cmd.Context(), opts.GetBranch(), opts.GetCommit())
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// }
+
+			// Create the provenance attestation
+			prov, err := srctool.Attester().CreateSourceProvenance(
+				cmd.Context(), opts.GetBranch(), opts.GetCommit(),
+			)
+			if err != nil {
+				return err
+			}
+
+			// check p against policy
+			pe := policy.NewPolicyEvaluator()
+			pe.UseLocalPolicy = opts.useLocalPolicy
+			verifiedLevels, policyPath, err := pe.EvaluateSourceProv(cmd.Context(), opts.GetRepository(), opts.GetBranch(), prov)
+			if err != nil {
+				return err
+			}
+
+			// create vsa
+			unsignedVsa, err := attest.CreateUnsignedSourceVsa(
+				opts.GetBranch(), opts.GetCommit(), verifiedLevels, policyPath,
+			)
+			if err != nil {
+				return err
+			}
+
+			unsignedProv, err := protojson.Marshal(prov)
+			if err != nil {
+				return err
+			}
+
+			// Store both the unsigned provenance and vsa
+			switch {
+			case opts.outputUnsignedBundle != "":
+				f, err := os.OpenFile(opts.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
+				if err != nil {
+					return err
+				}
+				defer f.Close() //nolint:errcheck
+
+				if _, err := f.WriteString(string(unsignedProv) + "\n" + unsignedVsa + "\n"); err != nil {
+					return fmt.Errorf("writing signed bundle: %w", err)
+				}
+			case opts.outputSignedBundle != "" || len(opts.pushLocation) > 0:
+				var f *os.File
+				if opts.outputSignedBundle != "" {
+					f, err = os.OpenFile(opts.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
+					if err != nil {
+						return err
+					}
+				}
+				defer func() {
+					if f != nil {
+						f.Close() //nolint:errcheck,gosec
+					}
+				}()
+
+				signedProv, err := attest.Sign(string(unsignedProv))
+				if err != nil {
+					return err
+				}
+
+				signedVsa, err := attest.Sign(unsignedVsa)
+				if err != nil {
+					return err
+				}
+
+				// If a file was specified, write the attestations
+				if f != nil {
+					if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
+						return fmt.Errorf("writing bundle data: %w", err)
+					}
+				}
+
+				cl, err := opts.GetCollectorAgent(opts.commitOptions, t)
+				if err != nil {
+					return fmt.Errorf("creating storage repositories: %w", err)
+				}
+
+				// If there are any storage repositories configured, push the attestations
+				if cl != nil {
+					// Parse the attestations into envelopes
+					envProv, err := envelope.Parsers.Parse(strings.NewReader(signedProv))
+					if err != nil || len(envProv) == 0 {
+						return fmt.Errorf("parsing provenance: %w", err)
+					}
+					envVsa, err := envelope.Parsers.Parse(strings.NewReader(signedVsa))
+					if err != nil || len(envVsa) == 0 {
+						return fmt.Errorf("parsing VSA: %w", err)
+					}
+
+					// And store them
+					err = cl.Store(cmd.Context(), []attestation.Envelope{envProv[0], envVsa[0]})
+					if err != nil {
+						return fmt.Errorf("storing attestations: %w", err)
+					}
+				}
+			default:
+				log.Printf("unsigned prov: %s\n", unsignedProv)
+				log.Printf("unsigned vsa: %s\n", unsignedVsa)
+			}
+			fmt.Print(verifiedLevels)
+			return nil
 		},
 	}
 
 	opts.AddFlags(checklevelprovCmd)
 	parentCmd.AddCommand(checklevelprovCmd)
-}
-
-func doCheckLevelProv(checkLevelProvArgs *checkLevelProvOpts) error {
-	t := githubToken
-	var err error
-	if t == "" {
-		t, err = auth.New().ReadToken()
-		if err != nil {
-			return err
-		}
-	}
-	ghconnection := ghcontrol.NewGhConnection(checkLevelProvArgs.owner, checkLevelProvArgs.repository, ghcontrol.BranchToFullRef(checkLevelProvArgs.branch)).WithAuthToken(t)
-	ghconnection.Options.AllowMergeCommits = checkLevelProvArgs.allowMergeCommits
-	ctx := context.Background()
-
-	prevCommit := checkLevelProvArgs.prevCommit
-	if prevCommit == "" {
-		prevCommit, err = ghconnection.GetPriorCommit(ctx, checkLevelProvArgs.commit)
-		if err != nil {
-			return err
-		}
-	}
-
-	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier(&checkLevelProvArgs.verifierOptions))
-	prov, err := pa.CreateSourceProvenance(ctx, checkLevelProvArgs.prevBundlePath, checkLevelProvArgs.commit, prevCommit, ghconnection.GetFullRef())
-	if err != nil {
-		return err
-	}
-
-	// check p against policy
-	pe := policy.NewPolicyEvaluator()
-	pe.UseLocalPolicy = checkLevelProvArgs.useLocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, checkLevelProvArgs.GetRepository(), checkLevelProvArgs.GetBranch(), prov)
-	if err != nil {
-		return err
-	}
-
-	// create vsa
-	unsignedVsa, err := attest.CreateUnsignedSourceVsa(ghconnection.GetRepoUri(), ghconnection.GetFullRef(), checkLevelProvArgs.commit, verifiedLevels, policyPath)
-	if err != nil {
-		return err
-	}
-
-	unsignedProv, err := protojson.Marshal(prov)
-	if err != nil {
-		return err
-	}
-
-	// Store both the unsigned provenance and vsa
-	switch {
-	case checkLevelProvArgs.outputUnsignedBundle != "":
-		f, err := os.OpenFile(checkLevelProvArgs.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
-		if err != nil {
-			return err
-		}
-		defer f.Close() //nolint:errcheck
-
-		if _, err := f.WriteString(string(unsignedProv) + "\n" + unsignedVsa + "\n"); err != nil {
-			return fmt.Errorf("writing signed bundle: %w", err)
-		}
-	case checkLevelProvArgs.outputSignedBundle != "" || len(checkLevelProvArgs.pushLocation) > 0:
-		var f *os.File
-		if checkLevelProvArgs.outputSignedBundle != "" {
-			f, err = os.OpenFile(checkLevelProvArgs.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
-			if err != nil {
-				return err
-			}
-		}
-		defer func() {
-			if f != nil {
-				f.Close() //nolint:errcheck,gosec
-			}
-		}()
-
-		signedProv, err := attest.Sign(string(unsignedProv))
-		if err != nil {
-			return err
-		}
-
-		signedVsa, err := attest.Sign(unsignedVsa)
-		if err != nil {
-			return err
-		}
-
-		// If a file was specified, write the attestations
-		if f != nil {
-			if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
-				return fmt.Errorf("writing bundle data: %w", err)
-			}
-		}
-
-		cl, err := checkLevelProvArgs.GetCollectorAgent(checkLevelProvArgs.commitOptions, t)
-		if err != nil {
-			return fmt.Errorf("creating storage repositories: %w", err)
-		}
-
-		// If there are any storage repositories configured, push the attestations
-		if cl != nil {
-			// Parse the attestations into envelopes
-			envProv, err := envelope.Parsers.Parse(strings.NewReader(signedProv))
-			if err != nil || len(envProv) == 0 {
-				return fmt.Errorf("parsing provenance: %w", err)
-			}
-			envVsa, err := envelope.Parsers.Parse(strings.NewReader(signedVsa))
-			if err != nil || len(envVsa) == 0 {
-				return fmt.Errorf("parsing VSA: %w", err)
-			}
-
-			// And store them
-			err = cl.Store(ctx, []attestation.Envelope{envProv[0], envVsa[0]})
-			if err != nil {
-				return fmt.Errorf("storing attestations: %w", err)
-			}
-		}
-	default:
-		log.Printf("unsigned prov: %s\n", unsignedProv)
-		log.Printf("unsigned vsa: %s\n", unsignedVsa)
-	}
-	fmt.Print(verifiedLevels)
-	return nil
 }

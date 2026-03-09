@@ -210,6 +210,12 @@ func (co *commitOptions) EnsureDefaults() error {
 	return nil
 }
 
+func (co *commitOptions) GetCommit() *models.Commit {
+	return &models.Commit{
+		SHA: co.commit,
+	}
+}
+
 type verifierOptions struct {
 	expectedIssuer string
 	expectedSan    string
