@@ -80,6 +80,7 @@ This is meant to be run within the corresponding GitHub Actions workflow.`,
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
 			)
 			if err != nil {
 				return err

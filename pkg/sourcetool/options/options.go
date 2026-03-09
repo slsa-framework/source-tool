@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/slsa-framework/source-tool/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type Options struct {
@@ -26,6 +27,8 @@ type Options struct {
 
 	// Initialize Dynamic notes collector
 	InitNotesCollector bool
+
+	models.BackendOptions
 }
 
 // DefaultOptions holds the default options the tool initializes with

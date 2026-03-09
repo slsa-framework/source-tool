@@ -32,7 +32,7 @@ var ControlConfigurations = []models.ControlConfiguration{
 func New(funcs ...ConfigFn) (*Tool, error) {
 	t := &Tool{
 		Options: options.Default,
-		backend: github.New(), // For now this is fixed to the github backend
+		backend: github.New(&options.Default.BackendOptions), // For now this is fixed to the github backend
 		impl:    &defaultToolImplementation{},
 	}
 
@@ -40,6 +40,11 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 		if err := f(t); err != nil {
 			return nil, err
 		}
+	}
+
+	// Propagate options to the backend
+	if ghBackend, ok := t.backend.(*github.Backend); ok {
+		ghBackend.Options.AllowMergeCommits = t.Options.AllowMergeCommits
 	}
 
 	// Create the tool's attester

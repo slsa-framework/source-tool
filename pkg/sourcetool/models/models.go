@@ -49,6 +49,11 @@ type VcsBackend interface {
 	GetPreviousCommit(context.Context, *Branch, *Commit) (*Commit, error)
 }
 
+type BackendOptions struct {
+	AllowMergeCommits bool
+	DriverOptions     any
+}
+
 // ControlPreRemediation is a function returned by the VCS backends
 // when checking for prerequisites that the user may optionally run
 type ControlPreRemediationFn func() (string, error)

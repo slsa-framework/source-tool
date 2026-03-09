@@ -62,3 +62,10 @@ func WithPolicyRepo(slug string) ConfigFn {
 		return nil
 	}
 }
+
+func WithAllowMergeCommits(allow bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.AllowMergeCommits = allow
+		return nil
+	}
+}

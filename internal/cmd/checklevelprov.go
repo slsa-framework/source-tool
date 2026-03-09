@@ -195,13 +195,11 @@ and pushed to its remote (--push=note).
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
 			)
 			if err != nil {
 				return err
 			}
-
-			// TODO: Esto donde lo metemos
-			// ghconnection.Options.AllowMergeCommits = opts.allowMergeCommits
 
 			// var prevCommit *models.Commit
 			// if opts.prevCommit != "" {

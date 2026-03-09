@@ -66,10 +66,10 @@ var InherentControls = slsa.ControlNameSet{
 	// slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 }
 
-func New() *Backend {
+func New(options *models.BackendOptions) *Backend {
 	return &Backend{
 		authenticator: auth.New(),
-		Options:       Options{UseFork: true},
+		Options:       options,
 	}
 }
 
@@ -80,7 +80,7 @@ type Options struct {
 // Backend implemets the GitHub sourcetool backend
 type Backend struct {
 	authenticator *auth.Authenticator
-	Options       Options
+	Options       *models.BackendOptions
 }
 
 // getGitHubConnection builds a github connector to a repository
@@ -103,7 +103,9 @@ func (b *Backend) getGitHubConnection(repository *models.Repository, ref string)
 		return nil, err
 	}
 
-	return ghcontrol.NewGhConnectionWithClient(owner, name, ref, client), nil
+	ghc := ghcontrol.NewGhConnectionWithClient(owner, name, ref, client)
+	ghc.Options.AllowMergeCommits = b.Options.AllowMergeCommits
+	return ghc, nil
 }
 
 func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSet, error) {
