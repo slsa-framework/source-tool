@@ -98,6 +98,21 @@ type FakeVcsBackend struct {
 		result1 *models.Commit
 		result2 error
 	}
+	GetPreviousCommitStub        func(context.Context, *models.Branch, *models.Commit) (*models.Commit, error)
+	getPreviousCommitMutex       sync.RWMutex
+	getPreviousCommitArgsForCall []struct {
+		arg1 context.Context
+		arg2 *models.Branch
+		arg3 *models.Commit
+	}
+	getPreviousCommitReturns struct {
+		result1 *models.Commit
+		result2 error
+	}
+	getPreviousCommitReturnsOnCall map[int]struct {
+		result1 *models.Commit
+		result2 error
+	}
 	GetTagControlsStub        func(context.Context, *models.Tag) (*slsa.ControlSet, error)
 	getTagControlsMutex       sync.RWMutex
 	getTagControlsArgsForCall []struct {
@@ -520,6 +535,72 @@ func (fake *FakeVcsBackend) GetLatestCommitReturnsOnCall(i int, result1 *models.
 		})
 	}
 	fake.getLatestCommitReturnsOnCall[i] = struct {
+		result1 *models.Commit
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeVcsBackend) GetPreviousCommit(arg1 context.Context, arg2 *models.Branch, arg3 *models.Commit) (*models.Commit, error) {
+	fake.getPreviousCommitMutex.Lock()
+	ret, specificReturn := fake.getPreviousCommitReturnsOnCall[len(fake.getPreviousCommitArgsForCall)]
+	fake.getPreviousCommitArgsForCall = append(fake.getPreviousCommitArgsForCall, struct {
+		arg1 context.Context
+		arg2 *models.Branch
+		arg3 *models.Commit
+	}{arg1, arg2, arg3})
+	stub := fake.GetPreviousCommitStub
+	fakeReturns := fake.getPreviousCommitReturns
+	fake.recordInvocation("GetPreviousCommit", []interface{}{arg1, arg2, arg3})
+	fake.getPreviousCommitMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeVcsBackend) GetPreviousCommitCallCount() int {
+	fake.getPreviousCommitMutex.RLock()
+	defer fake.getPreviousCommitMutex.RUnlock()
+	return len(fake.getPreviousCommitArgsForCall)
+}
+
+func (fake *FakeVcsBackend) GetPreviousCommitCalls(stub func(context.Context, *models.Branch, *models.Commit) (*models.Commit, error)) {
+	fake.getPreviousCommitMutex.Lock()
+	defer fake.getPreviousCommitMutex.Unlock()
+	fake.GetPreviousCommitStub = stub
+}
+
+func (fake *FakeVcsBackend) GetPreviousCommitArgsForCall(i int) (context.Context, *models.Branch, *models.Commit) {
+	fake.getPreviousCommitMutex.RLock()
+	defer fake.getPreviousCommitMutex.RUnlock()
+	argsForCall := fake.getPreviousCommitArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeVcsBackend) GetPreviousCommitReturns(result1 *models.Commit, result2 error) {
+	fake.getPreviousCommitMutex.Lock()
+	defer fake.getPreviousCommitMutex.Unlock()
+	fake.GetPreviousCommitStub = nil
+	fake.getPreviousCommitReturns = struct {
+		result1 *models.Commit
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeVcsBackend) GetPreviousCommitReturnsOnCall(i int, result1 *models.Commit, result2 error) {
+	fake.getPreviousCommitMutex.Lock()
+	defer fake.getPreviousCommitMutex.Unlock()
+	fake.GetPreviousCommitStub = nil
+	if fake.getPreviousCommitReturnsOnCall == nil {
+		fake.getPreviousCommitReturnsOnCall = make(map[int]struct {
+			result1 *models.Commit
+			result2 error
+		})
+	}
+	fake.getPreviousCommitReturnsOnCall[i] = struct {
 		result1 *models.Commit
 		result2 error
 	}{result1, result2}

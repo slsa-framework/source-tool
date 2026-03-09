@@ -11,6 +11,20 @@ import (
 
 type ConfigFn func(*Tool) error
 
+func WithGithubCollector(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitGHCollector = yesno
+		return nil
+	}
+}
+
+func WithNotesCollector(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitNotesCollector = yesno
+		return nil
+	}
+}
+
 func WithAuthenticator(a *auth.Authenticator) ConfigFn {
 	return func(t *Tool) error {
 		if a == nil {

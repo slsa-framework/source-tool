@@ -98,7 +98,6 @@ func TestConfigureControls(t *testing.T) {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
 				i.GetVcsBackendReturns(&modelsfakes.FakeVcsBackend{}, nil)
-				i.GetAttestationReaderReturns(&modelsfakes.FakeAttestationStorageReader{}, nil)
 				i.CreatePolicyPRReturns(nil, syntErr)
 				return i
 			},

@@ -15,9 +15,11 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/policy"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/backends/vcs/github"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/options"
 )
@@ -30,6 +32,7 @@ var ControlConfigurations = []models.ControlConfiguration{
 func New(funcs ...ConfigFn) (*Tool, error) {
 	t := &Tool{
 		Options: options.Default,
+		backend: github.New(), // For now this is fixed to the github backend
 		impl:    &defaultToolImplementation{},
 	}
 
@@ -39,6 +42,19 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 		}
 	}
 
+	// Create the tool's attester
+	attester, err := attest.NewAttester(
+		attest.WithVerifier(attest.GetDefaultVerifier()),
+		attest.WithBackend(t.backend),
+		attest.WithGithubCollector(t.Options.InitGHCollector),
+		attest.WithNotesCollector(t.Options.InitNotesCollector),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating attester: %w", err)
+	}
+
+	t.attester = attester
+
 	return t, nil
 }
 
@@ -47,6 +63,8 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 // we want to slowly move it to public function under this struct.
 type Tool struct {
 	Authenticator *auth.Authenticator
+	attester      *attest.Attester
+	backend       models.VcsBackend
 	Options       options.Options
 	impl          toolImplementation
 }
@@ -57,14 +75,9 @@ func (t *Tool) GetBranchControls(ctx context.Context, branch *models.Branch) (*s
 		return nil, fmt.Errorf("repositoryu not specified in branch")
 	}
 
-	backend, err := t.impl.GetVcsBackend(branch.Repository)
-	if err != nil {
-		return nil, fmt.Errorf("getting VCS backend: %w", err)
-	}
-
 	// Get the control status in the branch. Backends are expected to
 	// return the full SLSA Source control catalog
-	controls, err := t.impl.GetBranchControls(ctx, backend, branch)
+	controls, err := t.impl.GetBranchControls(ctx, t.backend, branch)
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
@@ -86,14 +99,9 @@ func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Bra
 		return nil, fmt.Errorf("repositoryu not specified in branch")
 	}
 
-	backend, err := t.impl.GetVcsBackend(branch.Repository)
-	if err != nil {
-		return nil, fmt.Errorf("getting VCS backend: %w", err)
-	}
-
 	// Get the control status in the branch. Backends are expected to
 	// return the full SLSA Source control catalog
-	controls, err := t.impl.GetBranchControlsAtCommit(ctx, backend, branch, commit)
+	controls, err := t.impl.GetBranchControlsAtCommit(ctx, t.backend, branch, commit)
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
@@ -112,16 +120,11 @@ func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Bra
 // OnboardRepository configures a repository to set up the required controls
 // to meet SLSA Source L3.
 func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, branches []*models.Branch) error {
-	backend, err := t.impl.GetVcsBackend(repo)
-	if err != nil {
-		return fmt.Errorf("getting VCS backend: %w", err)
-	}
-
 	if err := t.impl.VerifyOptionsForFullOnboard(t.Authenticator, &t.Options); err != nil {
 		return fmt.Errorf("verifying options: %w", err)
 	}
 
-	if err := backend.ConfigureControls(
+	if err := t.backend.ConfigureControls(
 		repo, branches, []models.ControlConfiguration{
 			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,
 		},
@@ -134,11 +137,6 @@ func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, b
 
 // ConfigureControls sets up a control in the repo
 func (t *Tool) ConfigureControls(ctx context.Context, repo *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
-	backend, err := t.impl.GetVcsBackend(repo)
-	if err != nil {
-		return fmt.Errorf("getting VCS backend: %w", err)
-	}
-
 	// The policy configuration is not handled by the backend
 	if slices.Contains(configs, models.CONFIG_POLICY) {
 		if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
@@ -156,17 +154,12 @@ func (t *Tool) ConfigureControls(ctx context.Context, repo *models.Repository, b
 		}
 	}
 
-	return t.impl.ConfigureControls(backend, repo, branches, configs)
+	return t.impl.ConfigureControls(t.backend, repo, branches, configs)
 }
 
 // ControlConfigurationDescr returns a description of the controls
 func (t *Tool) ControlConfigurationDescr(branch *models.Branch, config models.ControlConfiguration) string {
-	backend, err := t.impl.GetVcsBackend(branch.Repository)
-	if err != nil {
-		return ""
-	}
-
-	return backend.ControlConfigurationDescr(branch, config)
+	return t.backend.ControlConfigurationDescr(branch, config)
 }
 
 func (t *Tool) FindPolicyPR(ctx context.Context, repo *models.Repository) (*models.PullRequest, error) {
@@ -213,12 +206,8 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 	if branches == nil {
 		return nil, errors.New("no branches defined")
 	}
-	backend, err := t.impl.GetVcsBackend(r)
-	if err != nil {
-		return nil, fmt.Errorf("getting backend: %w", err)
-	}
 
-	controls, err := t.impl.GetBranchControls(ctx, backend, branches[0])
+	controls, err := t.impl.GetBranchControls(ctx, t.backend, branches[0])
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
@@ -313,10 +302,15 @@ func (t *Tool) CreatePolicyRepoFork(ctx context.Context) error {
 func (t *Tool) ControlPrecheck(
 	_ context.Context, r *models.Repository, branches []*models.Branch, config models.ControlConfiguration,
 ) (ok bool, remediationMessage string, remediateFn models.ControlPreRemediationFn, err error) {
-	backend, err := t.impl.GetVcsBackend(r)
-	if err != nil {
-		return false, "", nil, fmt.Errorf("getting VCS backend: %w", err)
-	}
+	return t.backend.ControlPrecheck(r, branches, config)
+}
 
-	return backend.ControlPrecheck(r, branches, config)
+// Attester returns an attester object with the tool configuration
+func (t *Tool) Attester() *attest.Attester {
+	return t.attester
+}
+
+// GetPreviousCommit returns the previous commit of the passed commit
+func (t *Tool) GetPreviousCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*models.Commit, error) {
+	return t.backend.GetPreviousCommit(ctx, branch, commit)
 }

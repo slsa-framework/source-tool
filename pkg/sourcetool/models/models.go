@@ -46,6 +46,7 @@ type VcsBackend interface {
 	ConfigureControls(*Repository, []*Branch, []ControlConfiguration) error
 	GetLatestCommit(context.Context, *Repository, *Branch) (*Commit, error)
 	ControlPrecheck(*Repository, []*Branch, ControlConfiguration) (bool, string, ControlPreRemediationFn, error)
+	GetPreviousCommit(context.Context, *Branch, *Commit) (*Commit, error)
 }
 
 // ControlPreRemediation is a function returned by the VCS backends
@@ -66,6 +67,14 @@ type Commit struct {
 	Author  string
 	Time    *time.Time
 	Message string
+}
+
+func (c *Commit) ToResourceDescriptor() *attestation.ResourceDescriptor {
+	return &attestation.ResourceDescriptor{
+		Digest: map[string]string{
+			"sha1": c.SHA, "gitCommit": c.SHA,
+		},
+	}
 }
 
 type Branch struct {

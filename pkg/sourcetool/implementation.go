@@ -20,8 +20,6 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/repo"
 	roptions "github.com/slsa-framework/source-tool/pkg/repo/options"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
-	"github.com/slsa-framework/source-tool/pkg/sourcetool/backends/attestation/notes"
-	ghbackend "github.com/slsa-framework/source-tool/pkg/sourcetool/backends/vcs/github"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/options"
 )
@@ -35,8 +33,6 @@ type toolImplementation interface {
 	CreatePolicyPR(*auth.Authenticator, *options.Options, *models.Repository, *policy.RepoPolicy) (*models.PullRequest, error)
 	CheckForks(*options.Options) error
 	SearchPullRequest(context.Context, *auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
-	GetVcsBackend(*models.Repository) (models.VcsBackend, error)
-	GetAttestationReader(*models.Repository) (models.AttestationStorageReader, error)
 	GetBranchControls(context.Context, models.VcsBackend, *models.Branch) (*slsa.ControlSet, error)
 	GetBranchControlsAtCommit(context.Context, models.VcsBackend, *models.Branch, *models.Commit) (*slsa.ControlSet, error)
 	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
@@ -63,18 +59,6 @@ func (impl *defaultToolImplementation) GetBranchControlsAtCommit(
 	ctx context.Context, backend models.VcsBackend, branch *models.Branch, commit *models.Commit,
 ) (*slsa.ControlSet, error) {
 	return backend.GetBranchControlsAtCommit(ctx, branch, commit)
-}
-
-// GetAttestationReader returns the att reader object
-func (impl *defaultToolImplementation) GetAttestationReader(_ *models.Repository) (models.AttestationStorageReader, error) {
-	// We only have the notes backend for now
-	return notes.New(), nil
-}
-
-// GetVcsBackend returns the VCS backend to handle the repository defined in the options
-func (impl *defaultToolImplementation) GetVcsBackend(*models.Repository) (models.VcsBackend, error) {
-	// for now we only support github, so there
-	return ghbackend.New(), nil
 }
 
 // VerifyOptions checks options are in good shape to run
