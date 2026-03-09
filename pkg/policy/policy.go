@@ -27,7 +27,6 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
 	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
-	"github.com/slsa-framework/source-tool/pkg/sourcetool/backends/attestation/notes"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
@@ -537,10 +536,6 @@ type PolicyEvaluator struct {
 
 func NewPolicyEvaluator() *PolicyEvaluator {
 	eval := &PolicyEvaluator{}
-	// TODO(puerco): Implement functional opts to reuse clients
-	if eval.reader == nil {
-		eval.reader = notes.New()
-	}
 
 	if eval.authenticator == nil {
 		eval.authenticator = auth.New()
