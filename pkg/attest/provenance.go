@@ -13,6 +13,8 @@ import (
 	"github.com/carabiner-dev/attestation"
 	"github.com/carabiner-dev/collector"
 	"github.com/carabiner-dev/collector/filters"
+	"github.com/carabiner-dev/collector/repository/github"
+	"github.com/carabiner-dev/collector/repository/note"
 	vsa "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	intoto "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -86,14 +88,38 @@ func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error)
 		return nil, err
 	}
 
+	var token string
+	if a.Options.InitNotesCollector || a.Options.InitGHCollector {
+		token, err = a.authenticator.ReadToken()
+		if err != nil {
+			return nil, fmt.Errorf("fetching token from authenticator: %w", err)
+		}
+	}
+
+	// These two require the authenticator token
 	if a.Options.InitNotesCollector {
-		if err := agent.AddRepositoryFromString(fmt.Sprintf("dnote:%s", branch.Repository.GetHttpURL())); err != nil {
+		repo, err := note.NewDynamic(
+			note.DynamicRepoURL(fmt.Sprintf("dnote:%s", branch.Repository.GetHttpURL())),
+			note.WithHttpAuth("github", token),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating notes collector: %w", err)
+		}
+
+		if err := agent.AddRepository(repo); err != nil {
 			return nil, err
 		}
 	}
 
 	if a.Options.InitGHCollector {
-		if err := agent.AddRepositoryFromString(fmt.Sprintf("github:%s", branch.Repository.Path)); err != nil {
+		repo, err := github.New(
+			github.WithRepo(branch.Repository.Path),
+			github.WithToken(token),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating github collector: %w", err)
+		}
+		if err := agent.AddRepository(repo); err != nil {
 			return nil, err
 		}
 	}

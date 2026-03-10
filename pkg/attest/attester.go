@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/carabiner-dev/attestation"
-	"github.com/carabiner-dev/collector"
 	intoto "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
@@ -40,11 +40,11 @@ var defaultAttesterOptions = AttesterOptions{
 }
 
 type Attester struct {
-	verifier  Verifier
-	backend   models.VcsBackend
-	Options   AttesterOptions
-	collector *collector.Agent
-	storer    attestation.Storer
+	verifier      Verifier
+	backend       models.VcsBackend
+	Options       AttesterOptions
+	storer        attestation.Storer
+	authenticator *auth.Authenticator
 }
 
 type optFn func(*Attester) error
@@ -64,6 +64,13 @@ func WithRepository(repos ...string) optFn {
 func WithRetries(r uint8) optFn {
 	return func(a *Attester) error {
 		a.Options.Retries = r
+		return nil
+	}
+}
+
+func WithAuthenticator(athn *auth.Authenticator) optFn {
+	return func(a *Attester) error {
+		a.authenticator = athn
 		return nil
 	}
 }

@@ -42,10 +42,10 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 		}
 	}
 
-	// Propagate options to the backend
-	if ghBackend, ok := t.backend.(*github.Backend); ok {
-		ghBackend.Options.AllowMergeCommits = t.Options.AllowMergeCommits
-	}
+	// // Propagate options to the backend
+	// if ghBackend, ok := t.backend.(*github.Backend); ok {
+	// 	ghBackend.Options.AllowMergeCommits = t.Options.AllowMergeCommits
+	// }
 
 	// Create the tool's attester
 	attester, err := attest.NewAttester(
@@ -53,6 +53,7 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 		attest.WithBackend(t.backend),
 		attest.WithGithubCollector(t.Options.InitGHCollector),
 		attest.WithNotesCollector(t.Options.InitNotesCollector),
+		attest.WithAuthenticator(t.Authenticator),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating attester: %w", err)

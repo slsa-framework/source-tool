@@ -168,13 +168,13 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		// it > 0 (unix origin)
 		var t *time.Time
 		if ctrl := attestation.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE.String()); ctrl != nil {
-			if ctrl.Since != nil && ctrl.Since.AsTime().Unix() != 0 {
-				rt := ctrl.Since.AsTime()
+			if ctrl.GetSince() != nil && ctrl.GetSince().AsTime().Unix() != 0 {
+				rt := ctrl.GetSince().AsTime()
 				t = &rt
 			}
 		} else if ctrl := attestation.GetControl(slsa.DEPRECATED_ProvenanceAvailable.String()); ctrl != nil {
-			if ctrl.Since != nil && ctrl.Since.AsTime().Unix() != 0 {
-				rt := ctrl.Since.AsTime()
+			if ctrl.GetSince() != nil && ctrl.GetSince().AsTime().Unix() != 0 {
+				rt := ctrl.GetSince().AsTime()
 				t = &rt
 			}
 		}
