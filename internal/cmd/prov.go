@@ -78,17 +78,6 @@ func addProv(parentCmd *cobra.Command) {
 				return err
 			}
 
-			// var prevCommit *models.Commit
-			// if opts.prevCommit != "" {
-			// 	prevCommit = &models.Commit{SHA: opts.prevCommit}
-			// } else {
-			// 	prevCommit, err = srctool.GetPreviousCommit(cmd.Context(), opts.GetBranch(), opts.GetCommit())
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// }
-
-			// opts.prevAttPath,
 			newProv, err := srctool.Attester().CreateSourceProvenance(cmd.Context(), opts.GetBranch(), opts.GetCommit())
 			if err != nil {
 				return err

@@ -103,11 +103,9 @@ func addVerifyCommit(cmd *cobra.Command) {
 			var refName string
 			switch {
 			case opts.branch != "":
-				// ref = ghcontrol.BranchToFullRef(opts.branch)
 				refType = "branch"
 				refName = opts.branch
 			case opts.tag != "":
-				// ref = ghcontrol.TagToFullRef(opts.tag)
 				refType = "tag"
 				refName = opts.tag
 			default:

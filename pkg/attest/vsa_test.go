@@ -14,6 +14,7 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
+//nolint:unparam
 func newTestBranch(hostname, path, branchName string) *models.Branch {
 	return &models.Branch{
 		Name: branchName,

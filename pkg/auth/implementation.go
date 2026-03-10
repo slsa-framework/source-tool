@@ -100,7 +100,7 @@ func (di *defaultImplementation) checkTokenStatus(ctx context.Context, deviceCod
 // device authorization webpage.
 func (di *defaultImplementation) openBrowser(authURL string) error {
 	var cmd string
-	var args []string
+	var args []string //nolint:prealloc
 
 	switch runtime.GOOS {
 	case "windows":

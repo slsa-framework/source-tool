@@ -44,8 +44,8 @@ type AuditCommitResult struct {
 	VsaPred  *vpb.VerificationSummary
 	ProvPred *provenance.SourceProvenancePred
 	// The previous commit reported by the VCS backend.
-	PriorCommit    string
-	ControlStatus  *slsa.ControlSet
+	PriorCommit   string
+	ControlStatus *slsa.ControlSet
 }
 
 func (ar *AuditCommitResult) IsGood() bool {

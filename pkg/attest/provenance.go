@@ -164,7 +164,7 @@ func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, co
 		time.Sleep(time.Duration(i*5) * time.Second)
 	}
 	if attErr != nil {
-		return nil, nil, fmt.Errorf("fetching attestations: %w", err)
+		return nil, nil, fmt.Errorf("fetching attestations: %w", attErr)
 	}
 
 	if len(atts) == 0 {
@@ -272,7 +272,6 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 		return nil, fmt.Errorf("creating provenance predicate: %w", err)
 	}
 
-	// prevProvStmt, prevProvPred, err := a.GetRevisionProvenance(ctx, branch, prevCommit)
 	prevProvPred, err := a.GetRevisionProvenance(ctx, branch, prevCommit)
 	if err != nil {
 		return nil, err
