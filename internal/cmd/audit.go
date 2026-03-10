@@ -9,9 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/audit"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 )
 
@@ -74,9 +72,9 @@ type AuditCommitResultJSON struct {
 	VerifiedLevels    []string    `json:"verified_levels,omitempty"`
 	PrevCommitMatches *bool       `json:"prev_commit_matches,omitempty"`
 	ProvControls      interface{} `json:"prov_controls,omitempty"`
-	GhControls        interface{} `json:"gh_controls,omitempty"`
+	Controls          interface{} `json:"controls,omitempty"`
 	PrevCommit        string      `json:"prev_commit,omitempty"`
-	GhPriorCommit     string      `json:"gh_prior_commit,omitempty"`
+	PriorCommit       string      `json:"prior_commit,omitempty"`
 	Link              string      `json:"link,omitempty"`
 	Error             string      `json:"error,omitempty"`
 }
@@ -168,13 +166,12 @@ Future:
 				return err
 			}
 
-			ghc := ghcontrol.NewGhConnection(opts.owner, opts.repository, ghcontrol.BranchToFullRef(opts.branch)).WithAuthToken(githubToken)
-
-			auditor := audit.NewAuditor(ghc, srctool.Attester(), attest.GetDefaultVerifier())
-
-			latestCommit, err := ghc.GetLatestCommit(cmd.Context(), opts.branch)
+			auditor, err := audit.NewAuditor(
+				audit.WithAttester(srctool.Attester()),
+				audit.WithBackend(srctool.Backend()),
+			)
 			if err != nil {
-				return fmt.Errorf("could not get latest commit for %s", opts.branch)
+				return err
 			}
 
 			// Initialize JSON result structure if needed
@@ -184,12 +181,10 @@ Future:
 					Owner:         opts.owner,
 					Repository:    opts.repository,
 					Branch:        opts.branch,
-					LatestCommit:  latestCommit,
 					CommitResults: []AuditCommitResultJSON{},
 				}
 			} else {
-				// Print header for text output
-				opts.writeTextf("Auditing branch %s starting from revision %s\n", opts.branch, latestCommit)
+				opts.writeTextf("Auditing branch %s\n", opts.branch)
 			}
 
 			// Single loop for both JSON and text output
@@ -204,7 +199,7 @@ Future:
 
 				// Process result based on output format
 				if opts.outputFormatIsJSON() {
-					commitResult := convertAuditResultToJSON(ghc, ar, opts.auditMode)
+					commitResult := convertAuditResultToJSON(opts.owner, opts.repository, ar, opts.auditMode)
 					if err != nil {
 						commitResult.Error = err.Error()
 					}
@@ -219,7 +214,7 @@ Future:
 					if err != nil {
 						opts.writeTextf("\terror: %v\n", err)
 					}
-					printResult(ghc, ar, opts.auditMode)
+					printResult(opts.owner, opts.repository, ar, opts.auditMode)
 				}
 
 				// Check for early termination conditions
@@ -255,7 +250,7 @@ Future:
 	parentCmd.AddCommand(auditCmd)
 }
 
-func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, mode AuditMode) {
+func printResult(owner, repo string, ar *audit.AuditCommitResult, mode AuditMode) {
 	good := ar.IsGood()
 	status := statusPassed
 	if !good {
@@ -275,22 +270,22 @@ func printResult(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, m
 	if ar.ProvPred != nil {
 		fmt.Print("\tprov:\n")
 		fmt.Printf("\t\tcontrols: %v\n", ar.ProvPred.GetControls())
-		if ar.ProvPred.GetPrevCommit() == ar.GhPriorCommit {
-			fmt.Printf("\t\tPrevCommit matches GH commit: true\n")
+		if ar.ProvPred.GetPrevCommit() == ar.PriorCommit {
+			fmt.Printf("\t\tPrevCommit matches prior commit: true\n")
 		} else {
-			fmt.Printf("\t\tPrevCommit matches GH commit: false: %s != %s\n", ar.ProvPred.GetPrevCommit(), ar.GhPriorCommit)
+			fmt.Printf("\t\tPrevCommit matches prior commit: false: %s != %s\n", ar.ProvPred.GetPrevCommit(), ar.PriorCommit)
 		}
 	} else {
 		fmt.Printf("\tprov: none\n")
 	}
-	if ar.GhControlStatus != nil {
-		fmt.Printf("\tgh controls: %v\n", ar.GhControlStatus.Controls)
+	if ar.ControlStatus != nil {
+		fmt.Printf("\tcontrols: %v\n", ar.ControlStatus.Controls)
 	}
 
-	fmt.Printf("\tlink: https://github.com/%s/%s/commit/%s\n", ghc.Owner(), ghc.Repo(), ar.GhPriorCommit)
+	fmt.Printf("\tlink: https://github.com/%s/%s/commit/%s\n", owner, repo, ar.PriorCommit)
 }
 
-func convertAuditResultToJSON(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCommitResult, mode AuditMode) AuditCommitResultJSON {
+func convertAuditResultToJSON(owner, repo string, ar *audit.AuditCommitResult, mode AuditMode) AuditCommitResultJSON {
 	good := ar.IsGood()
 	status := statusPassed
 	if !good {
@@ -300,7 +295,7 @@ func convertAuditResultToJSON(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCo
 	result := AuditCommitResultJSON{
 		Commit: ar.Commit,
 		Status: status,
-		Link:   fmt.Sprintf("https://github.com/%s/%s/commit/%s", ghc.Owner(), ghc.Repo(), ar.GhPriorCommit),
+		Link:   fmt.Sprintf("https://github.com/%s/%s/commit/%s", owner, repo, ar.PriorCommit),
 	}
 
 	// Only include details if mode is Full or status is failed
@@ -312,13 +307,13 @@ func convertAuditResultToJSON(ghc *ghcontrol.GitHubConnection, ar *audit.AuditCo
 		if ar.ProvPred != nil {
 			result.ProvControls = ar.ProvPred.GetControls()
 			result.PrevCommit = ar.ProvPred.GetPrevCommit()
-			result.GhPriorCommit = ar.GhPriorCommit
-			matches := ar.ProvPred.GetPrevCommit() == ar.GhPriorCommit
+			result.PriorCommit = ar.PriorCommit
+			matches := ar.ProvPred.GetPrevCommit() == ar.PriorCommit
 			result.PrevCommitMatches = &matches
 		}
 
-		if ar.GhControlStatus != nil {
-			result.GhControls = ar.GhControlStatus.Controls
+		if ar.ControlStatus != nil {
+			result.Controls = ar.ControlStatus.Controls
 		}
 	}
 

@@ -312,6 +312,11 @@ func (t *Tool) Attester() *attest.Attester {
 	return t.attester
 }
 
+// Backend returns the VCS backend
+func (t *Tool) Backend() models.VcsBackend {
+	return t.backend
+}
+
 // GetPreviousCommit returns the previous commit of the passed commit
 func (t *Tool) GetPreviousCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*models.Commit, error) {
 	return t.backend.GetPreviousCommit(ctx, branch, commit)

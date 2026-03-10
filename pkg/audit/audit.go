@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"os"
@@ -12,26 +13,39 @@ import (
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 
 	"github.com/slsa-framework/source-tool/pkg/attest"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
 	"github.com/slsa-framework/source-tool/pkg/provenance"
+	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type Auditor struct {
-	ghc *ghcontrol.GitHubConnection
-	// TODO: This should probably be turned into a pointer.
-	verifier attest.Verifier
 	attester *attest.Attester
 	backend  models.VcsBackend
+}
+
+type optFn func(*Auditor) error
+
+func WithAttester(a *attest.Attester) optFn {
+	return func(au *Auditor) error {
+		au.attester = a
+		return nil
+	}
+}
+
+func WithBackend(b models.VcsBackend) optFn {
+	return func(au *Auditor) error {
+		au.backend = b
+		return nil
+	}
 }
 
 type AuditCommitResult struct {
 	Commit   string
 	VsaPred  *vpb.VerificationSummary
 	ProvPred *provenance.SourceProvenancePred
-	// The previous commit reported by GH.
-	GhPriorCommit   string
-	GhControlStatus *ghcontrol.GhControlStatus
+	// The previous commit reported by the VCS backend.
+	PriorCommit    string
+	ControlStatus  *slsa.ControlSet
 }
 
 func (ar *AuditCommitResult) IsGood() bool {
@@ -41,7 +55,7 @@ func (ar *AuditCommitResult) IsGood() bool {
 	// Have to have provenance
 	if ar.ProvPred == nil {
 		good = false
-	} else if ar.ProvPred.GetPrevCommit() != ar.GhPriorCommit {
+	} else if ar.ProvPred.GetPrevCommit() != ar.PriorCommit {
 		// Commits need to be the same.
 		good = false
 	}
@@ -49,12 +63,25 @@ func (ar *AuditCommitResult) IsGood() bool {
 	return good
 }
 
-func NewAuditor(ghc *ghcontrol.GitHubConnection, pa *attest.Attester, verifier attest.Verifier) *Auditor {
-	return &Auditor{
-		ghc:      ghc,
-		verifier: verifier,
-		attester: pa,
+func NewAuditor(fn ...optFn) (*Auditor, error) {
+	a := &Auditor{}
+	for _, f := range fn {
+		if err := f(a); err != nil {
+			return nil, err
+		}
 	}
+
+	errs := []error{}
+	if a.attester == nil {
+		errs = append(errs, errors.New("auditor has no attester"))
+	}
+	if a.backend == nil {
+		errs = append(errs, errors.New("auditor has no backend"))
+	}
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
 func (a *Auditor) AuditCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (ar *AuditCommitResult, err error) {
@@ -72,25 +99,23 @@ func (a *Auditor) AuditCommit(ctx context.Context, branch *models.Branch, commit
 	}
 	ar.ProvPred = prov
 
-	ghPrior, err := a.ghc.GetPriorCommit(ctx, commit.SHA)
+	prior, err := a.backend.GetPreviousCommit(ctx, branch, commit)
 	if err != nil {
 		return nil, fmt.Errorf("could not get prior commit for revision %s: %w", commit, err)
 	}
-	ar.GhPriorCommit = ghPrior
+	ar.PriorCommit = prior.SHA
 
-	var controlStatus *ghcontrol.GhControlStatus
 	if prov == nil {
-		// If there's no provenance, let's check the controls to see how they're looking.
+		// If there's no provenance, check the controls to see how they're looking.
 		// It could be that provenance generation failed, but the controls were still
 		// in place.
-		// TODO: (use backend method here)
-		controlStatus, err = a.ghc.GetBranchControlsAtCommit(ctx, commit.SHA, a.ghc.GetFullRef())
+		controlStatus, err := a.backend.GetBranchControlsAtCommit(ctx, branch, commit)
 		if err != nil {
-			// Let's still return ar so they can continue if they want.
-			return ar, fmt.Errorf("could not get controls for %s on %s: %w", commit, a.ghc.GetFullRef(), err)
+			// Still return ar so callers can continue if they want.
+			return ar, fmt.Errorf("could not get controls for %s on %s: %w", commit.SHA, branch.FullRef(), err)
 		}
+		ar.ControlStatus = controlStatus
 	}
-	ar.GhControlStatus = controlStatus
 
 	return ar, nil
 }
@@ -113,7 +138,7 @@ func (a *Auditor) AuditBranch(ctx context.Context, branch *models.Branch) iter.S
 			if !yield(ar, err) {
 				return
 			}
-			nextCommit = &models.Commit{SHA: ar.GhPriorCommit}
+			nextCommit = &models.Commit{SHA: ar.PriorCommit}
 		}
 	}
 }

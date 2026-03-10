@@ -11,7 +11,6 @@ import (
 	vpb "github.com/in-toto/attestation/go/predicates/vsa/v1"
 
 	"github.com/slsa-framework/source-tool/pkg/audit"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
 	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 )
@@ -140,8 +139,6 @@ func TestAuditResultJSON_JSONMarshaling(t *testing.T) {
 }
 
 func TestConvertAuditResultToJSON(t *testing.T) {
-	ghc := ghcontrol.NewGhConnection("test-owner", "test-repo", "refs/heads/main")
-
 	tests := []struct {
 		name   string
 		result *audit.AuditCommitResult
@@ -158,7 +155,7 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 				ProvPred: &provenance.SourceProvenancePred{
 					PrevCommit: "def456",
 				},
-				GhPriorCommit: "def456",
+				PriorCommit: "def456",
 			},
 			mode: AuditModeBasic,
 			want: AuditCommitResultJSON{
@@ -178,10 +175,8 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 					PrevCommit: "def456",
 					Controls:   []*provenance.Control{{Name: "test_control"}},
 				},
-				GhPriorCommit: "def456",
-				GhControlStatus: &ghcontrol.GhControlStatus{
-					Controls: &slsa.ControlSet{},
-				},
+				PriorCommit:   "def456",
+				ControlStatus: &slsa.ControlSet{},
 			},
 			mode: AuditModeFull,
 			want: func() AuditCommitResultJSON {
@@ -192,9 +187,9 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 					VerifiedLevels:    []string{"SLSA_SOURCE_LEVEL_3"},
 					PrevCommitMatches: &matches,
 					ProvControls:      []*provenance.Control{{Name: "test_control"}},
-					GhControls:        slsa.ControlSet{},
+					Controls:          slsa.ControlSet{},
 					PrevCommit:        "def456",
-					GhPriorCommit:     "def456",
+					PriorCommit:       "def456",
 					Link:              "https://github.com/test-owner/test-repo/commit/def456",
 				}
 			}(),
@@ -202,10 +197,10 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 		{
 			name: "failed audit shows details even in basic mode",
 			result: &audit.AuditCommitResult{
-				Commit:        "abc123",
-				VsaPred:       nil,
-				ProvPred:      nil,
-				GhPriorCommit: "def456",
+				Commit:      "abc123",
+				VsaPred:     nil,
+				ProvPred:    nil,
+				PriorCommit: "def456",
 			},
 			mode: AuditModeBasic,
 			want: AuditCommitResultJSON{
@@ -225,7 +220,7 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 					PrevCommit: "wrong123",
 					Controls:   []*provenance.Control{{Name: "test_control"}},
 				},
-				GhPriorCommit: "def456",
+				PriorCommit: "def456",
 			},
 			mode: AuditModeFull,
 			want: func() AuditCommitResultJSON {
@@ -237,7 +232,7 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 					PrevCommitMatches: &matches,
 					ProvControls:      []*provenance.Control{{Name: "test_control"}},
 					PrevCommit:        "wrong123",
-					GhPriorCommit:     "def456",
+					PriorCommit:       "def456",
 					Link:              "https://github.com/test-owner/test-repo/commit/def456",
 				}
 			}(),
@@ -246,7 +241,7 @@ func TestConvertAuditResultToJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := convertAuditResultToJSON(ghc, tt.result, tt.mode)
+			got := convertAuditResultToJSON("test-owner", "test-repo", tt.result, tt.mode)
 
 			if got.Commit != tt.want.Commit {
 				t.Errorf("Commit = %v, want %v", got.Commit, tt.want.Commit)
