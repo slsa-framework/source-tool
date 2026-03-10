@@ -147,6 +147,10 @@ func (a *Attester) createCurrentProvenance(ctx context.Context, branch *models.B
 		return nil, err
 	}
 
+	if controlStatus == nil {
+		return nil, errors.New("VCS backend returned a nil controlset")
+	}
+
 	// Build the provenance predicate
 	curProvPred := provenance.SourceProvenancePred{
 		PrevCommit:   prevCommit.SHA,
@@ -162,11 +166,13 @@ func (a *Attester) createCurrentProvenance(ctx context.Context, branch *models.B
 	// ... indeed, but don't set the `since`` date because doing so breaks
 	// checking against policies.
 	// See https://github.com/slsa-framework/source-tool/issues/272
-	curProvPred.AddControl(
-		&provenance.Control{
-			Name: slsa.SLSA_SOURCE_SCS_PROVENANCE.String(),
-		},
-	)
+	if curProvPred.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE.String()) == nil {
+		curProvPred.AddControl(
+			&provenance.Control{
+				Name: slsa.SLSA_SOURCE_SCS_PROVENANCE.String(),
+			},
+		)
+	}
 
 	return addPredToStatement(&curProvPred, provenance.SourceProvPredicateType, commit.SHA)
 }

@@ -136,6 +136,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 	if commit == nil {
 		return nil, errors.New("commit is not set")
 	}
+
 	ghc, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
 	if err != nil {
 		return nil, fmt.Errorf("getting github connection: %w", err)
@@ -150,7 +151,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 
 	// We need to manually check for PROVENANCE_AVAILABLE which is not
 	// handled by ghcontrol
-	attestor, err := attest.NewAttester(
+	attester, err := attest.NewAttester(
 		attest.WithBackend(b), attest.WithVerifier(attest.GetDefaultVerifier()),
 	)
 	if err != nil {
@@ -158,21 +159,53 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 	}
 
 	// Fetch the attestation. If found, then add the control:
-	attestation, err := attestor.GetRevisionProvenance(ctx, branch, commit)
+	attestation, err := attester.GetRevisionProvenance(ctx, branch, commit)
 	if err != nil {
 		return nil, fmt.Errorf("attempting to read provenance from commit %q: %w", commit.SHA, err)
 	}
 	if attestation != nil {
-		activeControls.AddControl(&slsa.Control{
-			Name: slsa.SLSA_SOURCE_SCS_PROVENANCE,
-		})
+		// We carry over the since date from the previous attestation, only if
+		// it > 0 (unix origin)
+		var t *time.Time
+		if ctrl := attestation.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE.String()); ctrl != nil {
+			if ctrl.Since != nil && ctrl.Since.AsTime().Unix() != 0 {
+				rt := ctrl.Since.AsTime()
+				t = &rt
+			}
+		} else if ctrl := attestation.GetControl(slsa.DEPRECATED_ProvenanceAvailable.String()); ctrl != nil {
+			if ctrl.Since != nil && ctrl.Since.AsTime().Unix() != 0 {
+				rt := ctrl.Since.AsTime()
+				t = &rt
+			}
+		}
 
-		// If we got the provenance attestaion, we assume we also have a VSA
-		activeControls.AddControl(&slsa.Control{
-			Name: slsa.SLSA_SOURCE_SCS_VSA,
-		})
+		if tc := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE); tc != nil {
+			if t != nil {
+				tc.Since = t
+			}
+		} else {
+			activeControls.AddControl(&slsa.Control{
+				Name:  slsa.SLSA_SOURCE_SCS_PROVENANCE,
+				Since: t,
+			})
+		}
 	} else {
 		log.Printf("No provenance attestation found on %s", commit.SHA)
+	}
+
+	_, vsaPred, err := attester.GetRevisionVSA(ctx, branch, commit)
+	if err != nil {
+		return nil, fmt.Errorf("reading VSA: %w", err)
+	}
+
+	if vsaPred != nil {
+		if tc := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_VSA); tc == nil {
+			activeControls.AddControl(&slsa.Control{
+				Name: slsa.SLSA_SOURCE_SCS_VSA,
+			})
+		}
+	} else {
+		log.Printf("No VSA found for commit")
 	}
 
 	// NewControlSet returns all the controls for the framework in
@@ -188,9 +221,9 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 			continue
 		}
 
-		// Check if it's one of the active controls
+		// Check if it's one of the active controls and enable it and copy the since date
 		if c := activeControls.GetControl(ctrl.Name); c != nil {
-			status.Controls[i].Since = ctrl.Since
+			status.Controls[i].Since = c.Since
 			status.Controls[i].State = slsa.StateActive
 			status.Controls[i].Message = b.controlImplementationMessage(c.GetName())
 		}
@@ -199,7 +232,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		// Without force push, content cannot be expunged.
 		if ctrl.Name == slsa.SLSA_SOURCE_ORG_SAFE_EXPUNGE {
 			if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS); c != nil {
-				status.Controls[i].Since = ctrl.Since
+				status.Controls[i].Since = c.Since
 				status.Controls[i].State = slsa.StateActive
 				status.Controls[i].Message = b.controlImplementationMessage(ctrl.Name)
 			}
@@ -208,7 +241,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		// Enable ORG_CONTINUITY when SCS branch continuity is active.
 		if ctrl.Name == slsa.SLSA_SOURCE_ORG_CONTINUITY {
 			if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_CONTINUITY); c != nil {
-				status.Controls[i].Since = ctrl.Since
+				status.Controls[i].Since = c.Since
 				status.Controls[i].State = slsa.StateActive
 				status.Controls[i].Message = b.controlImplementationMessage(ctrl.Name)
 			}

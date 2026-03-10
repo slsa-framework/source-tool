@@ -107,7 +107,7 @@ func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error)
 	return agent, nil
 }
 
-// GetVSA returns a revision's VSA attestation
+// GetRevisionVSA returns a revision's VSA attestation
 func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, commit *models.Commit) (attestation.Envelope, *vsa.VerificationSummary, error) {
 	if commit == nil {
 		return nil, nil, errors.New("commit is nil")
@@ -281,7 +281,7 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 }
 
 // CreateTagProvenance creates a provenance statement for a tag.
-func (a Attester) CreateTagProvenance(ctx context.Context, branch *models.Branch, tag *models.Tag, actor string) (*intoto.Statement, error) {
+func (a *Attester) CreateTagProvenance(ctx context.Context, branch *models.Branch, tag *models.Tag, actor string) (*intoto.Statement, error) {
 	if tag.Commit == nil {
 		return nil, fmt.Errorf("tag does not have its commit set")
 	}
