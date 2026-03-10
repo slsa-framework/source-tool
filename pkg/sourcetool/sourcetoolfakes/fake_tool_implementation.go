@@ -126,18 +126,6 @@ type FakeToolImplementation struct {
 		result1 *slsa.Control
 		result2 error
 	}
-	GetVcsBackendStub        func() (models.VcsBackend, error)
-	getVcsBackendMutex       sync.RWMutex
-	getVcsBackendArgsForCall []struct {
-	}
-	getVcsBackendReturns struct {
-		result1 models.VcsBackend
-		result2 error
-	}
-	getVcsBackendReturnsOnCall map[int]struct {
-		result1 models.VcsBackend
-		result2 error
-	}
 	SearchPullRequestStub        func(context.Context, *auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
 	searchPullRequestMutex       sync.RWMutex
 	searchPullRequestArgsForCall []struct {
@@ -693,62 +681,6 @@ func (fake *FakeToolImplementation) GetPolicyStatusReturnsOnCall(i int, result1 
 	}
 	fake.getPolicyStatusReturnsOnCall[i] = struct {
 		result1 *slsa.Control
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeToolImplementation) GetVcsBackend() (models.VcsBackend, error) {
-	fake.getVcsBackendMutex.Lock()
-	ret, specificReturn := fake.getVcsBackendReturnsOnCall[len(fake.getVcsBackendArgsForCall)]
-	fake.getVcsBackendArgsForCall = append(fake.getVcsBackendArgsForCall, struct {
-	}{})
-	stub := fake.GetVcsBackendStub
-	fakeReturns := fake.getVcsBackendReturns
-	fake.recordInvocation("GetVcsBackend", []interface{}{})
-	fake.getVcsBackendMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeToolImplementation) GetVcsBackendCallCount() int {
-	fake.getVcsBackendMutex.RLock()
-	defer fake.getVcsBackendMutex.RUnlock()
-	return len(fake.getVcsBackendArgsForCall)
-}
-
-func (fake *FakeToolImplementation) GetVcsBackendCalls(stub func() (models.VcsBackend, error)) {
-	fake.getVcsBackendMutex.Lock()
-	defer fake.getVcsBackendMutex.Unlock()
-	fake.GetVcsBackendStub = stub
-}
-
-func (fake *FakeToolImplementation) GetVcsBackendReturns(result1 models.VcsBackend, result2 error) {
-	fake.getVcsBackendMutex.Lock()
-	defer fake.getVcsBackendMutex.Unlock()
-	fake.GetVcsBackendStub = nil
-	fake.getVcsBackendReturns = struct {
-		result1 models.VcsBackend
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeToolImplementation) GetVcsBackendReturnsOnCall(i int, result1 models.VcsBackend, result2 error) {
-	fake.getVcsBackendMutex.Lock()
-	defer fake.getVcsBackendMutex.Unlock()
-	fake.GetVcsBackendStub = nil
-	if fake.getVcsBackendReturnsOnCall == nil {
-		fake.getVcsBackendReturnsOnCall = make(map[int]struct {
-			result1 models.VcsBackend
-			result2 error
-		})
-	}
-	fake.getVcsBackendReturnsOnCall[i] = struct {
-		result1 models.VcsBackend
 		result2 error
 	}{result1, result2}
 }

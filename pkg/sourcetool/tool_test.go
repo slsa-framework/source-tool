@@ -87,7 +87,6 @@ func TestConfigureControls(t *testing.T) {
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.GetVcsBackendReturns(&modelsfakes.FakeVcsBackend{}, nil)
 				i.CreatePolicyPRReturns(nil, syntErr)
 				return i
 			},
