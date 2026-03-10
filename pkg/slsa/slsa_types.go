@@ -221,8 +221,10 @@ func (cs *ControlSet) ToProvenanceControls() []*provenance.Control {
 			continue
 		}
 		c := &provenance.Control{
-			Name:  ctl.Name.String(),
-			Since: timestamppb.New(*ctl.Since),
+			Name: ctl.Name.String(),
+		}
+		if ctl.Since != nil {
+			c.Since = timestamppb.New(*ctl.Since)
 		}
 		ret = append(ret, c)
 	}
