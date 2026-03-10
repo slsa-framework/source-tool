@@ -102,9 +102,6 @@ func (r *Repository) GetHttpURL() string {
 		return ""
 	}
 	u := fmt.Sprintf("https://%s/%s", r.Hostname, r.Path)
-	if r.Hostname == "github.com" {
-		u += ".git"
-	}
 	return u
 }
 
