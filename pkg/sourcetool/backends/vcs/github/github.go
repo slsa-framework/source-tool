@@ -153,6 +153,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 	// handled by ghcontrol
 	attester, err := attest.NewAttester(
 		attest.WithBackend(b), attest.WithVerifier(attest.GetDefaultVerifier()),
+		attest.WithAuthenticator(b.authenticator),
 	)
 	if err != nil {
 		return nil, err

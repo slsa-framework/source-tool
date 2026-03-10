@@ -37,4 +37,5 @@ var Default = Options{
 	UseSSH:             true,
 	CreatePolicyPR:     true,
 	InitNotesCollector: true,
+	BackendOptions:     models.BackendOptions{},
 }

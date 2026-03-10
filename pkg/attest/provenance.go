@@ -99,7 +99,7 @@ func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error)
 	// These two require the authenticator token
 	if a.Options.InitNotesCollector {
 		repo, err := note.NewDynamic(
-			note.DynamicRepoURL(fmt.Sprintf("dnote:%s", branch.Repository.GetHttpURL())),
+			note.DynamicRepoURL(branch.Repository.GetHttpURL()),
 			note.WithHttpAuth("github", token),
 		)
 		if err != nil {
