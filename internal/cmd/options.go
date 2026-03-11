@@ -258,9 +258,14 @@ func (ro *revisionOpts) Validate() error {
 }
 
 func (ro *revisionOpts) AddFlags(cmd *cobra.Command) {
+	// branchOptions.AddFlags already registers repo, owner, and branch flags
 	ro.branchOptions.AddFlags(cmd)
+	// Only register tag; tagOptions.AddFlags doesn't chain to branchOptions
 	ro.tagOptions.AddFlags(cmd)
-	ro.repoOptions.AddFlags(cmd)
+	// Register commit flag directly to avoid re-registering branch/repo flags
+	cmd.PersistentFlags().StringVarP(
+		&ro.commit, "commit", "c", "", "commit digest (sha1)",
+	)
 }
 
 func (ro *revisionOpts) GetRevision() models.Revision {

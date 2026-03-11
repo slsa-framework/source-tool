@@ -14,22 +14,23 @@ import (
 )
 
 type provOptions struct {
-	commitOptions
+	revisionOpts
 	verifierOptions
+	allowMergeCommitsOptions
 	prevAttPath, prevCommit string
 }
 
 func (po *provOptions) Validate() error {
 	return errors.Join([]error{
-		po.commitOptions.Validate(),
+		po.revisionOpts.Validate(),
 		po.verifierOptions.Validate(),
 	}...)
 }
 
 func (po *provOptions) AddFlags(cmd *cobra.Command) {
-	po.commitOptions.AddFlags(cmd)
+	po.revisionOpts.AddFlags(cmd)
 	po.verifierOptions.AddFlags(cmd)
-
+	po.allowMergeCommitsOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(&po.prevAttPath, "prev_att_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
 	cmd.PersistentFlags().StringVar(&po.prevCommit, "prev_commit", "", "The commit prior to 'commit'.")
 }
@@ -73,6 +74,7 @@ func addProv(parentCmd *cobra.Command) {
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
 			)
 			if err != nil {
 				return err

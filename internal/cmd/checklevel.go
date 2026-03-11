@@ -18,14 +18,14 @@ import (
 )
 
 type checkLevelOpts struct {
-	commitOptions
+	revisionOpts
 	allowMergeCommitsOptions
 	outputVsa, outputUnsignedVsa, useLocalPolicy string
 }
 
 func (clo *checkLevelOpts) Validate() error {
 	errs := []error{
-		clo.commitOptions.Validate(),
+		clo.revisionOpts.Validate(),
 	}
 
 	return errors.Join(errs...)

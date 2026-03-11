@@ -51,7 +51,7 @@ func (po *pushOptions) AddFlags(cmd *cobra.Command) {
 }
 
 type checkLevelProvOpts struct {
-	commitOptions
+	revisionOpts
 	verifierOptions
 	pushOptions
 	allowMergeCommitsOptions
@@ -64,13 +64,13 @@ type checkLevelProvOpts struct {
 
 func (clp *checkLevelProvOpts) Validate() error {
 	return errors.Join([]error{
-		clp.commitOptions.Validate(),
+		clp.revisionOpts.Validate(),
 		clp.verifierOptions.Validate(),
 	}...)
 }
 
 func (clp *checkLevelProvOpts) AddFlags(cmd *cobra.Command) {
-	clp.commitOptions.AddFlags(cmd)
+	clp.revisionOpts.AddFlags(cmd)
 	clp.pushOptions.AddFlags(cmd)
 	clp.allowMergeCommitsOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(&clp.prevBundlePath, "prev_bundle_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
