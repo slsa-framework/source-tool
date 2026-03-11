@@ -78,12 +78,22 @@ type Commit struct {
 var (
 	_ Reference = (*Branch)(nil)
 	_ Reference = (*Tag)(nil)
+	_ Revision  = (*Tag)(nil)
+	_ Revision  = (*Commit)(nil)
 )
+
+type Revision interface {
+	GetCommit() *Commit
+}
 
 type Reference interface {
 	FullRef() string
 	GetRepository() *Repository
 	GetName() string
+}
+
+func (c *Commit) GetCommit() *Commit {
+	return c
 }
 
 func (c *Commit) ToResourceDescriptor() *attestation.ResourceDescriptor {
@@ -156,6 +166,10 @@ func (t *Tag) GetName() string {
 
 func (t *Tag) GetRepository() *Repository {
 	return t.Repository
+}
+
+func (t *Tag) GetCommit() *Commit {
+	return t.Commit
 }
 
 func (t *Tag) FullRef() string {
