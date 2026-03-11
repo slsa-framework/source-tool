@@ -127,6 +127,21 @@ type FakeVcsBackend struct {
 		result1 *models.Commit
 		result2 error
 	}
+	GetRevisionCommitStub        func(context.Context, *models.Repository, models.Revision) (*models.Commit, error)
+	getRevisionCommitMutex       sync.RWMutex
+	getRevisionCommitArgsForCall []struct {
+		arg1 context.Context
+		arg2 *models.Repository
+		arg3 models.Revision
+	}
+	getRevisionCommitReturns struct {
+		result1 *models.Commit
+		result2 error
+	}
+	getRevisionCommitReturnsOnCall map[int]struct {
+		result1 *models.Commit
+		result2 error
+	}
 	GetTagControlsStub        func(context.Context, *models.Tag) (*slsa.ControlSet, error)
 	getTagControlsMutex       sync.RWMutex
 	getTagControlsArgsForCall []struct {
@@ -680,6 +695,72 @@ func (fake *FakeVcsBackend) GetPreviousCommitReturnsOnCall(i int, result1 *model
 		})
 	}
 	fake.getPreviousCommitReturnsOnCall[i] = struct {
+		result1 *models.Commit
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeVcsBackend) GetRevisionCommit(arg1 context.Context, arg2 *models.Repository, arg3 models.Revision) (*models.Commit, error) {
+	fake.getRevisionCommitMutex.Lock()
+	ret, specificReturn := fake.getRevisionCommitReturnsOnCall[len(fake.getRevisionCommitArgsForCall)]
+	fake.getRevisionCommitArgsForCall = append(fake.getRevisionCommitArgsForCall, struct {
+		arg1 context.Context
+		arg2 *models.Repository
+		arg3 models.Revision
+	}{arg1, arg2, arg3})
+	stub := fake.GetRevisionCommitStub
+	fakeReturns := fake.getRevisionCommitReturns
+	fake.recordInvocation("GetRevisionCommit", []interface{}{arg1, arg2, arg3})
+	fake.getRevisionCommitMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeVcsBackend) GetRevisionCommitCallCount() int {
+	fake.getRevisionCommitMutex.RLock()
+	defer fake.getRevisionCommitMutex.RUnlock()
+	return len(fake.getRevisionCommitArgsForCall)
+}
+
+func (fake *FakeVcsBackend) GetRevisionCommitCalls(stub func(context.Context, *models.Repository, models.Revision) (*models.Commit, error)) {
+	fake.getRevisionCommitMutex.Lock()
+	defer fake.getRevisionCommitMutex.Unlock()
+	fake.GetRevisionCommitStub = stub
+}
+
+func (fake *FakeVcsBackend) GetRevisionCommitArgsForCall(i int) (context.Context, *models.Repository, models.Revision) {
+	fake.getRevisionCommitMutex.RLock()
+	defer fake.getRevisionCommitMutex.RUnlock()
+	argsForCall := fake.getRevisionCommitArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeVcsBackend) GetRevisionCommitReturns(result1 *models.Commit, result2 error) {
+	fake.getRevisionCommitMutex.Lock()
+	defer fake.getRevisionCommitMutex.Unlock()
+	fake.GetRevisionCommitStub = nil
+	fake.getRevisionCommitReturns = struct {
+		result1 *models.Commit
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeVcsBackend) GetRevisionCommitReturnsOnCall(i int, result1 *models.Commit, result2 error) {
+	fake.getRevisionCommitMutex.Lock()
+	defer fake.getRevisionCommitMutex.Unlock()
+	fake.GetRevisionCommitStub = nil
+	if fake.getRevisionCommitReturnsOnCall == nil {
+		fake.getRevisionCommitReturnsOnCall = make(map[int]struct {
+			result1 *models.Commit
+			result2 error
+		})
+	}
+	fake.getRevisionCommitReturnsOnCall[i] = struct {
 		result1 *models.Commit
 		result2 error
 	}{result1, result2}

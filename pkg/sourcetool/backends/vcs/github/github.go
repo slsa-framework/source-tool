@@ -428,3 +428,27 @@ func (b *Backend) GetDefaultBranch(ctx context.Context, repo *models.Repository)
 		Repository: repo,
 	}, nil
 }
+
+// GetRevisionCommit returns the commit of a revision (or error)
+func (b *Backend) GetRevisionCommit(ctx context.Context, repo *models.Repository, rev models.Revision) (*models.Commit, error) {
+	switch inst := rev.(type) {
+	case *models.Commit:
+		return inst, nil
+	case *models.Tag:
+		if inst.Commit == nil {
+			ghx, err := b.getGitHubConnection(repo, "")
+			if err != nil {
+				return nil, err
+			}
+			tagCommit, err := ghx.GetTagCommit(ctx, inst.GetName())
+			if err != nil {
+				return nil, err
+			}
+
+			inst.Commit = tagCommit
+		}
+		return inst.Commit, nil
+	default:
+		return nil, errors.New("not implemented yet or invalid revision")
+	}
+}
