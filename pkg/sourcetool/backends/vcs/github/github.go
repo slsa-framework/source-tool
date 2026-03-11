@@ -212,7 +212,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 	// NewControlSet returns all the controls for the framework in
 	// StateNotEnabled.
 	status := slsa.NewControlSet()
-	sinceForever := time.Unix(1, 0)
+	sinceForever := time.Unix(1207836000, 0) // April 10, 2008 (when github came online)
 	for i, ctrl := range status.Controls {
 		// Check if it's an inherent control, turn it on  and don't look back
 		if c := InherentControls.GetControl(slsa.ControlName(ctrl.Name.String())); c != "" {

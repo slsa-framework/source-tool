@@ -379,7 +379,9 @@ var defaultAttestOptions = AttestOptions{
 
 // AttestCommit checks the source control system status, the repository policy
 // and generates the repository attestations (provenance & VSA).
-func (t *Tool) AttestCommit(ctx context.Context, branch *models.Branch, commit *models.Commit, funcs ...AttOpFn) error {
+func (t *Tool) AttestCommit(
+	ctx context.Context, branch *models.Branch, commit *models.Commit, funcs ...AttOpFn,
+) (slsa.SourceVerifiedLevels, error) {
 	var agent *collector.Agent
 	var err error
 
@@ -387,7 +389,7 @@ func (t *Tool) AttestCommit(ctx context.Context, branch *models.Branch, commit *
 	opts := defaultAttestOptions
 	for _, f := range funcs {
 		if err := f(&opts); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -395,22 +397,23 @@ func (t *Tool) AttestCommit(ctx context.Context, branch *models.Branch, commit *
 	if opts.Push {
 		agent, err = t.getAttestationStore(branch)
 		if err != nil {
-			return fmt.Errorf("unable to intitializer storate agent: %w", err)
+			return nil, fmt.Errorf("unable to intitializer storate agent: %w", err)
 		}
 	}
 
-	// Create the provenance attestation
+	// 1. Create the provenance attestation
 	prov, err := t.Attester().CreateSourceProvenance(ctx, branch, commit)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// check p against policy
+	// 2. Run the provenance against the policy to determine if the controls
+	// are still valid.
 	pe := policy.NewPolicyEvaluator()
 	pe.UseLocalPolicy = opts.LocalPolicy
 	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
 	}
 
 	var vsaData string
@@ -421,24 +424,24 @@ func (t *Tool) AttestCommit(ctx context.Context, branch *models.Branch, commit *
 		branch, commit, verifiedLevels, policyPath,
 	)
 	if err != nil {
-		return fmt.Errorf("creating VSA: %w", err)
+		return nil, fmt.Errorf("creating VSA: %w", err)
 	}
 
 	provenanceData, err = protojson.Marshal(prov)
 	if err != nil {
-		return fmt.Errorf("generating provenance attestation: %w", err)
+		return nil, fmt.Errorf("generating provenance attestation: %w", err)
 	}
 
 	if opts.Sign {
 		provenanceDataString, err := attest.Sign(string(provenanceData))
 		if err != nil {
-			return err
+			return nil, err
 		}
 		provenanceData = []byte(provenanceDataString)
 
 		vsaData, err = attest.Sign(vsaData)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -450,7 +453,7 @@ func (t *Tool) AttestCommit(ctx context.Context, branch *models.Branch, commit *
 	if fpath == "" {
 		f, err := os.CreateTemp("", "attestations-")
 		if err != nil {
-			return fmt.Errorf("opening tmp file: %w", err)
+			return nil, fmt.Errorf("opening tmp file: %w", err)
 		}
 		f.Close() //nolint:errcheck,gosec
 		fpath = f.Name()
@@ -465,21 +468,16 @@ func (t *Tool) AttestCommit(ctx context.Context, branch *models.Branch, commit *
 	if err := os.WriteFile(
 		fpath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
 	); err != nil {
-		return fmt.Errorf("writing attestations: %w", err)
+		return nil, fmt.Errorf("writing attestations: %w", err)
 	}
 
 	if opts.Push {
 		if err := agent.StoreFromFiles(ctx, []string{fpath}); err != nil {
-			return fmt.Errorf("pushing attestations: %w", err)
+			return nil, fmt.Errorf("pushing attestations: %w", err)
 		}
 	}
 
-	if opts.OutputPath != "" {
-		err = os.WriteFile(
-			opts.OutputPath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
-		)
-	}
-	return err
+	return verifiedLevels, nil
 }
 
 // getAttestationStore returns a collector with storer reposistories to push

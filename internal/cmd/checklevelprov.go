@@ -6,21 +6,17 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
-	"os"
 	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/slsa-framework/source-tool/pkg/attest"
-	"github.com/slsa-framework/source-tool/pkg/policy"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 )
 
 type pushOptions struct {
-	pushLocation []string
+	pushLocation     []string
+	pushRepositories []string
 }
 
 // Support repository types to push
@@ -122,98 +118,63 @@ and pushed to its remote (--push=note).
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Here we need to translate the CLI options to the sourcetool
+			// options. Some of these will be deprecated as some point for
+			// a more concise options set.
+			signAttestation := false
+			outputPath := ""
+
+			switch {
+			case opts.outputSignedBundle != "":
+				outputPath = opts.outputSignedBundle
+				signAttestation = true
+			case opts.outputUnsignedBundle != "":
+				outputPath = opts.outputUnsignedBundle
+			}
+
+			var githubStorer, notesStorer, pushAttestations bool
+			switch {
+			case slices.Contains(opts.pushLocation, "github"):
+				pushAttestations = true
+				githubStorer = true
+			case slices.Contains(opts.pushLocation, "notes"):
+				pushAttestations = true
+				notesStorer = true
+			case len(opts.pushRepositories) > 0:
+				pushAttestations = true
+			}
+
+			// Create the authenticator
 			authenticator, err := CheckAuth()
 			if err != nil {
 				return err
 			}
 
-			// Create a new sourcetool object
+			// Initialize sourcetool
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
 				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
-				sourcetool.WithNotesStorer(slices.Contains(opts.pushLocation, "notes")),
-				sourcetool.WithGithubStorer(slices.Contains(opts.pushLocation, "github")),
+				sourcetool.WithNotesStorer(notesStorer),
+				sourcetool.WithGithubStorer(githubStorer),
 			)
 			if err != nil {
 				return fmt.Errorf("creating sourcetool: %w", err)
 			}
 
-			// Create the provenance attestation
-			prov, err := srctool.Attester().CreateSourceProvenance(
+			// Attest the commit passing the options
+			verifiedLevels, err := srctool.AttestCommit(
 				cmd.Context(), opts.GetBranch(), opts.GetCommit(),
+				sourcetool.WithLocalPolicy(opts.useLocalPolicy),
+				sourcetool.WithOutputPath(outputPath),
+				sourcetool.WithSign(signAttestation),
+				sourcetool.WithUseStdout(true),
+				sourcetool.WithPush(pushAttestations),
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("attesting commit: %w", err)
 			}
 
-			// check p against policy
-			pe := policy.NewPolicyEvaluator()
-			pe.UseLocalPolicy = opts.useLocalPolicy
-			verifiedLevels, policyPath, err := pe.EvaluateSourceProv(cmd.Context(), opts.GetRepository(), opts.GetBranch(), prov)
-			if err != nil {
-				return err
-			}
-
-			// create vsa
-			unsignedVsa, err := attest.CreateUnsignedSourceVsa(
-				opts.GetBranch(), opts.GetCommit(), verifiedLevels, policyPath,
-			)
-			if err != nil {
-				return err
-			}
-
-			unsignedProv, err := protojson.Marshal(prov)
-			if err != nil {
-				return err
-			}
-
-			// Store both the unsigned provenance and vsa
-			switch {
-			case opts.outputUnsignedBundle != "":
-				f, err := os.OpenFile(opts.outputUnsignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
-				if err != nil {
-					return err
-				}
-				defer f.Close() //nolint:errcheck
-
-				if _, err := f.WriteString(string(unsignedProv) + "\n" + unsignedVsa + "\n"); err != nil {
-					return fmt.Errorf("writing signed bundle: %w", err)
-				}
-			case opts.outputSignedBundle != "" || len(opts.pushLocation) > 0:
-				var f *os.File
-				if opts.outputSignedBundle != "" {
-					f, err = os.OpenFile(opts.outputSignedBundle, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644) //nolint:gosec
-					if err != nil {
-						return err
-					}
-				}
-				defer func() {
-					if f != nil {
-						f.Close() //nolint:errcheck,gosec
-					}
-				}()
-
-				signedProv, err := attest.Sign(string(unsignedProv))
-				if err != nil {
-					return err
-				}
-
-				signedVsa, err := attest.Sign(unsignedVsa)
-				if err != nil {
-					return err
-				}
-
-				// If a file was specified, write the attestations
-				if f != nil {
-					if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
-						return fmt.Errorf("writing bundle data: %w", err)
-					}
-				}
-			default:
-				log.Printf("unsigned prov: %s\n", unsignedProv)
-				log.Printf("unsigned vsa: %s\n", unsignedVsa)
-			}
-			fmt.Print(verifiedLevels)
+			fmt.Print(verifiedLevels.Levels())
 			return nil
 		},
 	}
