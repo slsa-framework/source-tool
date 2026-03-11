@@ -83,6 +83,20 @@ type FakeVcsBackend struct {
 		result1 *slsa.ControlSet
 		result2 error
 	}
+	GetDefaultBranchStub        func(context.Context, *models.Repository) (*models.Branch, error)
+	getDefaultBranchMutex       sync.RWMutex
+	getDefaultBranchArgsForCall []struct {
+		arg1 context.Context
+		arg2 *models.Repository
+	}
+	getDefaultBranchReturns struct {
+		result1 *models.Branch
+		result2 error
+	}
+	getDefaultBranchReturnsOnCall map[int]struct {
+		result1 *models.Branch
+		result2 error
+	}
 	GetLatestCommitStub        func(context.Context, *models.Repository, *models.Branch) (*models.Commit, error)
 	getLatestCommitMutex       sync.RWMutex
 	getLatestCommitArgsForCall []struct {
@@ -470,6 +484,71 @@ func (fake *FakeVcsBackend) GetBranchControlsAtCommitReturnsOnCall(i int, result
 	}
 	fake.getBranchControlsAtCommitReturnsOnCall[i] = struct {
 		result1 *slsa.ControlSet
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeVcsBackend) GetDefaultBranch(arg1 context.Context, arg2 *models.Repository) (*models.Branch, error) {
+	fake.getDefaultBranchMutex.Lock()
+	ret, specificReturn := fake.getDefaultBranchReturnsOnCall[len(fake.getDefaultBranchArgsForCall)]
+	fake.getDefaultBranchArgsForCall = append(fake.getDefaultBranchArgsForCall, struct {
+		arg1 context.Context
+		arg2 *models.Repository
+	}{arg1, arg2})
+	stub := fake.GetDefaultBranchStub
+	fakeReturns := fake.getDefaultBranchReturns
+	fake.recordInvocation("GetDefaultBranch", []interface{}{arg1, arg2})
+	fake.getDefaultBranchMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeVcsBackend) GetDefaultBranchCallCount() int {
+	fake.getDefaultBranchMutex.RLock()
+	defer fake.getDefaultBranchMutex.RUnlock()
+	return len(fake.getDefaultBranchArgsForCall)
+}
+
+func (fake *FakeVcsBackend) GetDefaultBranchCalls(stub func(context.Context, *models.Repository) (*models.Branch, error)) {
+	fake.getDefaultBranchMutex.Lock()
+	defer fake.getDefaultBranchMutex.Unlock()
+	fake.GetDefaultBranchStub = stub
+}
+
+func (fake *FakeVcsBackend) GetDefaultBranchArgsForCall(i int) (context.Context, *models.Repository) {
+	fake.getDefaultBranchMutex.RLock()
+	defer fake.getDefaultBranchMutex.RUnlock()
+	argsForCall := fake.getDefaultBranchArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeVcsBackend) GetDefaultBranchReturns(result1 *models.Branch, result2 error) {
+	fake.getDefaultBranchMutex.Lock()
+	defer fake.getDefaultBranchMutex.Unlock()
+	fake.GetDefaultBranchStub = nil
+	fake.getDefaultBranchReturns = struct {
+		result1 *models.Branch
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeVcsBackend) GetDefaultBranchReturnsOnCall(i int, result1 *models.Branch, result2 error) {
+	fake.getDefaultBranchMutex.Lock()
+	defer fake.getDefaultBranchMutex.Unlock()
+	fake.GetDefaultBranchStub = nil
+	if fake.getDefaultBranchReturnsOnCall == nil {
+		fake.getDefaultBranchReturnsOnCall = make(map[int]struct {
+			result1 *models.Branch
+			result2 error
+		})
+	}
+	fake.getDefaultBranchReturnsOnCall[i] = struct {
+		result1 *models.Branch
 		result2 error
 	}{result1, result2}
 }

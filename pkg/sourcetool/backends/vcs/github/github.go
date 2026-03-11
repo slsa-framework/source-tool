@@ -411,3 +411,20 @@ func (b *Backend) GetPreviousCommit(ctx context.Context, branch *models.Branch, 
 		SHA: rawCommit,
 	}, nil
 }
+
+// GetDefaultBranch returns the default branch
+func (b *Backend) GetDefaultBranch(ctx context.Context, repo *models.Repository) (*models.Branch, error) {
+	ghx, err := b.getGitHubConnection(repo, "")
+	if err != nil {
+		return nil, err
+	}
+	branchName, err := ghx.GetDefaultBranch(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetching default branch: %w", err)
+	}
+
+	return &models.Branch{
+		Name:       branchName,
+		Repository: repo,
+	}, nil
+}

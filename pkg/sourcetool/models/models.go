@@ -47,6 +47,7 @@ type VcsBackend interface {
 	GetLatestCommit(context.Context, *Repository, *Branch) (*Commit, error)
 	ControlPrecheck(*Repository, []*Branch, ControlConfiguration) (bool, string, ControlPreRemediationFn, error)
 	GetPreviousCommit(context.Context, *Branch, *Commit) (*Commit, error)
+	GetDefaultBranch(context.Context, *Repository) (*Branch, error)
 }
 
 type BackendOptions struct {
