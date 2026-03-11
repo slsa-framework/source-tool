@@ -22,11 +22,15 @@ type Options struct {
 	// PolicyRepo is the repository where the policies are stored
 	PolicyRepo string
 
-	// Initialize GitHub attestations store collector
+	// Initialize GitHub attestations storer and fetcher
 	InitGHCollector bool
+	InitGHStorer    bool
 
-	// Initialize Dynamic notes collector
+	// Initialize Dynamic notes storer and fetcher
 	InitNotesCollector bool
+	InitNotesStorer    bool
+
+	StorageLocations []string
 
 	models.BackendOptions
 }

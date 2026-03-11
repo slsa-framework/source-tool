@@ -11,11 +11,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/carabiner-dev/attestation"
-	"github.com/carabiner-dev/collector"
-	"github.com/carabiner-dev/collector/envelope"
-	"github.com/carabiner-dev/collector/repository/github"
-	"github.com/carabiner-dev/collector/repository/note"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -57,61 +52,6 @@ func (po *pushOptions) Validate() error {
 
 func (po *pushOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringSliceVar(&po.pushLocation, "push", []string{}, fmt.Sprintf("Push signed attestations to storage %v", supportedPushRepos))
-}
-
-func (po *pushOptions) GetCollectorAgent(opts commitOptions, token string) (*collector.Agent, error) {
-	if len(po.pushLocation) == 0 {
-		return nil, nil
-	}
-
-	// Create the attestation storage repositories
-	agent, err := collector.New()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, uri := range po.pushLocation {
-		var repo attestation.Repository
-		var err error
-
-		// Translate just "note" or "github" to the full repo spec acting on
-		// the sepcified commit
-		switch uri {
-		case note.TypeMoniker:
-			uri = fmt.Sprintf(
-				"note:git+https://github.com/%s/%s@%s",
-				opts.owner, opts.repository, opts.commit,
-			)
-		case github.TypeMoniker:
-			uri = fmt.Sprintf("github:%s/%s", opts.owner, opts.repository)
-		}
-		switch {
-		case strings.HasPrefix(uri, "github:"):
-			repo, err = github.New(
-				// Initialize the github repository
-				github.WithInit(uri),
-				// We pass the token to use in the githu client
-				github.WithToken(token),
-			)
-		case strings.HasPrefix(uri, "note:"):
-			repo, err = note.New(
-				// Initialize the notes repository
-				note.WithInit(uri),
-				// Push is enabled as we will append the note to the remote
-				note.WithPush(true),
-				// Push via http, using the GH access token
-				note.WithHttpAuth("x-access-token", token),
-			)
-		default:
-			return nil, fmt.Errorf("repository type not supported")
-		}
-		if err != nil {
-			return nil, fmt.Errorf("creating storage repository: %w", err)
-		}
-		agent.AddRepository(repo) //nolint:errcheck,gosec // always returns nil
-	}
-
-	return agent, nil
 }
 
 type checkLevelProvOpts struct {
@@ -187,18 +127,15 @@ and pushed to its remote (--push=note).
 				return err
 			}
 
-			t, err := authenticator.ReadToken()
-			if err != nil {
-				return err
-			}
-
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
 				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
+				sourcetool.WithNotesStorer(slices.Contains(opts.pushLocation, "notes")),
+				sourcetool.WithGithubStorer(slices.Contains(opts.pushLocation, "github")),
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("creating sourcetool: %w", err)
 			}
 
 			// Create the provenance attestation
@@ -270,30 +207,6 @@ and pushed to its remote (--push=note).
 				if f != nil {
 					if _, err := f.WriteString(signedProv + "\n" + signedVsa + "\n"); err != nil {
 						return fmt.Errorf("writing bundle data: %w", err)
-					}
-				}
-
-				cl, err := opts.GetCollectorAgent(opts.commitOptions, t)
-				if err != nil {
-					return fmt.Errorf("creating storage repositories: %w", err)
-				}
-
-				// If there are any storage repositories configured, push the attestations
-				if cl != nil {
-					// Parse the attestations into envelopes
-					envProv, err := envelope.Parsers.Parse(strings.NewReader(signedProv))
-					if err != nil || len(envProv) == 0 {
-						return fmt.Errorf("parsing provenance: %w", err)
-					}
-					envVsa, err := envelope.Parsers.Parse(strings.NewReader(signedVsa))
-					if err != nil || len(envVsa) == 0 {
-						return fmt.Errorf("parsing VSA: %w", err)
-					}
-
-					// And store them
-					err = cl.Store(cmd.Context(), []attestation.Envelope{envProv[0], envVsa[0]})
-					if err != nil {
-						return fmt.Errorf("storing attestations: %w", err)
 					}
 				}
 			default:

@@ -10,7 +10,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/carabiner-dev/attestation"
 	intoto "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -24,12 +23,15 @@ import (
 )
 
 type AttesterOptions struct {
-	// Initialize dynamic notes collector
+	// Initialize dynamic notes fetcher and storer
 	InitNotesCollector bool
-	// Initialize attestations store collector
+
+	// Initialize attestations store collector and storer
 	InitGHCollector bool
+
 	// Additional read repositories
 	Repos []string
+
 	// Times to retry fetching attestations
 	Retries uint8
 }
@@ -43,7 +45,6 @@ type Attester struct {
 	verifier      Verifier
 	backend       models.VcsBackend
 	Options       AttesterOptions
-	storer        attestation.Storer
 	authenticator *auth.Authenticator
 }
 
@@ -106,20 +107,20 @@ func WithNotesCollector(yesno bool) optFn {
 // Validate checks that the attester configuration is complete
 func (a *Attester) Validate() error {
 	errs := []error{}
+
+	// Check a backend is configured
 	if a.backend == nil {
 		errs = append(errs, errors.New("attester has no backend defined"))
 	}
 
+	// Check we have attestation repos to read
 	if len(a.Options.Repos) == 0 && !a.Options.InitGHCollector && !a.Options.InitNotesCollector {
 		errs = append(errs, errors.New("no attestation repository configured"))
 	}
 
+	// Check we have a signature verifier
 	if a.verifier == nil {
 		errs = append(errs, errors.New("attester has no verifier"))
-	}
-
-	if a.storer == nil {
-		// errs = append(errs, errors.New("attester has no attestation storer defined"))
 	}
 
 	return errors.Join(errs...)

@@ -89,6 +89,8 @@ github.com/carabiner-dev/attestation v0.2.1 h1:VhjV5YlO9TsW50Sr/Zd54bdbZhhDAqgxC
 github.com/carabiner-dev/attestation v0.2.1/go.mod h1:O84vF84RZG3pJO/6BYrPs718bZviHF5DKajP1HsrDpw=
 github.com/carabiner-dev/collector v0.2.10-0.20260309053530-b55bbe428700 h1:S4NFLl3/UJvA4aUuPVY3MECUQS0jhHdT//+excPvWUc=
 github.com/carabiner-dev/collector v0.2.10-0.20260309053530-b55bbe428700/go.mod h1:ltqIryrtd+Ev+zAW9Q2h/UHNVMhT2nR1Fmchk+8lbs8=
+github.com/carabiner-dev/collector v0.2.10-0.20260310234513-8d637f10649f h1:2Q5VzbSVNKPwhP9rUjwH3ZWajDYwxB+3ZT0MTU/80ho=
+github.com/carabiner-dev/collector v0.2.10-0.20260310234513-8d637f10649f/go.mod h1:nqe5n0soDuenKtOt9i4G8D/anZiRTiZywzo3pNqf5As=
 github.com/carabiner-dev/ghrfs v0.3.4 h1:XJoDXkuw+8KQPTC4oI0da8vLpnx7cfQBGgyjzo+Eqrc=
 github.com/carabiner-dev/ghrfs v0.3.4/go.mod h1:u9We7molIUX6sCe4ox70juKOnbNAUpDv+B5Cerbqhio=
 github.com/carabiner-dev/github v0.2.2 h1:Ykrlcct71fRQm4j37LhAz9FyzG4n1nlm2e+V62MIoJM=
@@ -107,6 +109,8 @@ github.com/carabiner-dev/predicates v0.1.0 h1:t6tQF9gFdr6TIccWtuNk3kFasx8eu88INF
 github.com/carabiner-dev/predicates v0.1.0/go.mod h1:jL6EAD+LiI6GW/rOdRYAJF4HaA88/V2Q4n7yUGNQ7XM=
 github.com/carabiner-dev/signer v0.3.7 h1:oEmOg17Szs5+x0oVVGXluPNsVaQyROlXrBPxgwxfOHg=
 github.com/carabiner-dev/signer v0.3.7/go.mod h1:gReZbCZlINz8Pm/hrD1HtRcGFaO9MGUAu/v+iZp7R6Y=
+github.com/carabiner-dev/signer v0.3.8-0.20260310160610-a37998585604 h1:2PeAzIFCqbCF/upSb4Hqj5HwTvuJ6D6KjP2F5yH7WrA=
+github.com/carabiner-dev/signer v0.3.8-0.20260310160610-a37998585604/go.mod h1:kqmUAFHKgQXFsIsIFjbk4UlOMXNte7J1IVxIgKAnY/M=
 github.com/carabiner-dev/vcslocator v0.4.0 h1:HxU8F7FWJatnIhR6NowsPpfki8xw2uNDRLuikcBHFao=
 github.com/carabiner-dev/vcslocator v0.4.0/go.mod h1:B3JFnwypdrRVQPJKNK3BOlRw6DbgmsiHGmoT3ZELpp8=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=

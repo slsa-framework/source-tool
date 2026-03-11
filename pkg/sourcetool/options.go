@@ -18,9 +18,30 @@ func WithGithubCollector(yesno bool) ConfigFn {
 	}
 }
 
+func WithGithubStorer(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitGHStorer = yesno
+		return nil
+	}
+}
+
 func WithNotesCollector(yesno bool) ConfigFn {
 	return func(t *Tool) error {
 		t.Options.InitNotesCollector = yesno
+		return nil
+	}
+}
+
+func WithNotesStorer(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitNotesStorer = yesno
+		return nil
+	}
+}
+
+func WithStorageLocation(l ...string) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.StorageLocations = l
 		return nil
 	}
 }

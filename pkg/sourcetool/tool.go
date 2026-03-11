@@ -9,10 +9,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/carabiner-dev/collector"
+	cgithub "github.com/carabiner-dev/collector/repository/github"
+	"github.com/carabiner-dev/collector/repository/note"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/slsa-framework/source-tool/pkg/attest"
@@ -320,4 +325,215 @@ func (t *Tool) Backend() models.VcsBackend {
 // GetPreviousCommit returns the previous commit of the passed commit
 func (t *Tool) GetPreviousCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*models.Commit, error) {
 	return t.backend.GetPreviousCommit(ctx, branch, commit)
+}
+
+type AttestOptions struct {
+	LocalPolicy string
+	Sign        bool
+	OutputPath  string
+	UseStdOut   bool
+	Push        bool
+}
+
+type AttOpFn func(*AttestOptions) error
+
+func WithLocalPolicy(p string) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.LocalPolicy = p
+		return nil
+	}
+}
+
+func WithSign(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.Sign = s
+		return nil
+	}
+}
+
+func WithOutputPath(p string) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.OutputPath = p
+		return nil
+	}
+}
+
+func WithUseStdout(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.UseStdOut = s
+		return nil
+	}
+}
+
+func WithPush(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.Push = s
+		return nil
+	}
+}
+
+var defaultAttestOptions = AttestOptions{
+	Sign:      true,
+	UseStdOut: true,
+}
+
+// AttestCommit checks the source control system status, the repository policy
+// and generates the repository attestations (provenance & VSA).
+func (t *Tool) AttestCommit(ctx context.Context, branch *models.Branch, commit *models.Commit, funcs ...AttOpFn) error {
+	var agent *collector.Agent
+	var err error
+
+	// Initialize the attest options
+	opts := defaultAttestOptions
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return err
+		}
+	}
+
+	// Create the agent if we are pushing
+	if opts.Push {
+		agent, err = t.getAttestationStore(branch)
+		if err != nil {
+			return fmt.Errorf("unable to intitializer storate agent: %w", err)
+		}
+	}
+
+	// Create the provenance attestation
+	prov, err := t.Attester().CreateSourceProvenance(ctx, branch, commit)
+	if err != nil {
+		return err
+	}
+
+	// check p against policy
+	pe := policy.NewPolicyEvaluator()
+	pe.UseLocalPolicy = opts.LocalPolicy
+	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
+	if err != nil {
+		return err
+	}
+
+	var vsaData string
+	var provenanceData []byte
+
+	// create vsa
+	vsaData, err = attest.CreateUnsignedSourceVsa(
+		branch, commit, verifiedLevels, policyPath,
+	)
+	if err != nil {
+		return fmt.Errorf("creating VSA: %w", err)
+	}
+
+	provenanceData, err = protojson.Marshal(prov)
+	if err != nil {
+		return fmt.Errorf("generating provenance attestation: %w", err)
+	}
+
+	if opts.Sign {
+		provenanceDataString, err := attest.Sign(string(provenanceData))
+		if err != nil {
+			return err
+		}
+		provenanceData = []byte(provenanceDataString)
+
+		vsaData, err = attest.Sign(vsaData)
+		if err != nil {
+			return err
+		}
+	}
+
+	if opts.UseStdOut {
+		fmt.Printf("%s\n%s\n", string(provenanceData), vsaData)
+	}
+
+	fpath := opts.OutputPath
+	if fpath == "" {
+		f, err := os.CreateTemp("", "attestations-")
+		if err != nil {
+			return fmt.Errorf("opening tmp file: %w", err)
+		}
+		f.Close() //nolint:errcheck,gosec
+		fpath = f.Name()
+	}
+
+	defer func() {
+		if opts.OutputPath == "" {
+			os.Remove(fpath) //nolint:errcheck,gosec
+		}
+	}()
+
+	if err := os.WriteFile(
+		fpath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
+	); err != nil {
+		return fmt.Errorf("writing attestations: %w", err)
+	}
+
+	if opts.Push {
+		if err := agent.StoreFromFiles(ctx, []string{fpath}); err != nil {
+			return fmt.Errorf("pushing attestations: %w", err)
+		}
+	}
+
+	if opts.OutputPath != "" {
+		err = os.WriteFile(
+			opts.OutputPath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
+		)
+	}
+	return err
+}
+
+// getAttestationStore returns a collector with storer reposistories to push
+// the generated attestations.
+func (t *Tool) getAttestationStore(branch *models.Branch) (*collector.Agent, error) {
+	if len(t.Options.StorageLocations) == 0 && !t.Options.InitGHStorer && !t.Options.InitNotesStorer {
+		return nil, errors.New("no storage locations defined")
+	}
+
+	if t.Authenticator == nil {
+		return nil, errors.New("tool has no authenticator configured")
+	}
+
+	token, err := t.Authenticator.ReadToken()
+	if err != nil {
+		return nil, fmt.Errorf("unable to read auth token: %w", err)
+	}
+	copts := []collector.InitFunction{}
+	// Init GitHub storer
+	if t.Options.InitGHStorer {
+		ghrepo, err := cgithub.New(
+			cgithub.WithRepo(branch.Repository.GetHttpURL()),
+			cgithub.WithToken(token),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("initializing gitrhub repo: %w", err)
+		}
+		copts = append(copts, collector.WithRepository(ghrepo))
+	}
+
+	// Init commit notes storer
+	if t.Options.InitNotesStorer {
+		notesrepo, err := note.NewDynamic(
+			note.WithLocator(branch.Repository.GetHttpURL()),
+			note.WithHttpAuth("github", token),
+			note.WithPush(true),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("initializing notes collector: %w", err)
+		}
+		copts = append(copts, collector.WithRepository(notesrepo))
+	}
+
+	// Retrurn the agent with the configured storers
+	c, err := collector.New(copts...)
+	if err != nil {
+		return nil, fmt.Errorf("initializing storage agent: %w", err)
+	}
+
+	// Add any additional storage locations
+	for _, str := range t.Options.StorageLocations {
+		if err := c.AddRepositoryFromString(str); err != nil {
+			return nil, fmt.Errorf("initializing repo %q: %w", str, err)
+		}
+	}
+	return c, nil
 }
