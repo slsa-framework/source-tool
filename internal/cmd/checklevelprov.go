@@ -54,12 +54,12 @@ type checkLevelProvOpts struct {
 	commitOptions
 	verifierOptions
 	pushOptions
+	allowMergeCommitsOptions
 	prevBundlePath       string
 	prevCommit           string
 	outputUnsignedBundle string
 	outputSignedBundle   string
 	useLocalPolicy       string
-	allowMergeCommits    bool
 }
 
 func (clp *checkLevelProvOpts) Validate() error {
@@ -72,12 +72,12 @@ func (clp *checkLevelProvOpts) Validate() error {
 func (clp *checkLevelProvOpts) AddFlags(cmd *cobra.Command) {
 	clp.commitOptions.AddFlags(cmd)
 	clp.pushOptions.AddFlags(cmd)
+	clp.allowMergeCommitsOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(&clp.prevBundlePath, "prev_bundle_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
 	cmd.PersistentFlags().StringVar(&clp.prevCommit, "prev_commit", "", "The commit to check.")
 	cmd.PersistentFlags().StringVar(&clp.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 	cmd.PersistentFlags().StringVar(&clp.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 	cmd.PersistentFlags().StringVar(&clp.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
-	cmd.PersistentFlags().BoolVar(&clp.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch")
 }
 
 func addCheckLevelProv(parentCmd *cobra.Command) {

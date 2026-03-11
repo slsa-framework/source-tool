@@ -19,8 +19,8 @@ import (
 
 type checkLevelOpts struct {
 	commitOptions
+	allowMergeCommitsOptions
 	outputVsa, outputUnsignedVsa, useLocalPolicy string
-	allowMergeCommits                            bool
 }
 
 func (clo *checkLevelOpts) Validate() error {
@@ -33,10 +33,10 @@ func (clo *checkLevelOpts) Validate() error {
 
 func (clo *checkLevelOpts) AddFlags(cmd *cobra.Command) {
 	clo.commitOptions.AddFlags(cmd)
+	clo.allowMergeCommitsOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(&clo.outputVsa, "output_vsa", "", "The path to write a signed VSA with the determined level.")
 	cmd.PersistentFlags().StringVar(&clo.outputUnsignedVsa, "output_unsigned_vsa", "", "The path to write an unsigned vsa with the determined level.")
 	cmd.PersistentFlags().StringVar(&clo.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
-	cmd.PersistentFlags().BoolVar(&clo.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch.")
 }
 
 func addCheckLevel(parentCmd *cobra.Command) {

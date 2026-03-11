@@ -352,3 +352,12 @@ func (ro *revisionOpts) EnsureDefaults() error {
 
 	return nil
 }
+
+type allowMergeCommitsOptions struct {
+	allowMergeCommits bool
+}
+
+// AddFlags adds the subcommands flags
+func (o *allowMergeCommitsOptions) AddFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().BoolVar(&o.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch.")
+}
