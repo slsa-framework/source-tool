@@ -74,6 +74,18 @@ type Commit struct {
 	Message string
 }
 
+// Both tags and branches must implement the reference interface
+var (
+	_ Reference = (*Branch)(nil)
+	_ Reference = (*Tag)(nil)
+)
+
+type Reference interface {
+	FullRef() string
+	GetRepository() *Repository
+	GetName() string
+}
+
 func (c *Commit) ToResourceDescriptor() *attestation.ResourceDescriptor {
 	return &attestation.ResourceDescriptor{
 		Digest: map[string]string{
@@ -85,6 +97,14 @@ func (c *Commit) ToResourceDescriptor() *attestation.ResourceDescriptor {
 type Branch struct {
 	Name       string
 	Repository *Repository
+}
+
+func (b *Branch) GetRepository() *Repository {
+	return b.Repository
+}
+
+func (b *Branch) GetName() string {
+	return b.Name
 }
 
 func (b *Branch) FullRef() string {
@@ -125,8 +145,24 @@ func (r *Repository) PathAsGitHubOwnerName() (owner, name string, err error) {
 }
 
 type Tag struct {
-	Name   string
-	Commit *Commit
+	Name       string
+	Commit     *Commit
+	Repository *Repository
+}
+
+func (t *Tag) GetName() string {
+	return t.Name
+}
+
+func (t *Tag) GetRepository() *Repository {
+	return t.Repository
+}
+
+func (t *Tag) FullRef() string {
+	if t.Name == "" {
+		return ""
+	}
+	return "refs/tags/" + t.Name
 }
 
 // PullRequest models a GitHub pull request.
