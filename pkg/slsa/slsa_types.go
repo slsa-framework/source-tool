@@ -38,9 +38,26 @@ func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {
 // These can be any string, not just SlsaLevels
 type SourceVerifiedLevels []ControlName
 
+// Levels returns the contrlols that are only SLSA levels (ignoring others)
+func (svl SourceVerifiedLevels) Levels() SourceVerifiedLevels {
+	ret := SourceVerifiedLevels{}
+	for _, c := range svl {
+		if c == ControlName(SlsaSourceLevel0) ||
+			c == ControlName(SlsaSourceLevel1) ||
+			c == ControlName(SlsaSourceLevel2) ||
+			c == ControlName(SlsaSourceLevel3) ||
+			c == ControlName(SlsaSourceLevel4) {
+			ret = append(ret, c)
+		}
+	}
+	return ret
+}
+
 // Returns the list of control names that must be set for the given slsa level.
 func GetRequiredControlsForLevel(level SlsaSourceLevel) ControlNameSet {
 	switch level {
+	case SlsaSourceLevel0:
+		return Level0
 	case SlsaSourceLevel1:
 		return Level1
 	case SlsaSourceLevel2:

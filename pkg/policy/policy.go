@@ -51,7 +51,7 @@ func createDefaultBranchPolicy(branch *models.Branch) *ProtectedBranch {
 	return &ProtectedBranch{
 		Name:                  branch.Name,
 		Since:                 timestamppb.Now(),
-		TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel1),
+		TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel0),
 		RequireReview:         false,
 	}
 }
@@ -338,13 +338,22 @@ func laterTime(time1, time2 time.Time) time.Time {
 
 // Computes the time since these controls have been eligible for the level, nil if not eligible.
 func ComputeEligibleSince(controls *slsa.ControlSet, level slsa.SlsaSourceLevel) (*time.Time, error) {
+	// Get the required controls for the taget SLSA level
 	requiredControls := slsa.GetRequiredControlsForLevel(level)
 	var newestTime time.Time
+	// Range the controls and get the latest time. This is the time when
+	// the repo started being elegible for the target level
 	for _, rc := range requiredControls {
 		ac := controls.GetControl(rc)
 		if ac == nil {
+			// TODO(puerco): Here we should report which controls are missing
+			// to inform the user somehow.
 			return nil, nil
 		}
+
+		// If a control is missing it since date, then ignore it for "ElegibleSince"
+		// computation. Here we have a problem on how we compute since for provenance.
+		// See https://github.com/slsa-framework/source-tool/issues/365
 		since := ac.GetSince()
 		if since == nil {
 			continue

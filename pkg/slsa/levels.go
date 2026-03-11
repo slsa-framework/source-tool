@@ -8,6 +8,7 @@ type (
 )
 
 const (
+	SlsaSourceLevel0 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_0"
 	SlsaSourceLevel1 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
 	SlsaSourceLevel2 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_2"
 	SlsaSourceLevel3 SlsaSourceLevel = "SLSA_SOURCE_LEVEL_3"
