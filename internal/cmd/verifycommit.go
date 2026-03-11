@@ -13,10 +13,9 @@ import (
 )
 
 type verifyCommitOptions struct {
-	commitOptions
 	verifierOptions
 	outputOptions
-	tag string
+	revisionOpts
 }
 
 // VerifyCommitResult represents the result of a commit verification
@@ -41,7 +40,7 @@ func (v VerifyCommitResult) String() string {
 
 func (vco *verifyCommitOptions) Validate() error {
 	errs := []error{
-		vco.commitOptions.Validate(),
+		vco.revisionOpts.Validate(),
 		vco.verifierOptions.Validate(),
 		vco.outputOptions.Validate(),
 	}
@@ -49,12 +48,10 @@ func (vco *verifyCommitOptions) Validate() error {
 }
 
 func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
+	vco.tagOptions.AddFlags(cmd)
 	vco.commitOptions.AddFlags(cmd)
 	vco.verifierOptions.AddFlags(cmd)
 	vco.outputOptions.AddFlags(cmd)
-	cmd.PersistentFlags().StringVar(
-		&vco.tag, "tag", "", "The tag within the repository",
-	)
 }
 
 func addVerifyCommit(cmd *cobra.Command) {

@@ -134,8 +134,8 @@ func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error)
 }
 
 // GetRevisionVSA returns a revision's VSA attestation
-func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, commit *models.Commit) (attestation.Envelope, *vsa.VerificationSummary, error) {
-	if commit == nil {
+func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, revision models.Revision) (attestation.Envelope, *vsa.VerificationSummary, error) {
+	if revision.GetCommit() == nil {
 		return nil, nil, errors.New("commit is nil")
 	}
 	c, err := a.getCollector(branch)
@@ -155,7 +155,7 @@ func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, co
 	for i := 0; i <= int(a.Options.Retries); i++ {
 		// Fetch the attestations from the configured repos
 		atts, attErr = c.FetchAttestationsBySubject(
-			ctx, []attestation.Subject{commit.ToResourceDescriptor()},
+			ctx, []attestation.Subject{revision.GetCommit().ToResourceDescriptor()},
 			collector.WithQuery(attestation.NewQuery().WithFilter(matcher)),
 		)
 		if attErr == nil {
