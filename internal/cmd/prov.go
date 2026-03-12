@@ -4,39 +4,37 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/slsa-framework/source-tool/pkg/attest"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 )
 
 type provOptions struct {
-	commitOptions
+	revisionOpts
 	verifierOptions
+	allowMergeCommitsOptions
 	prevAttPath, prevCommit string
 }
 
 func (po *provOptions) Validate() error {
 	return errors.Join([]error{
-		po.commitOptions.Validate(),
+		po.revisionOpts.Validate(),
 		po.verifierOptions.Validate(),
 	}...)
 }
 
 func (po *provOptions) AddFlags(cmd *cobra.Command) {
-	po.commitOptions.AddFlags(cmd)
+	po.revisionOpts.AddFlags(cmd)
 	po.verifierOptions.AddFlags(cmd)
-
+	po.allowMergeCommitsOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(&po.prevAttPath, "prev_att_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
 	cmd.PersistentFlags().StringVar(&po.prevCommit, "prev_commit", "", "The commit prior to 'commit'.")
 }
 
-//nolint:dupl
 func addProv(parentCmd *cobra.Command) {
 	opts := provOptions{}
 	provCmd := &cobra.Command{
@@ -67,25 +65,33 @@ func addProv(parentCmd *cobra.Command) {
 			if err := opts.Validate(); err != nil {
 				return fmt.Errorf("validating options: %w", err)
 			}
-			return doProv(&opts)
+
+			authenticator, err := CheckAuth()
+			if err != nil {
+				return err
+			}
+
+			// Create a new sourcetool object
+			srctool, err := sourcetool.New(
+				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
+			)
+			if err != nil {
+				return err
+			}
+
+			newProv, err := srctool.Attester().CreateSourceProvenance(cmd.Context(), opts.GetBranch(), opts.GetCommit())
+			if err != nil {
+				return err
+			}
+			provStr, err := protojson.Marshal(newProv)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(provStr))
+			return nil
 		},
 	}
 	opts.AddFlags(provCmd)
 	parentCmd.AddCommand(provCmd)
-}
-
-func doProv(opts *provOptions) error {
-	ghconnection := ghcontrol.NewGhConnection(opts.owner, opts.repository, ghcontrol.BranchToFullRef(opts.branch)).WithAuthToken(githubToken)
-	ctx := context.Background()
-	pa := attest.NewProvenanceAttestor(ghconnection, getVerifier(&opts.verifierOptions))
-	newProv, err := pa.CreateSourceProvenance(ctx, opts.prevAttPath, opts.commit, opts.prevCommit, ghconnection.GetFullRef())
-	if err != nil {
-		return err
-	}
-	provStr, err := protojson.Marshal(newProv)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(provStr))
-	return nil
 }

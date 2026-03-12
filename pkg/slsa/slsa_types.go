@@ -12,40 +12,11 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/provenance"
 )
 
-type (
-	ControlName     string
-	ControlState    string
-	SlsaSourceLevel ControlName
-)
-
-func (c ControlName) String() string {
-	return string(c)
-}
-
 const (
-	SlsaSourceLevel1         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_1"
-	SlsaSourceLevel2         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_2"
-	SlsaSourceLevel3         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_3"
-	SlsaSourceLevel4         SlsaSourceLevel = "SLSA_SOURCE_LEVEL_4"
-	ContinuityEnforced       ControlName     = "CONTINUITY_ENFORCED"
-	ProvenanceAvailable      ControlName     = "PROVENANCE_AVAILABLE"
-	ReviewEnforced           ControlName     = "REVIEW_ENFORCED"
-	TagHygiene               ControlName     = "TAG_HYGIENE"
-	PolicyAvailable          ControlName     = "POLICY_AVAILABLE"
-	SourceBranchesAnnotation                 = "source_branches"
-	SourceRefsAnnotation                     = "source_refs"
-	AllowedOrgPropPrefix                     = "ORG_SOURCE_"
-
-	// Control lifecycle states
-	StateNotEnabled ControlState = "not_enabled"
-	StateInProgress ControlState = "in_progress"
-	StateActive     ControlState = "active"
+	SourceBranchesAnnotation = "source_branches"
+	SourceRefsAnnotation     = "source_refs"
+	AllowedOrgPropPrefix     = "ORG_SOURCE_"
 )
-
-// AllLevelControls lists all the SLSA controls managed by sourcetool
-var AllLevelControls = []ControlName{
-	ContinuityEnforced, ProvenanceAvailable, ReviewEnforced, TagHygiene,
-}
 
 func IsSlsaSourceLevel(control ControlName) bool {
 	return slices.Contains(
@@ -64,64 +35,37 @@ func IsLevelHigherOrEqualTo(level1, level2 SlsaSourceLevel) bool {
 	return level1 >= level2
 }
 
-type Controls []*provenance.Control
-
-// Adds the control to the list. Ignores nil controls.
-// Does not check for duplicate controls.
-func (controls *Controls) AddControl(newControls ...*provenance.Control) {
-	if controls == nil {
-		controls = &Controls{}
-	}
-	for _, c := range newControls {
-		if c == nil {
-			continue
-		}
-		*controls = append(*controls, c)
-	}
-}
-
-// Gets the control with the corresponding name, returns nil if not found.
-func (controls *Controls) GetControl(name ControlName) *provenance.Control {
-	for _, control := range *controls {
-		if control.GetName() == name.String() {
-			return control
-		}
-	}
-	return nil
-}
-
-func (controls *Controls) AreControlsAvailable(names []ControlName) bool {
-	for _, name := range names {
-		if controls.GetControl(name) == nil {
-			return false
-		}
-	}
-	return true
-}
-
-// Returns the names of the controls.
-func (controls *Controls) Names() []ControlName {
-	names := make([]ControlName, len(*controls))
-	for i := range *controls {
-		names[i] = ControlName((*controls)[i].GetName())
-	}
-	return names
-}
-
 // These can be any string, not just SlsaLevels
 type SourceVerifiedLevels []ControlName
 
+// Levels returns the contrlols that are only SLSA levels (ignoring others)
+func (svl SourceVerifiedLevels) Levels() SourceVerifiedLevels {
+	ret := SourceVerifiedLevels{}
+	for _, c := range svl {
+		if c == ControlName(SlsaSourceLevel0) ||
+			c == ControlName(SlsaSourceLevel1) ||
+			c == ControlName(SlsaSourceLevel2) ||
+			c == ControlName(SlsaSourceLevel3) ||
+			c == ControlName(SlsaSourceLevel4) {
+			ret = append(ret, c)
+		}
+	}
+	return ret
+}
+
 // Returns the list of control names that must be set for the given slsa level.
-func GetRequiredControlsForLevel(level SlsaSourceLevel) []ControlName {
+func GetRequiredControlsForLevel(level SlsaSourceLevel) ControlNameSet {
 	switch level {
+	case SlsaSourceLevel0:
+		return Level0
 	case SlsaSourceLevel1:
-		return []ControlName{}
+		return Level1
 	case SlsaSourceLevel2:
-		return []ControlName{ContinuityEnforced, TagHygiene}
+		return Level2
 	case SlsaSourceLevel3:
-		return []ControlName{ContinuityEnforced, TagHygiene, ProvenanceAvailable}
+		return Level3
 	case SlsaSourceLevel4:
-		return []ControlName{ContinuityEnforced, TagHygiene, ProvenanceAvailable, ReviewEnforced}
+		return Level4
 	default:
 		return []ControlName{}
 	}
@@ -142,16 +86,32 @@ func ControlNamesToStrings(controlNames []ControlName) []string {
 	return strs
 }
 
+func NewControlSetFromProvanenaceControls(provControls []*provenance.Control) *ControlSet {
+	set := &ControlSet{
+		Controls: []*Control{},
+	}
+
+	for _, ctl := range provControls {
+		t := ctl.GetSince().AsTime()
+		set.Controls = append(set.Controls, &Control{
+			Name:  ControlName(ctl.GetName()),
+			State: StateActive,
+			Since: &t,
+		})
+	}
+	return set
+}
+
 // NewControlStatus returns a new control status object initialized with
 // all existing controls in not_enabled state.
-func NewControlSetStatus() *ControlSetStatus {
-	status := &ControlSetStatus{
+func NewControlSet() *ControlSet {
+	status := &ControlSet{
 		Time:     time.Now(),
-		Controls: []ControlStatus{},
+		Controls: []*Control{},
 	}
 
 	for _, c := range AllLevelControls {
-		status.Controls = append(status.Controls, ControlStatus{
+		status.Controls = append(status.Controls, &Control{
 			Name:  c,
 			State: StateNotEnabled,
 		})
@@ -160,22 +120,38 @@ func NewControlSetStatus() *ControlSetStatus {
 	return status
 }
 
-// ControlSetStatus is a snapshot of the status of SLSA controls in a branch at
+// ControlSet is a snapshot of the status of SLSA controls in a branch at
 // a point in time.
-type ControlSetStatus struct {
-	RepoUri  string
-	Branch   string
-	Time     time.Time
-	Controls []ControlStatus
+type ControlSet struct {
+	RepoUri string
+	Branch  string
+	// The time we are observing the controls
+	Time time.Time
+	// The time the commit we're evaluating was pushed.
+	CommitPushTime time.Time
+	// The actor that pushed the commit.
+	ActorLogin string
+	// The type of activity that created the commit.
+	ActivityType string
+	// List of controls
+	Controls []*Control
 }
 
-// ControlStatus captures the status of a control as seen from a VCS system
-type ControlStatus struct {
+// Control captures the status of a control as seen from a VCS system
+type Control struct {
 	Name              ControlName
 	State             ControlState `json:"control_state"`
 	Since             *time.Time   `json:"since,omitempty"`
 	Message           string
 	RecommendedAction *ControlRecommendedAction
+}
+
+func (cs *Control) GetName() ControlName {
+	return cs.Name
+}
+
+func (cs *Control) GetSince() *time.Time {
+	return cs.Since
 }
 
 // ControlRecommendedAction captures the recommended action to complete
@@ -187,27 +163,87 @@ type ControlRecommendedAction struct {
 
 // GetActiveControls returns a Controls collection with all the controls
 // which are active in the set.
-func (cs *ControlSetStatus) GetActiveControls() *Controls {
-	ret := Controls{}
+func (cs *ControlSet) GetActiveControls() *ControlSet {
+	ret := ControlSet{}
 	if cs == nil {
 		return &ret
 	}
 	for _, c := range cs.Controls {
 		if c.State == StateActive {
-			ret.AddControl(&provenance.Control{
-				Name: c.Name.String(), Since: timestamppb.New(*c.Since),
-			})
+			ret.AddControl(c)
 		}
 	}
 	return &ret
 }
 
 // SetControlState sets the state of a control in the set by name.
-func (cs *ControlSetStatus) SetControlState(ctrlName ControlName, state ControlState) {
+func (cs *ControlSet) SetControlState(ctrlName ControlName, state ControlState) {
 	for i := range cs.Controls {
 		if cs.Controls[i].Name == ctrlName {
 			cs.Controls[i].State = state
 			return
 		}
 	}
+}
+
+// Adds the control to the list. Ignores nil controls.
+// Does not check for duplicate controls.
+func (cs *ControlSet) AddControl(newControls ...*Control) {
+	if cs == nil {
+		cs = &ControlSet{}
+	}
+	for _, c := range newControls {
+		if c == nil {
+			continue
+		}
+		cs.Controls = append(cs.Controls, c)
+	}
+}
+
+// Gets the control with the corresponding name, returns nil if not found.
+func (cs *ControlSet) GetControl(name ControlName) *Control {
+	for _, control := range cs.Controls {
+		if control.GetName() == name {
+			return control
+		}
+	}
+	return nil
+}
+
+// This checks if the controls are present in the array. But As we merged the
+// controls array with the struct we also check if they are all active
+func (cs *ControlSet) AreControlsAvailable(names []ControlName) bool {
+	for _, name := range names {
+		ctl := cs.GetControl(name)
+		if ctl == nil || ctl.State != StateActive {
+			return false
+		}
+	}
+	return true
+}
+
+// Returns the names of the controls.
+func (cs *ControlSet) Names() []ControlName {
+	names := make([]ControlName, len(cs.Controls))
+	for i := range cs.Controls {
+		names[i] = cs.Controls[i].GetName()
+	}
+	return names
+}
+
+func (cs *ControlSet) ToProvenanceControls() []*provenance.Control {
+	ret := []*provenance.Control{}
+	for _, ctl := range cs.Controls {
+		if ctl.State != StateActive {
+			continue
+		}
+		c := &provenance.Control{
+			Name: ctl.Name.String(),
+		}
+		if ctl.Since != nil {
+			c.Since = timestamppb.New(*ctl.Since)
+		}
+		ret = append(ret, c)
+	}
+	return ret
 }

@@ -110,13 +110,13 @@ sourcetool status myorg/myrepo@mybranch
 			}
 
 			// Get the active repository controls
-			controls, err := srctool.GetBranchControls(cmd.Context(), opts.GetRepository(), opts.GetBranch())
+			controls, err := srctool.GetBranchControls(cmd.Context(), opts.GetBranch())
 			if err != nil {
 				return fmt.Errorf("fetching active controls: %w", err)
 			}
 
 			// Compute the maximum level possible:
-			toplevel := policy.ComputeEligibleSlsaLevel(*controls.GetActiveControls())
+			toplevel := policy.ComputeEligibleSlsaLevel(controls.GetActiveControls())
 
 			title := fmt.Sprintf(
 				"\nSLSA Source Status for %s/%s@%s", opts.owner, opts.repository,
@@ -126,10 +126,10 @@ sourcetool status myorg/myrepo@mybranch
 			fmt.Println(w(title))
 			fmt.Println(strings.Repeat("=", len(title)))
 
-			var policyControlStatus *slsa.ControlStatus
+			var policyControlStatus *slsa.Control
 			for _, c := range controls.Controls {
 				if c.Name == slsa.PolicyAvailable {
-					policyControlStatus = &c
+					policyControlStatus = c
 					continue
 				}
 				fmt.Printf("%-35s  ", c.Name)

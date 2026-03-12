@@ -4,21 +4,18 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/source-tool/pkg/attest"
-	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 )
 
 type verifyCommitOptions struct {
-	commitOptions
 	verifierOptions
 	outputOptions
-	tag string
+	revisionOpts
 }
 
 // VerifyCommitResult represents the result of a commit verification
@@ -43,7 +40,7 @@ func (v VerifyCommitResult) String() string {
 
 func (vco *verifyCommitOptions) Validate() error {
 	errs := []error{
-		vco.commitOptions.Validate(),
+		vco.revisionOpts.Validate(),
 		vco.verifierOptions.Validate(),
 		vco.outputOptions.Validate(),
 	}
@@ -51,15 +48,12 @@ func (vco *verifyCommitOptions) Validate() error {
 }
 
 func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
+	vco.tagOptions.AddFlags(cmd)
 	vco.commitOptions.AddFlags(cmd)
 	vco.verifierOptions.AddFlags(cmd)
 	vco.outputOptions.AddFlags(cmd)
-	cmd.PersistentFlags().StringVar(
-		&vco.tag, "tag", "", "The tag within the repository",
-	)
 }
 
-//nolint:dupl
 func addVerifyCommit(cmd *cobra.Command) {
 	opts := verifyCommitOptions{}
 	verifyCommitCmd := &cobra.Command{
@@ -89,55 +83,58 @@ func addVerifyCommit(cmd *cobra.Command) {
 			if err := opts.Validate(); err != nil {
 				return fmt.Errorf("validating options: %w", err)
 			}
-			return doVerifyCommit(&opts)
+			authenticator, err := CheckAuth()
+			if err != nil {
+				return err
+			}
+
+			// Create a new sourcetool object
+			srctool, err := sourcetool.New(
+				sourcetool.WithAuthenticator(authenticator),
+			)
+			if err != nil {
+				return err
+			}
+
+			var refType string
+			var refName string
+			switch {
+			case opts.branch != "":
+				refType = "branch"
+				refName = opts.branch
+			case opts.tag != "":
+				refType = "tag"
+				refName = opts.tag
+			default:
+				return fmt.Errorf("must specify either branch or tag")
+			}
+
+			_, vsaPred, err := srctool.Attester().GetRevisionVSA(cmd.Context(), opts.GetBranch(), opts.GetCommit())
+			if err != nil {
+				return err
+			}
+
+			result := VerifyCommitResult{
+				Success:    vsaPred != nil,
+				Commit:     opts.commit,
+				Ref:        refName,
+				RefType:    refType,
+				Owner:      opts.owner,
+				Repository: opts.repository,
+			}
+
+			if vsaPred == nil {
+				result.Message = fmt.Sprintf(
+					"no VSA matching commit '%s' on %s '%s' found in github.com/%s/%s",
+					opts.commit, refType, refName, opts.owner, opts.repository,
+				)
+				return opts.writeResult(result)
+			}
+
+			result.VerifiedLevels = vsaPred.GetVerifiedLevels()
+			return opts.writeResult(result)
 		},
 	}
 	opts.AddFlags(cmd)
 	cmd.AddCommand(verifyCommitCmd)
-}
-
-func doVerifyCommit(opts *verifyCommitOptions) error {
-	var ref string
-	var refType string
-	var refName string
-	switch {
-	case opts.branch != "":
-		ref = ghcontrol.BranchToFullRef(opts.branch)
-		refType = "branch"
-		refName = opts.branch
-	case opts.tag != "":
-		ref = ghcontrol.TagToFullRef(opts.tag)
-		refType = "tag"
-		refName = opts.tag
-	default:
-		return fmt.Errorf("must specify either branch or tag")
-	}
-
-	ghconnection := ghcontrol.NewGhConnection(opts.owner, opts.repository, ref).WithAuthToken(githubToken)
-	ctx := context.Background()
-
-	_, vsaPred, err := attest.GetVsa(ctx, ghconnection, getVerifier(&opts.verifierOptions), opts.commit, ghconnection.GetFullRef())
-	if err != nil {
-		return err
-	}
-
-	result := VerifyCommitResult{
-		Success:    vsaPred != nil,
-		Commit:     opts.commit,
-		Ref:        refName,
-		RefType:    refType,
-		Owner:      opts.owner,
-		Repository: opts.repository,
-	}
-
-	if vsaPred == nil {
-		result.Message = fmt.Sprintf(
-			"no VSA matching commit '%s' on %s '%s' found in github.com/%s/%s",
-			opts.commit, refType, refName, opts.owner, opts.repository,
-		)
-		return opts.writeResult(result)
-	}
-
-	result.VerifiedLevels = vsaPred.GetVerifiedLevels()
-	return opts.writeResult(result)
 }

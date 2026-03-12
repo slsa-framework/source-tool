@@ -39,13 +39,21 @@ type AttestationStorageReader interface {
 //
 //counterfeiter:generate . VcsBackend
 type VcsBackend interface {
-	GetBranchControls(context.Context, *Repository, *Branch) (*slsa.ControlSetStatus, error)
-	GetBranchControlsAtCommit(context.Context, *Repository, *Branch, *Commit) (*slsa.ControlSetStatus, error)
-	GetTagControls(context.Context, *Tag) (*slsa.Controls, error)
+	GetBranchControls(context.Context, *Branch) (*slsa.ControlSet, error)
+	GetBranchControlsAtCommit(context.Context, *Branch, *Commit) (*slsa.ControlSet, error)
+	GetTagControls(context.Context, *Branch, *Tag) (*slsa.ControlSet, error)
 	ControlConfigurationDescr(*Branch, ControlConfiguration) string
 	ConfigureControls(*Repository, []*Branch, []ControlConfiguration) error
 	GetLatestCommit(context.Context, *Repository, *Branch) (*Commit, error)
 	ControlPrecheck(*Repository, []*Branch, ControlConfiguration) (bool, string, ControlPreRemediationFn, error)
+	GetPreviousCommit(context.Context, *Branch, *Commit) (*Commit, error)
+	GetDefaultBranch(context.Context, *Repository) (*Branch, error)
+	GetRevisionCommit(context.Context, *Repository, Revision) (*Commit, error)
+}
+
+type BackendOptions struct {
+	AllowMergeCommits bool
+	DriverOptions     any
 }
 
 // ControlPreRemediation is a function returned by the VCS backends
@@ -68,9 +76,47 @@ type Commit struct {
 	Message string
 }
 
+// Both tags and branches must implement the reference interface
+var (
+	_ Reference = (*Branch)(nil)
+	_ Reference = (*Tag)(nil)
+	_ Revision  = (*Tag)(nil)
+	_ Revision  = (*Commit)(nil)
+)
+
+type Revision interface {
+	GetCommit() *Commit
+}
+
+type Reference interface {
+	FullRef() string
+	GetRepository() *Repository
+	GetName() string
+}
+
+func (c *Commit) GetCommit() *Commit {
+	return c
+}
+
+func (c *Commit) ToResourceDescriptor() *attestation.ResourceDescriptor {
+	return &attestation.ResourceDescriptor{
+		Digest: map[string]string{
+			"sha1": c.SHA, "gitCommit": c.SHA,
+		},
+	}
+}
+
 type Branch struct {
 	Name       string
 	Repository *Repository
+}
+
+func (b *Branch) GetRepository() *Repository {
+	return b.Repository
+}
+
+func (b *Branch) GetName() string {
+	return b.Name
 }
 
 func (b *Branch) FullRef() string {
@@ -88,9 +134,6 @@ func (r *Repository) GetHttpURL() string {
 		return ""
 	}
 	u := fmt.Sprintf("https://%s/%s", r.Hostname, r.Path)
-	if r.Hostname == "github.com" {
-		u += ".git"
-	}
 	return u
 }
 
@@ -114,8 +157,28 @@ func (r *Repository) PathAsGitHubOwnerName() (owner, name string, err error) {
 }
 
 type Tag struct {
-	Name   string
-	Commit *Commit
+	Name       string
+	Commit     *Commit
+	Repository *Repository
+}
+
+func (t *Tag) GetName() string {
+	return t.Name
+}
+
+func (t *Tag) GetRepository() *Repository {
+	return t.Repository
+}
+
+func (t *Tag) GetCommit() *Commit {
+	return t.Commit
+}
+
+func (t *Tag) FullRef() string {
+	if t.Name == "" {
+		return ""
+	}
+	return "refs/tags/" + t.Name
 }
 
 // PullRequest models a GitHub pull request.

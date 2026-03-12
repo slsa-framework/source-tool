@@ -20,8 +20,6 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/repo"
 	roptions "github.com/slsa-framework/source-tool/pkg/repo/options"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
-	"github.com/slsa-framework/source-tool/pkg/sourcetool/backends/attestation/notes"
-	ghbackend "github.com/slsa-framework/source-tool/pkg/sourcetool/backends/vcs/github"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/options"
 )
@@ -35,11 +33,10 @@ type toolImplementation interface {
 	CreatePolicyPR(*auth.Authenticator, *options.Options, *models.Repository, *policy.RepoPolicy) (*models.PullRequest, error)
 	CheckForks(*options.Options) error
 	SearchPullRequest(context.Context, *auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
-	GetVcsBackend(*models.Repository) (models.VcsBackend, error)
-	GetAttestationReader(*models.Repository) (models.AttestationStorageReader, error)
-	GetBranchControls(context.Context, models.VcsBackend, *models.Repository, *models.Branch) (*slsa.ControlSetStatus, error)
+	GetBranchControls(context.Context, models.VcsBackend, *models.Branch) (*slsa.ControlSet, error)
+	GetBranchControlsAtCommit(context.Context, models.VcsBackend, *models.Branch, *models.Commit) (*slsa.ControlSet, error)
 	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
-	GetPolicyStatus(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.ControlStatus, error)
+	GetPolicyStatus(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.Control, error)
 	CreateRepositoryFork(context.Context, *auth.Authenticator, *models.Repository, string) error
 }
 
@@ -53,21 +50,15 @@ func (impl *defaultToolImplementation) ConfigureControls(
 }
 
 func (impl *defaultToolImplementation) GetBranchControls(
-	ctx context.Context, backend models.VcsBackend, r *models.Repository, branch *models.Branch,
-) (*slsa.ControlSetStatus, error) {
-	return backend.GetBranchControls(ctx, r, branch)
+	ctx context.Context, backend models.VcsBackend, branch *models.Branch,
+) (*slsa.ControlSet, error) {
+	return backend.GetBranchControls(ctx, branch)
 }
 
-// GetAttestationReader returns the att reader object
-func (impl *defaultToolImplementation) GetAttestationReader(_ *models.Repository) (models.AttestationStorageReader, error) {
-	// We only have the notes backend for now
-	return notes.New(), nil
-}
-
-// GetVcsBackend returns the VCS backend to handle the repository defined in the options
-func (impl *defaultToolImplementation) GetVcsBackend(*models.Repository) (models.VcsBackend, error) {
-	// for now we only support github, so there
-	return ghbackend.New(), nil
+func (impl *defaultToolImplementation) GetBranchControlsAtCommit(
+	ctx context.Context, backend models.VcsBackend, branch *models.Branch, commit *models.Commit,
+) (*slsa.ControlSet, error) {
+	return backend.GetBranchControlsAtCommit(ctx, branch, commit)
 }
 
 // VerifyOptions checks options are in good shape to run
@@ -225,7 +216,7 @@ func (impl *defaultToolImplementation) SearchPullRequest(ctx context.Context, a 
 // GetPolicyStatus returns the status of the policy as a slsa ControlStatus
 func (impl *defaultToolImplementation) GetPolicyStatus(
 	ctx context.Context, a *auth.Authenticator, opts *options.Options, r *models.Repository,
-) (*slsa.ControlStatus, error) {
+) (*slsa.Control, error) {
 	// First: Look for the policy. If found then we are done
 	pcy, _, err := policy.NewPolicyEvaluator().GetPolicy(ctx, r)
 	if err != nil {
@@ -237,7 +228,7 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 		if len(pcy.GetProtectedBranches()) > 0 {
 			t = pcy.GetProtectedBranches()[0].GetSince().AsTime()
 		}
-		return &slsa.ControlStatus{
+		return &slsa.Control{
 			Name:              slsa.PolicyAvailable,
 			State:             slsa.StateActive,
 			Since:             &t,
@@ -269,7 +260,7 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 
 	// No pull request found. Not implemented
 	if prNr == nil {
-		return &slsa.ControlStatus{
+		return &slsa.Control{
 			Name:    slsa.PolicyAvailable,
 			State:   slsa.StateNotEnabled,
 			Since:   nil,
@@ -281,7 +272,7 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 		}, nil
 	}
 
-	return &slsa.ControlStatus{
+	return &slsa.Control{
 		Name:    slsa.PolicyAvailable,
 		State:   slsa.StateInProgress,
 		Since:   prNr.Time,

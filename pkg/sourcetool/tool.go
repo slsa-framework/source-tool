@@ -9,15 +9,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/carabiner-dev/collector"
+	cgithub "github.com/carabiner-dev/collector/repository/github"
+	"github.com/carabiner-dev/collector/repository/note"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/policy"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/backends/vcs/github"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/options"
 )
@@ -39,6 +46,22 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 		}
 	}
 
+	t.backend = github.New(&t.Options.BackendOptions)
+
+	// Create the tool's attester
+	attester, err := attest.NewAttester(
+		attest.WithVerifier(attest.GetDefaultVerifier()),
+		attest.WithBackend(t.backend),
+		attest.WithGithubCollector(t.Options.InitGHCollector),
+		attest.WithNotesCollector(t.Options.InitNotesCollector),
+		attest.WithAuthenticator(t.Authenticator),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating attester: %w", err)
+	}
+
+	t.attester = attester
+
 	return t, nil
 }
 
@@ -47,31 +70,56 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 // we want to slowly move it to public function under this struct.
 type Tool struct {
 	Authenticator *auth.Authenticator
+	attester      *attest.Attester
+	backend       models.VcsBackend
 	Options       options.Options
 	impl          toolImplementation
 }
 
 // GetRepoControls returns the controls that are enabled in a repository branch.
-func (t *Tool) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
-	backend, err := t.impl.GetVcsBackend(r)
-	if err != nil {
-		return nil, fmt.Errorf("getting VCS backend: %w", err)
+func (t *Tool) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSet, error) {
+	if branch.Repository == nil {
+		return nil, fmt.Errorf("repositoryu not specified in branch")
 	}
 
 	// Get the control status in the branch. Backends are expected to
 	// return the full SLSA Source control catalog
-	controls, err := t.impl.GetBranchControls(ctx, backend, r, branch)
+	controls, err := t.impl.GetBranchControls(ctx, t.backend, branch)
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
 
 	// We also abstract the repository policy as a control to report its status
-	status, err := t.impl.GetPolicyStatus(ctx, t.Authenticator, &t.Options, r)
+	status, err := t.impl.GetPolicyStatus(ctx, t.Authenticator, &t.Options, branch.Repository)
 	if err != nil {
 		return nil, fmt.Errorf("reading policy status: %w", err)
 	}
 
-	controls.Controls = append(controls.Controls, *status)
+	controls.Controls = append(controls.Controls, status)
+
+	return controls, err
+}
+
+// GetRepoControls returns the controls that are enabled in a repository branch.
+func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.ControlSet, error) {
+	if branch.Repository == nil {
+		return nil, fmt.Errorf("repositoryu not specified in branch")
+	}
+
+	// Get the control status in the branch. Backends are expected to
+	// return the full SLSA Source control catalog
+	controls, err := t.impl.GetBranchControlsAtCommit(ctx, t.backend, branch, commit)
+	if err != nil {
+		return nil, fmt.Errorf("getting branch controls: %w", err)
+	}
+
+	// We also abstract the repository policy as a control to report its status
+	status, err := t.impl.GetPolicyStatus(ctx, t.Authenticator, &t.Options, branch.Repository)
+	if err != nil {
+		return nil, fmt.Errorf("reading policy status: %w", err)
+	}
+
+	controls.Controls = append(controls.Controls, status)
 
 	return controls, err
 }
@@ -79,16 +127,11 @@ func (t *Tool) GetBranchControls(ctx context.Context, r *models.Repository, bran
 // OnboardRepository configures a repository to set up the required controls
 // to meet SLSA Source L3.
 func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, branches []*models.Branch) error {
-	backend, err := t.impl.GetVcsBackend(repo)
-	if err != nil {
-		return fmt.Errorf("getting VCS backend: %w", err)
-	}
-
 	if err := t.impl.VerifyOptionsForFullOnboard(t.Authenticator, &t.Options); err != nil {
 		return fmt.Errorf("verifying options: %w", err)
 	}
 
-	if err := backend.ConfigureControls(
+	if err := t.backend.ConfigureControls(
 		repo, branches, []models.ControlConfiguration{
 			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,
 		},
@@ -101,11 +144,6 @@ func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, b
 
 // ConfigureControls sets up a control in the repo
 func (t *Tool) ConfigureControls(ctx context.Context, repo *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
-	backend, err := t.impl.GetVcsBackend(repo)
-	if err != nil {
-		return fmt.Errorf("getting VCS backend: %w", err)
-	}
-
 	// The policy configuration is not handled by the backend
 	if slices.Contains(configs, models.CONFIG_POLICY) {
 		if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
@@ -123,17 +161,12 @@ func (t *Tool) ConfigureControls(ctx context.Context, repo *models.Repository, b
 		}
 	}
 
-	return t.impl.ConfigureControls(backend, repo, branches, configs)
+	return t.impl.ConfigureControls(t.backend, repo, branches, configs)
 }
 
 // ControlConfigurationDescr returns a description of the controls
 func (t *Tool) ControlConfigurationDescr(branch *models.Branch, config models.ControlConfiguration) string {
-	backend, err := t.impl.GetVcsBackend(branch.Repository)
-	if err != nil {
-		return ""
-	}
-
-	return backend.ControlConfigurationDescr(branch, config)
+	return t.backend.ControlConfigurationDescr(branch, config)
 }
 
 func (t *Tool) FindPolicyPR(ctx context.Context, repo *models.Repository) (*models.PullRequest, error) {
@@ -180,12 +213,8 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 	if branches == nil {
 		return nil, errors.New("no branches defined")
 	}
-	backend, err := t.impl.GetVcsBackend(r)
-	if err != nil {
-		return nil, fmt.Errorf("getting backend: %w", err)
-	}
 
-	controls, err := t.impl.GetBranchControls(ctx, backend, r, branches[0])
+	controls, err := t.impl.GetBranchControls(ctx, t.backend, branches[0])
 	if err != nil {
 		return nil, fmt.Errorf("getting branch controls: %w", err)
 	}
@@ -195,7 +224,7 @@ func (t *Tool) CreateBranchPolicy(ctx context.Context, r *models.Repository, bra
 
 // This function will be moved to the policy package once we start integrating
 // it with the global data models (if we do).
-func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.ControlSetStatus) (*policy.RepoPolicy, error) {
+func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, controls *slsa.ControlSet) (*policy.RepoPolicy, error) {
 	// Default to SLSA1 since unset date
 	eligibleSince := &time.Time{}
 	eligibleLevel := slsa.SlsaSourceLevel1
@@ -204,8 +233,8 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 	// Unless there is previous provenance metadata, then we can compute
 	// a higher level
 	if controls != nil {
-		eligibleLevel = policy.ComputeEligibleSlsaLevel(*controls.GetActiveControls())
-		eligibleSince, err = policy.ComputeEligibleSince(*controls.GetActiveControls(), eligibleLevel)
+		eligibleLevel = policy.ComputeEligibleSlsaLevel(controls.GetActiveControls())
+		eligibleSince, err = policy.ComputeEligibleSince(controls.GetActiveControls(), eligibleLevel)
 		if err != nil {
 			return nil, fmt.Errorf("could not compute eligible_since: %w", err)
 		}
@@ -223,10 +252,10 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 	}
 
 	// If the controls returned
-	tagHygiene := controls.GetActiveControls().GetControl(slsa.TagHygiene)
+	tagHygiene := controls.GetActiveControls().GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS)
 	if tagHygiene != nil {
 		p.ProtectedTag = &policy.ProtectedTag{
-			Since:      tagHygiene.GetSince(),
+			Since:      timestamppb.New(*tagHygiene.GetSince()),
 			TagHygiene: true,
 		}
 	}
@@ -280,10 +309,258 @@ func (t *Tool) CreatePolicyRepoFork(ctx context.Context) error {
 func (t *Tool) ControlPrecheck(
 	_ context.Context, r *models.Repository, branches []*models.Branch, config models.ControlConfiguration,
 ) (ok bool, remediationMessage string, remediateFn models.ControlPreRemediationFn, err error) {
-	backend, err := t.impl.GetVcsBackend(r)
-	if err != nil {
-		return false, "", nil, fmt.Errorf("getting VCS backend: %w", err)
+	return t.backend.ControlPrecheck(r, branches, config)
+}
+
+// Attester returns an attester object with the tool configuration
+func (t *Tool) Attester() *attest.Attester {
+	return t.attester
+}
+
+// Backend returns the VCS backend
+func (t *Tool) Backend() models.VcsBackend {
+	return t.backend
+}
+
+// GetPreviousCommit returns the previous commit of the passed commit
+func (t *Tool) GetPreviousCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*models.Commit, error) {
+	return t.backend.GetPreviousCommit(ctx, branch, commit)
+}
+
+type AttestOptions struct {
+	LocalPolicy string
+	Sign        bool
+	OutputPath  string
+	UseStdOut   bool
+	Push        bool
+}
+
+type AttOpFn func(*AttestOptions) error
+
+func WithLocalPolicy(p string) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.LocalPolicy = p
+		return nil
+	}
+}
+
+func WithSign(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.Sign = s
+		return nil
+	}
+}
+
+func WithOutputPath(p string) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.OutputPath = p
+		return nil
+	}
+}
+
+func WithUseStdout(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.UseStdOut = s
+		return nil
+	}
+}
+
+func WithPush(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.Push = s
+		return nil
+	}
+}
+
+var defaultAttestOptions = AttestOptions{
+	Sign:      true,
+	UseStdOut: true,
+}
+
+// AttestRevision checks the source control system status, the repository policy
+// and generates the repository attestations (provenance & VSA) for a revision
+func (t *Tool) AttestRevision(
+	ctx context.Context, branch *models.Branch, rev models.Revision, funcs ...AttOpFn,
+) (slsa.SourceVerifiedLevels, error) {
+	var agent *collector.Agent
+	var err error
+
+	// Initialize the attest options
+	opts := defaultAttestOptions
+	for _, f := range funcs {
+		if err := f(&opts); err != nil {
+			return nil, err
+		}
 	}
 
-	return backend.ControlPrecheck(r, branches, config)
+	// Create the agent if we are pushing
+	if opts.Push {
+		agent, err = t.getAttestationStore(branch)
+		if err != nil {
+			return nil, fmt.Errorf("unable to intitializer storate agent: %w", err)
+		}
+	}
+
+	var vsaData string
+	var provenanceData []byte
+	var verifiedLevels slsa.SourceVerifiedLevels
+	var policyPath string
+
+	_, isCommit := rev.(*models.Commit)
+	tag, isTag := rev.(*models.Tag)
+
+	if isCommit {
+		// 1. Create the provenance attestation
+		prov, err := t.Attester().CreateSourceProvenance(ctx, branch, rev.GetCommit())
+		if err != nil {
+			return nil, err
+		}
+
+		// 2. Run the provenance against the policy to determine if the controls
+		// are still in the context and timelines of the policy.
+		pe := policy.NewPolicyEvaluator()
+		pe.UseLocalPolicy = opts.LocalPolicy
+		verifiedLevels, policyPath, err = pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+		}
+
+		provenanceData, err = protojson.Marshal(prov)
+		if err != nil {
+			return nil, fmt.Errorf("generating provenance attestation: %w", err)
+		}
+	}
+
+	if isTag {
+		// 1. Create the provenance attestation
+		prov, err := t.Attester().CreateTagProvenance(ctx, branch, tag, "")
+		if err != nil {
+			return nil, err
+		}
+
+		// 2. Run the provenance against the policy to determine if the controls
+		// are still in the context and timelines of the policy.
+		pe := policy.NewPolicyEvaluator()
+		pe.UseLocalPolicy = opts.LocalPolicy
+		verifiedLevels, policyPath, err = pe.EvaluateTagProv(ctx, branch.Repository, prov)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+		}
+
+		provenanceData, err = protojson.Marshal(prov)
+		if err != nil {
+			return nil, fmt.Errorf("generating tag provenance attestation: %w", err)
+		}
+	}
+
+	// create vsa
+	vsaData, err = attest.CreateUnsignedSourceVsa(
+		branch, rev.GetCommit(), verifiedLevels, policyPath,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating VSA: %w", err)
+	}
+
+	if opts.Sign {
+		provenanceDataString, err := attest.Sign(string(provenanceData))
+		if err != nil {
+			return nil, err
+		}
+		provenanceData = []byte(provenanceDataString)
+
+		vsaData, err = attest.Sign(vsaData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if opts.UseStdOut {
+		fmt.Printf("%s\n%s\n", string(provenanceData), vsaData)
+	}
+
+	fpath := opts.OutputPath
+	if fpath == "" {
+		f, err := os.CreateTemp("", "attestations-")
+		if err != nil {
+			return nil, fmt.Errorf("opening tmp file: %w", err)
+		}
+		f.Close() //nolint:errcheck,gosec
+		fpath = f.Name()
+	}
+
+	defer func() {
+		if opts.OutputPath == "" {
+			os.Remove(fpath) //nolint:errcheck,gosec
+		}
+	}()
+
+	if err := os.WriteFile(
+		fpath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
+	); err != nil {
+		return nil, fmt.Errorf("writing attestations: %w", err)
+	}
+
+	if opts.Push {
+		if err := agent.StoreFromFiles(ctx, []string{fpath}); err != nil {
+			return nil, fmt.Errorf("pushing attestations: %w", err)
+		}
+	}
+
+	return verifiedLevels, nil
+}
+
+// getAttestationStore returns a collector with storer reposistories to push
+// the generated attestations.
+func (t *Tool) getAttestationStore(branch *models.Branch) (*collector.Agent, error) {
+	if len(t.Options.StorageLocations) == 0 && !t.Options.InitGHStorer && !t.Options.InitNotesStorer {
+		return nil, errors.New("no storage locations defined")
+	}
+
+	if t.Authenticator == nil {
+		return nil, errors.New("tool has no authenticator configured")
+	}
+
+	token, err := t.Authenticator.ReadToken()
+	if err != nil {
+		return nil, fmt.Errorf("unable to read auth token: %w", err)
+	}
+	copts := []collector.InitFunction{}
+	// Init GitHub storer
+	if t.Options.InitGHStorer {
+		ghrepo, err := cgithub.New(
+			cgithub.WithRepo(branch.Repository.GetHttpURL()),
+			cgithub.WithToken(token),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("initializing gitrhub repo: %w", err)
+		}
+		copts = append(copts, collector.WithRepository(ghrepo))
+	}
+
+	// Init commit notes storer
+	if t.Options.InitNotesStorer {
+		notesrepo, err := note.NewDynamic(
+			note.WithLocator(branch.Repository.GetHttpURL()),
+			note.WithHttpAuth("github", token),
+			note.WithPush(true),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("initializing notes collector: %w", err)
+		}
+		copts = append(copts, collector.WithRepository(notesrepo))
+	}
+
+	// Retrurn the agent with the configured storers
+	c, err := collector.New(copts...)
+	if err != nil {
+		return nil, fmt.Errorf("initializing storage agent: %w", err)
+	}
+
+	// Add any additional storage locations
+	for _, str := range t.Options.StorageLocations {
+		if err := c.AddRepositoryFromString(str); err != nil {
+			return nil, fmt.Errorf("initializing repo %q: %w", str, err)
+		}
+	}
+	return c, nil
 }

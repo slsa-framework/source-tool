@@ -8,30 +8,151 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/carabiner-dev/attestation"
 	spb "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
-func newStatement(commit string, annotation map[string]any) (*spb.Statement, error) {
-	var sub []*spb.ResourceDescriptor
+// mockEnvelope implements attestation.Envelope for testing.
+type mockEnvelope struct {
+	statement *mockStatement
+	predicate *mockPredicate
+}
+
+func (m *mockEnvelope) GetStatement() attestation.Statement       { return m.statement }
+func (m *mockEnvelope) GetPredicate() attestation.Predicate       { return m.predicate }
+func (m *mockEnvelope) GetSignatures() []attestation.Signature    { return nil }
+func (m *mockEnvelope) GetCertificate() attestation.Certificate   { return nil }
+func (m *mockEnvelope) GetVerification() attestation.Verification { return nil }
+func (m *mockEnvelope) Verify(...any) error                       { return nil }
+
+type mockStatement struct {
+	subjects []attestation.Subject
+}
+
+func (m *mockStatement) GetSubjects() []attestation.Subject          { return m.subjects }
+func (m *mockStatement) GetPredicate() attestation.Predicate         { return nil }
+func (m *mockStatement) GetPredicateType() attestation.PredicateType { return "" }
+func (m *mockStatement) GetType() string                             { return "" }
+func (m *mockStatement) GetVerification() attestation.Verification   { return nil }
+
+type mockPredicate struct {
+	data []byte
+}
+
+func (m *mockPredicate) GetType() attestation.PredicateType        { return "" }
+func (m *mockPredicate) SetType(attestation.PredicateType) error   { return nil }
+func (m *mockPredicate) GetParsed() any                            { return nil }
+func (m *mockPredicate) GetData() []byte                           { return m.data }
+func (m *mockPredicate) GetVerification() attestation.Verification { return nil }
+func (m *mockPredicate) GetOrigin() attestation.Subject            { return nil }
+func (m *mockPredicate) SetOrigin(attestation.Subject)             {}
+func (m *mockPredicate) SetVerification(attestation.Verification)  {}
+
+func newMockEnvelope(commit string, annotation map[string]any) (attestation.Envelope, error) {
+	var subjects []attestation.Subject
 	if annotation != nil {
 		annotationStruct, err := structpb.NewStruct(annotation)
 		if err != nil {
 			return nil, fmt.Errorf("creating struct from map: %w", err)
 		}
-		sub = []*spb.ResourceDescriptor{{
+		subjects = []attestation.Subject{&spb.ResourceDescriptor{
 			Digest:      map[string]string{"gitCommit": commit},
 			Annotations: annotationStruct,
 		}}
 	}
 
-	statementPb := spb.Statement{
-		Type:          spb.StatementTypeUri,
-		Subject:       sub,
-		PredicateType: "test",
-		Predicate:     &structpb.Struct{},
+	return &mockEnvelope{
+		statement: &mockStatement{subjects: subjects},
+		predicate: &mockPredicate{data: []byte("{}")},
+	}, nil
+}
+
+func newMockEnvelopeWithSubjects(subjects []attestation.Subject) attestation.Envelope {
+	return &mockEnvelope{
+		statement: &mockStatement{subjects: subjects},
+		predicate: &mockPredicate{data: []byte("{}")},
 	}
-	return &statementPb, nil
+}
+
+func TestGetSubjectForCommit(t *testing.T) {
+	commitSHA := "abc123"
+	commit := &models.Commit{SHA: commitSHA}
+
+	tests := []struct {
+		name     string
+		subjects []attestation.Subject
+		wantNil  bool
+	}{
+		{
+			name: "match by gitCommit",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"gitCommit": commitSHA},
+				},
+			},
+		},
+		{
+			name: "match by sha1 fallback",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"sha1": commitSHA},
+				},
+			},
+		},
+		{
+			name: "gitCommit preferred over sha1",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"sha1": commitSHA},
+					Name:   "sha1-subject",
+				},
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"gitCommit": commitSHA},
+					Name:   "gitCommit-subject",
+				},
+			},
+		},
+		{
+			name: "no match",
+			subjects: []attestation.Subject{
+				&spb.ResourceDescriptor{
+					Digest: map[string]string{"gitCommit": "other"},
+				},
+			},
+			wantNil: true,
+		},
+		{
+			name:     "empty subjects",
+			subjects: nil,
+			wantNil:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newMockEnvelopeWithSubjects(tt.subjects)
+			got := GetSubjectForCommit(env, commit)
+
+			if tt.wantNil {
+				if got != nil {
+					t.Errorf("expected nil, got %v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("expected non-nil subject")
+			}
+
+			// For the "preferred" test, verify we got the gitCommit subject
+			if tt.name == "gitCommit preferred over sha1" {
+				if got.GetName() != "gitCommit-subject" {
+					t.Errorf("expected gitCommit-subject, got %s", got.GetName())
+				}
+			}
+		})
+	}
 }
 
 func stringToAnyArray(valArray []string) []any {
@@ -46,7 +167,6 @@ func TestGetSourceRefsForCommit(t *testing.T) {
 	tests := []struct {
 		name           string
 		annotationName string
-		stmt           *spb.Statement
 		refs           []string
 		expectedRefs   []string
 		expectErr      bool
@@ -89,12 +209,13 @@ func TestGetSourceRefsForCommit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, err := newStatement("abc123", map[string]any{tt.annotationName: stringToAnyArray(tt.refs)})
+			env, err := newMockEnvelope("abc123", map[string]any{tt.annotationName: stringToAnyArray(tt.refs)})
 			if err != nil {
-				t.Fatalf("error creating statement: %v", err)
+				t.Fatalf("error creating envelope: %v", err)
 			}
 
-			gotRefs, err := GetSourceRefsForCommit(stmt, "abc123")
+			commit := &models.Commit{SHA: "abc123"}
+			gotRefs, err := GetSourceRefsForCommit(env, commit)
 
 			if err != nil && !tt.expectErr {
 				t.Errorf("did not expect error, got %v", err)

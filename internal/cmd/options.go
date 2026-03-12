@@ -14,6 +14,7 @@ import (
 
 	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
@@ -123,21 +124,19 @@ func (bo *branchOptions) EnsureDefaults() error {
 		return nil
 	}
 
-	t := githubToken
-	var err error
-	if t == "" {
-		t, err = auth.New().ReadToken()
-		if err != nil {
-			return err
-		}
+	// Create a new sourcetool object
+	srctool, err := sourcetool.New(
+		sourcetool.WithAuthenticator(auth.New()),
+	)
+	if err != nil {
+		return err
 	}
 
-	gcx := ghcontrol.NewGhConnection(bo.owner, bo.repository, "").WithAuthToken(t)
-	branch, err := gcx.GetDefaultBranch(context.Background())
+	branch, err := srctool.Backend().GetDefaultBranch(context.Background(), bo.GetRepository())
 	if err != nil {
-		return fmt.Errorf("reading repository default branch: %w", err)
+		return fmt.Errorf("getting default branch: %w", err)
 	}
-	bo.branch = branch
+	bo.branch = branch.GetName()
 	return nil
 }
 
@@ -210,6 +209,12 @@ func (co *commitOptions) EnsureDefaults() error {
 	return nil
 }
 
+func (co *commitOptions) GetCommit() *models.Commit {
+	return &models.Commit{
+		SHA: co.commit,
+	}
+}
+
 type verifierOptions struct {
 	expectedIssuer string
 	expectedSan    string
@@ -222,4 +227,144 @@ func (vo *verifierOptions) Validate() error {
 func (vo *verifierOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&vo.expectedIssuer, "expected_issuer", "", "The expected issuer of the attestation signer certificate")
 	cmd.PersistentFlags().StringVar(&vo.expectedSan, "expected_san", "", "The expected SAN string in the attestation signer certificate")
+}
+
+type tagOptions struct {
+	branchOptions
+	tag string
+}
+
+func (to *tagOptions) Validate() error {
+	return nil
+}
+
+func (to *tagOptions) AddFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVar(&to.tag, "tag", "", "Git tag within the repository")
+}
+
+type revisionOpts struct {
+	repoOptions
+	tagOptions
+	branchOptions
+	commitOptions
+}
+
+func (ro *revisionOpts) Validate() error {
+	errs := []error{}
+	if ro.tag == "" && ro.commit == "" {
+		errs = append(errs, errors.New("unable to compute revision: no commit or tag set"))
+	}
+	return errors.Join(errs...)
+}
+
+func (ro *revisionOpts) AddFlags(cmd *cobra.Command) {
+	// branchOptions.AddFlags already registers repo, owner, and branch flags
+	ro.branchOptions.AddFlags(cmd)
+	// Only register tag; tagOptions.AddFlags doesn't chain to branchOptions
+	ro.tagOptions.AddFlags(cmd)
+	// Register commit flag directly to avoid re-registering branch/repo flags
+	cmd.PersistentFlags().StringVarP(
+		&ro.commit, "commit", "c", "", "commit digest (sha1)",
+	)
+}
+
+func (ro *revisionOpts) GetRevision() models.Revision {
+	if ro.tag != "" {
+		return &models.Tag{
+			Name:       ro.tag,
+			Commit:     ro.GetCommit(),
+			Repository: ro.GetRepository(),
+		}
+	} else if ro.commit != "" {
+		return ro.GetCommit()
+	}
+	return nil
+}
+
+func (ro *revisionOpts) ParseLocator(lString string) error {
+	if err := ro.branchOptions.ParseLocator(lString); err != nil {
+		return err
+	}
+	components, err := vcslocator.Locator(lString).Parse()
+	if err != nil {
+		return fmt.Errorf("parsing repository slug: %w", err)
+	}
+
+	if err := ro.ParseSlug(components.RepoPath); err != nil {
+		return err
+	}
+
+	if components.Commit != "" {
+		ro.commit = components.Commit
+	}
+
+	if components.Tag != "" {
+		ro.tag = components.Tag
+	}
+
+	if components.Branch != "" {
+		ro.tag = components.Branch
+	}
+
+	return nil
+}
+
+func (ro *revisionOpts) EnsureDefaults() error {
+	if err := ro.branchOptions.EnsureDefaults(); err != nil {
+		return err
+	}
+
+	if ro.tag != "" {
+		ro.tagOptions.branchOptions = ro.branchOptions
+
+		srctool, err := sourcetool.New(
+			sourcetool.WithAuthenticator(auth.New()),
+		)
+		if err != nil {
+			return err
+		}
+
+		commit, err := srctool.Backend().GetRevisionCommit(context.Background(), ro.GetRepository(), &models.Tag{
+			Name: ro.tag,
+		})
+		if err != nil {
+			return err
+		}
+
+		ro.commit = commit.SHA
+	}
+
+	if ro.commit != "" {
+		ro.commitOptions.branchOptions = ro.branchOptions
+		if err := ro.commitOptions.EnsureDefaults(); err != nil {
+			return err
+		}
+	}
+
+	// If no tag and not commit where specified, get the commit at the branch tip
+	if ro.commit == "" && ro.tag == "" {
+		srctool, err := sourcetool.New(
+			sourcetool.WithAuthenticator(auth.New()),
+		)
+		if err != nil {
+			return err
+		}
+
+		commit, err := srctool.Backend().GetLatestCommit(context.Background(), ro.GetRepository(), ro.GetBranch())
+		if err != nil {
+			return err
+		}
+		ro.commit = commit.SHA
+	}
+
+	return nil
+}
+
+type allowMergeCommitsOptions struct {
+	allowMergeCommits bool
+}
+
+// AddFlags adds the subcommands flags
+func (o *allowMergeCommitsOptions) AddFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().BoolVar(&o.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch.")
 }
