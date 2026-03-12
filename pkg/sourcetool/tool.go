@@ -377,10 +377,10 @@ var defaultAttestOptions = AttestOptions{
 	UseStdOut: true,
 }
 
-// AttestCommit checks the source control system status, the repository policy
-// and generates the repository attestations (provenance & VSA).
-func (t *Tool) AttestCommit(
-	ctx context.Context, branch *models.Branch, commit *models.Commit, funcs ...AttOpFn,
+// AttestRevision checks the source control system status, the repository policy
+// and generates the repository attestations (provenance & VSA) for a revision
+func (t *Tool) AttestRevision(
+	ctx context.Context, branch *models.Branch, rev models.Revision, funcs ...AttOpFn,
 ) (slsa.SourceVerifiedLevels, error) {
 	var agent *collector.Agent
 	var err error
@@ -401,35 +401,64 @@ func (t *Tool) AttestCommit(
 		}
 	}
 
-	// 1. Create the provenance attestation
-	prov, err := t.Attester().CreateSourceProvenance(ctx, branch, commit)
-	if err != nil {
-		return nil, err
-	}
-
-	// 2. Run the provenance against the policy to determine if the controls
-	// are still valid.
-	pe := policy.NewPolicyEvaluator()
-	pe.UseLocalPolicy = opts.LocalPolicy
-	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
-	if err != nil {
-		return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
-	}
-
 	var vsaData string
 	var provenanceData []byte
+	var verifiedLevels slsa.SourceVerifiedLevels
+	var policyPath string
+
+	_, isCommit := rev.(*models.Commit)
+	tag, isTag := rev.(*models.Tag)
+
+	if isCommit {
+		// 1. Create the provenance attestation
+		prov, err := t.Attester().CreateSourceProvenance(ctx, branch, rev.GetCommit())
+		if err != nil {
+			return nil, err
+		}
+
+		// 2. Run the provenance against the policy to determine if the controls
+		// are still in the context and timelines of the policy.
+		pe := policy.NewPolicyEvaluator()
+		pe.UseLocalPolicy = opts.LocalPolicy
+		verifiedLevels, policyPath, err = pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+		}
+
+		provenanceData, err = protojson.Marshal(prov)
+		if err != nil {
+			return nil, fmt.Errorf("generating provenance attestation: %w", err)
+		}
+	}
+
+	if isTag {
+		// 1. Create the provenance attestation
+		prov, err := t.Attester().CreateTagProvenance(ctx, branch, tag, "")
+		if err != nil {
+			return nil, err
+		}
+
+		// 2. Run the provenance against the policy to determine if the controls
+		// are still in the context and timelines of the policy.
+		pe := policy.NewPolicyEvaluator()
+		pe.UseLocalPolicy = opts.LocalPolicy
+		verifiedLevels, policyPath, err = pe.EvaluateTagProv(ctx, branch.Repository, prov)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+		}
+
+		provenanceData, err = protojson.Marshal(prov)
+		if err != nil {
+			return nil, fmt.Errorf("generating tag provenance attestation: %w", err)
+		}
+	}
 
 	// create vsa
 	vsaData, err = attest.CreateUnsignedSourceVsa(
-		branch, commit, verifiedLevels, policyPath,
+		branch, rev.GetCommit(), verifiedLevels, policyPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating VSA: %w", err)
-	}
-
-	provenanceData, err = protojson.Marshal(prov)
-	if err != nil {
-		return nil, fmt.Errorf("generating provenance attestation: %w", err)
 	}
 
 	if opts.Sign {

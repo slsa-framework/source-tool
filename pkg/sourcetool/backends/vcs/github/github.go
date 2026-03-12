@@ -301,8 +301,11 @@ func (b *Backend) controlImplementationMessage(ctrlName slsa.ControlName) string
 	}
 }
 
-func (b *Backend) GetTagControls(context.Context, *models.Tag) (*slsa.ControlSet, error) {
-	return nil, fmt.Errorf("not yet implemented")
+func (b *Backend) GetTagControls(ctx context.Context, branch *models.Branch, tag *models.Tag) (*slsa.ControlSet, error) {
+	if tag.Commit == nil || tag.Commit.SHA == "" {
+		return nil, errors.New("tag commit is empty")
+	}
+	return b.GetBranchControlsAtCommit(ctx, branch, tag.Commit)
 }
 
 func (b *Backend) ControlConfigurationDescr(branch *models.Branch, config models.ControlConfiguration) string {

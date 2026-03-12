@@ -162,8 +162,8 @@ and pushed to its remote (--push=note).
 			}
 
 			// Attest the commit passing the options
-			verifiedLevels, err := srctool.AttestCommit(
-				cmd.Context(), opts.GetBranch(), opts.GetCommit(),
+			verifiedLevels, err := srctool.AttestRevision(
+				cmd.Context(), opts.GetBranch(), opts.GetRevision(),
 				sourcetool.WithLocalPolicy(opts.useLocalPolicy),
 				sourcetool.WithOutputPath(outputPath),
 				sourcetool.WithSign(signAttestation),

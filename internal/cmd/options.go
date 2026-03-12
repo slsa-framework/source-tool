@@ -272,9 +272,11 @@ func (ro *revisionOpts) GetRevision() models.Revision {
 	if ro.tag != "" {
 		return &models.Tag{
 			Name:       ro.tag,
-			Commit:     &models.Commit{},
-			Repository: &models.Repository{},
+			Commit:     ro.GetCommit(),
+			Repository: ro.GetRepository(),
 		}
+	} else if ro.commit != "" {
+		return ro.GetCommit()
 	}
 	return nil
 }

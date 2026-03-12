@@ -41,7 +41,7 @@ type AttestationStorageReader interface {
 type VcsBackend interface {
 	GetBranchControls(context.Context, *Branch) (*slsa.ControlSet, error)
 	GetBranchControlsAtCommit(context.Context, *Branch, *Commit) (*slsa.ControlSet, error)
-	GetTagControls(context.Context, *Tag) (*slsa.ControlSet, error)
+	GetTagControls(context.Context, *Branch, *Tag) (*slsa.ControlSet, error)
 	ControlConfigurationDescr(*Branch, ControlConfiguration) string
 	ConfigureControls(*Repository, []*Branch, []ControlConfiguration) error
 	GetLatestCommit(context.Context, *Repository, *Branch) (*Commit, error)

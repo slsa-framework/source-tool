@@ -314,7 +314,7 @@ func (a *Attester) CreateTagProvenance(ctx context.Context, branch *models.Branc
 	// 1. Check that the tag hygiene control is still enabled and how long it's been enabled, store it in the prov.
 	// 2. Get a VSA associated with this commit, if any.
 	// 3. Record the levels and branches covered by that VSA in the provenance.
-	controls, err := a.backend.GetTagControls(ctx, tag)
+	controls, err := a.backend.GetTagControls(ctx, branch, tag)
 	if err != nil {
 		return nil, fmt.Errorf("getting tag controls: %w", err)
 	}
