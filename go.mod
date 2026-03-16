@@ -1,9 +1,9 @@
 module github.com/slsa-framework/source-tool
 
-go 1.25.7
+go 1.25.8
 
 require (
-	github.com/carabiner-dev/attestation v0.2.0
+	github.com/carabiner-dev/attestation v0.2.1
 	github.com/carabiner-dev/collector v0.2.8
 	github.com/carabiner-dev/signer v0.3.7
 	github.com/carabiner-dev/vcslocator v0.4.0
