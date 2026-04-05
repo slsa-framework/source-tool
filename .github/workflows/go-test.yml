@@ -23,13 +23,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Extract version of Go to use
-        run: echo "GOVERSION=$(awk -F'[:@]' '/FROM golang/{print $2; exit}' Dockerfile)" >> $GITHUB_ENV
+      - uses: carabiner-dev/actions/go/versions@440c76def32d40be101b68d1f6a6b284b79aa74c # v1.1.2
+        id: go-versions
 
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ env.GOVERSION }}
+          go-version: ${{ steps.go-versions.outputs.latest }}
           check-latest: true
           cache: false
 
