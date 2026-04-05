@@ -22,7 +22,7 @@ jobs:
     steps:
 
       - name: Setup bnd
-        uses: carabiner-dev/actions/install/bnd@HEAD
+        uses: carabiner-dev/actions/install/bnd@7d7c2b1154a01df68e3fc4f12d07fd148a302a94 # v1.1.4
 
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -30,20 +30,15 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Extract version of Go to use
-        run: echo "GOVERSION=$(awk -F'[:@]' '/FROM golang/{print $2; exit}' Dockerfile)" >> $GITHUB_ENV
-
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ env.GOVERSION }}
+          go-version-file: go.mod
           check-latest: true
           cache: false
 
       - name: Install tejolote
         uses: kubernetes-sigs/release-actions/setup-tejolote@8af7b2a5596dff526de9db59b2c4b8457e9f52a1 # v0.4.0
-        with:
-          tejolote-release: "0.4.1"
-
+        
       - name: Set tag output
         id: tag
         run: echo "tag_name=${GITHUB_REF#refs/*/}" >> "$GITHUB_OUTPUT"

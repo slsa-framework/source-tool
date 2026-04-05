@@ -24,12 +24,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Extract version of Go to use
-        run: echo "GOVERSION=$(awk -F'[:@]' '/FROM golang/{print $2; exit}' Dockerfile)" >> $GITHUB_ENV
+      - uses: carabiner-dev/actions/go/versions@7d7c2b1154a01df68e3fc4f12d07fd148a302a94 # v1.1.4
+        id: go-versions
 
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ env.GOVERSION }}
+          go-version: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
           check-latest: true
           cache: false
 
@@ -39,4 +39,4 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
-          version: v2.10
+          version: v2.11

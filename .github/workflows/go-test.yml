@@ -11,7 +11,61 @@ on:
 permissions: {}
 
 jobs:
+  go-versions:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    outputs:
+      latest: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
+      previous: ${{ steps.go-versions.outputs.GO_VERSION_PREVIOUS }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: carabiner-dev/actions/go/versions@7d7c2b1154a01df68e3fc4f12d07fd148a302a94 # v1.1.4
+        id: go-versions
+
+  unit-test:
+    needs: go-versions
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    strategy:
+      matrix:
+        go-version:
+          - ${{ needs.go-versions.outputs.latest }}
+          - ${{ needs.go-versions.outputs.previous }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+          cache: false
+
+      - name: Run Go tests
+        run: |
+          go test -v ./...
+
   test:
+    needs: [unit-test, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All tests passed"
+
+  verify:
     runs-on: ubuntu-latest
 
     permissions:
@@ -23,13 +77,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Extract version of Go to use
-        run: echo "GOVERSION=$(awk -F'[:@]' '/FROM golang/{print $2; exit}' Dockerfile)" >> $GITHUB_ENV
+      - uses: carabiner-dev/actions/go/versions@7d7c2b1154a01df68e3fc4f12d07fd148a302a94 # v1.1.4
+        id: go-versions
 
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ env.GOVERSION }}
+          go-version: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
           check-latest: true
           cache: false
 
@@ -39,15 +93,11 @@ jobs:
       - name: Setup protoc
         uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # @v3.0.0
 
-      - name: Run Go tests
-        run: |
-          go test -v ./...
-
       - name: Check generated fakes
         run: |
           hack/verify-fakes.sh
 
-      - name: Check protobuf generated codew
+      - name: Check protobuf generated code
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           hack/verify-protos.sh
