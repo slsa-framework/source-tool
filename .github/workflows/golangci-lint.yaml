@@ -24,7 +24,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: carabiner-dev/actions/go/versions@440c76def32d40be101b68d1f6a6b284b79aa74c # v1.1.2
+      - uses: carabiner-dev/actions/go/versions@7d7c2b1154a01df68e3fc4f12d07fd148a302a94 # v1.1.4
         id: go-versions
 
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
