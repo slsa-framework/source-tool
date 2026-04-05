@@ -29,7 +29,7 @@ jobs:
       - uses: carabiner-dev/actions/go/versions@7d7c2b1154a01df68e3fc4f12d07fd148a302a94 # v1.1.4
         id: go-versions
 
-  test:
+  unit-test:
     needs: go-versions
     runs-on: ubuntu-latest
 
@@ -58,6 +58,12 @@ jobs:
       - name: Run Go tests
         run: |
           go test -v ./...
+
+  test:
+    needs: [unit-test, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All tests passed"
 
   verify:
     runs-on: ubuntu-latest
