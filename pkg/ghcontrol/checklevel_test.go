@@ -241,17 +241,17 @@ func TestBuiltinBranchControls(t *testing.T) {
 		{
 			branchRules:     createContinuityBranchRules(),
 			rulesetRules:    rulesForBranchContinuity(),
-			expectedControl: slsa.ContinuityEnforced,
+			expectedControl: slsa.SLSA_SOURCE_SCS_CONTINUITY,
 		},
 		{
 			branchRules:     createReviewBranchRules(),
 			rulesetRules:    rulesForReviewEnforced(),
-			expectedControl: slsa.ReviewEnforced,
+			expectedControl: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 		},
 		{
 			branchRules:     createTagHygieneRules(),
 			rulesetRules:    rulesForTagHygiene(),
-			expectedControl: slsa.TagHygiene,
+			expectedControl: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS,
 		},
 	}
 	for _, tt := range tests {
@@ -269,7 +269,7 @@ func TestBuiltinBranchControls(t *testing.T) {
 			control := controlStatus.Controls.GetControl(tt.expectedControl)
 			if control == nil {
 				t.Fatalf("expected controls to contain %v, got %+v", tt.expectedControl, controlStatus.Controls)
-			} else if !control.GetSince().AsTime().Equal(priorTime) {
+			} else if !control.GetSince().Equal(priorTime) {
 				t.Fatalf("expected control.Since %v, got %v", priorTime, control.GetSince())
 			}
 		})
@@ -285,17 +285,17 @@ func TestBuiltinBranchControlsEnabledLater(t *testing.T) {
 		{
 			branchRules:  createContinuityBranchRules(),
 			rulesetRules: rulesForBranchContinuity(),
-			name:         slsa.ContinuityEnforced,
+			name:         slsa.SLSA_SOURCE_SCS_CONTINUITY,
 		},
 		{
 			branchRules:  createReviewBranchRules(),
 			rulesetRules: rulesForReviewEnforced(),
-			name:         slsa.ReviewEnforced,
+			name:         slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 		},
 		{
 			branchRules:  createTagHygieneRules(),
 			rulesetRules: rulesForTagHygiene(),
-			name:         slsa.TagHygiene,
+			name:         slsa.SLSA_SOURCE_SCS_PROTECTED_REFS,
 		},
 	}
 	for _, tt := range tests {
@@ -310,7 +310,7 @@ func TestBuiltinBranchControlsEnabledLater(t *testing.T) {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
 
-			if len(controlStatus.Controls) != 0 {
+			if len(controlStatus.Controls.Controls) != 0 {
 				t.Errorf("execpted no controls, got: %+v", controlStatus.Controls)
 			}
 		})
@@ -350,10 +350,10 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 				t.Fatalf("Error getting branch controls: %v", err)
 			}
 
-			controlNames := make([]slsa.ControlName, 0, len(controlStatus.Controls))
-			for _, control := range controlStatus.Controls {
-				controlNames = append(controlNames, slsa.ControlName(control.GetName()))
-				if !control.GetSince().AsTime().Equal(priorTime) {
+			controlNames := make([]slsa.ControlName, 0, len(controlStatus.Controls.Controls))
+			for _, control := range controlStatus.Controls.Controls {
+				controlNames = append(controlNames, control.GetName())
+				if !control.GetSince().Equal(priorTime) {
 					t.Errorf("Expected control.Since %v, got %v", priorTime, control.GetSince())
 				}
 			}

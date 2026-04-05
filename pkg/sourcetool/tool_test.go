@@ -20,13 +20,13 @@ func TestGetBranchControls(t *testing.T) {
 	t.Run("GetActiveControls-success", func(t *testing.T) {
 		t.Parallel()
 		i := &sourcetoolfakes.FakeToolImplementation{}
-		i.GetPolicyStatusReturns(&slsa.ControlStatus{}, nil)
-		i.GetBranchControlsReturns(&slsa.ControlSetStatus{
+		i.GetPolicyStatusReturns(&slsa.Control{}, nil)
+		i.GetBranchControlsReturns(&slsa.ControlSet{
 			RepoUri: "github.com/ok/repo",
 			Branch:  "main",
-			Controls: []slsa.ControlStatus{
+			Controls: []*slsa.Control{
 				{
-					Name:    slsa.ContinuityEnforced,
+					Name:    slsa.SLSA_SOURCE_SCS_CONTINUITY,
 					State:   slsa.StateNotEnabled,
 					Message: "Continuity enforced",
 				},
@@ -35,11 +35,11 @@ func TestGetBranchControls(t *testing.T) {
 		tool := &Tool{
 			impl: i,
 		}
-		res, err := tool.GetBranchControls(t.Context(), &models.Repository{}, &models.Branch{})
+		res, err := tool.GetBranchControls(t.Context(), &models.Branch{Repository: &models.Repository{}})
+		require.NoError(t, err)
 		require.NotNil(t, res)
 		// This always has one more as we add the synyhetic policy check
 		require.Len(t, res.Controls, 2)
-		require.NoError(t, err)
 	})
 	t.Run("GetActiveControls-fails", func(t *testing.T) {
 		t.Parallel()
@@ -48,7 +48,7 @@ func TestGetBranchControls(t *testing.T) {
 		tool := &Tool{
 			impl: i,
 		}
-		_, err := tool.GetBranchControls(t.Context(), &models.Repository{}, &models.Branch{})
+		_, err := tool.GetBranchControls(t.Context(), &models.Branch{})
 		require.Error(t, err)
 	})
 }
@@ -72,16 +72,6 @@ func TestConfigureControls(t *testing.T) {
 			},
 		},
 		{
-			name: "GetVcsBackend-fails", mustErr: true,
-			controls: []models.ControlConfiguration{models.CONFIG_BRANCH_RULES},
-			prepare: func(t *testing.T) toolImplementation {
-				t.Helper()
-				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.GetVcsBackendReturns(nil, syntErr)
-				return i
-			},
-		},
-		{
 			name: "CheckPolicyFork-fails", mustErr: true,
 			controls: []models.ControlConfiguration{models.CONFIG_POLICY},
 			prepare: func(t *testing.T) toolImplementation {
@@ -97,8 +87,6 @@ func TestConfigureControls(t *testing.T) {
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.GetVcsBackendReturns(&modelsfakes.FakeVcsBackend{}, nil)
-				i.GetAttestationReaderReturns(&modelsfakes.FakeAttestationStorageReader{}, nil)
 				i.CreatePolicyPRReturns(nil, syntErr)
 				return i
 			},
@@ -292,50 +280,62 @@ func TestOnboardRepository(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
 		name    string
-		getSut  func(t *testing.T) toolImplementation
+		impl    func(t *testing.T) toolImplementation
+		backend func(t *testing.T) models.VcsBackend
 		mustErr bool
 	}{
-		{"normal", func(t *testing.T) toolImplementation {
-			t.Helper()
-			timp := &sourcetoolfakes.FakeToolImplementation{}
-			timp.GetVcsBackendReturns(&modelsfakes.FakeVcsBackend{}, nil)
-			timp.VerifyOptionsForFullOnboardReturns(nil)
-			timp.ConfigureControlsReturns(nil)
-			return timp
-		}, false},
-		{"get-vcs-fails", func(t *testing.T) toolImplementation {
-			t.Helper()
-			timp := &sourcetoolfakes.FakeToolImplementation{}
-			timp.GetVcsBackendReturns(nil, errors.New("vcsborked"))
-			timp.VerifyOptionsForFullOnboardReturns(nil)
-			timp.ConfigureControlsReturns(nil)
-			return timp
-		}, true},
-		{"get-verifyoptions-fails", func(t *testing.T) toolImplementation {
-			t.Helper()
-			timp := &sourcetoolfakes.FakeToolImplementation{}
-			timp.GetVcsBackendReturns(&modelsfakes.FakeVcsBackend{}, nil)
-			timp.VerifyOptionsForFullOnboardReturns(errors.New("onboarderr"))
-			return timp
-		}, true},
-		{"backend-configure-controls-fails", func(t *testing.T) toolImplementation {
-			t.Helper()
-			bend := modelsfakes.FakeVcsBackend{}
-			bend.ConfigureControlsReturns(errors.New("configure-error"))
-
-			timp := &sourcetoolfakes.FakeToolImplementation{}
-			timp.GetVcsBackendReturns(&bend, nil)
-			timp.VerifyOptionsForFullOnboardReturns(nil)
-			return timp
-		}, true},
+		{
+			name: "normal",
+			impl: func(t *testing.T) toolImplementation {
+				t.Helper()
+				timp := &sourcetoolfakes.FakeToolImplementation{}
+				timp.VerifyOptionsForFullOnboardReturns(nil)
+				return timp
+			},
+			backend: func(t *testing.T) models.VcsBackend {
+				t.Helper()
+				return &modelsfakes.FakeVcsBackend{}
+			},
+			mustErr: false,
+		},
+		{
+			name: "get-verifyoptions-fails",
+			impl: func(t *testing.T) toolImplementation {
+				t.Helper()
+				timp := &sourcetoolfakes.FakeToolImplementation{}
+				timp.VerifyOptionsForFullOnboardReturns(errors.New("onboarderr"))
+				return timp
+			},
+			backend: func(t *testing.T) models.VcsBackend {
+				t.Helper()
+				return &modelsfakes.FakeVcsBackend{}
+			},
+			mustErr: true,
+		},
+		{
+			name: "backend-configure-controls-fails",
+			impl: func(t *testing.T) toolImplementation {
+				t.Helper()
+				timp := &sourcetoolfakes.FakeToolImplementation{}
+				timp.VerifyOptionsForFullOnboardReturns(nil)
+				return timp
+			},
+			backend: func(t *testing.T) models.VcsBackend {
+				t.Helper()
+				bend := &modelsfakes.FakeVcsBackend{}
+				bend.ConfigureControlsReturns(errors.New("configure-error"))
+				return bend
+			},
+			mustErr: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			impl := tt.getSut(t)
-			tool, err := New()
-			require.NoError(t, err)
-			tool.impl = impl
-			err = tool.OnboardRepository(t.Context(), &models.Repository{Path: "example/repo"}, []*models.Branch{{Name: "main"}})
+			tool := &Tool{
+				impl:    tt.impl(t),
+				backend: tt.backend(t),
+			}
+			err := tool.OnboardRepository(t.Context(), &models.Repository{Path: "example/repo"}, []*models.Branch{{Name: "main"}})
 			if tt.mustErr {
 				require.Error(t, err)
 				return

@@ -8,19 +8,68 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
-	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
-func New() *Backend {
+// InherentControls are the controls that are always true because we are
+// in git and/org GitHub.
+var InherentControls = slsa.ControlNameSet{
+	// GitHub uses git
+	slsa.SLSA_SOURCE_ORG_SCS,
+
+	// GitHub enforces access control
+	slsa.SLSA_SOURCE_ORG_ACCESS_CONTROL,
+
+	// There is no safe expunge in Git or GitHub but as long as users
+	// cannot force push, then things cannot be expunged. So I think
+	// it passes.
+	// slsa.SLSA_SOURCE_ORG_SAFE_EXPUNGE,
+
+	// All the org controls are default expect for expunge, so we tie
+	// org continuity to the branch continuity
+	// slsa.SLSA_SOURCE_ORG_CONTINUITY,
+
+	// GitHub gives you a repo id/uri
+	slsa.SLSA_SOURCE_SCS_REPO_ID,
+
+	// Git commit
+	slsa.SLSA_SOURCE_SCS_REVISION_ID,
+
+	// git diff
+	slsa.SLSA_SOURCE_SCS_DIFF_DISPLAY,
+
+	// We disable VSA until checking we have one
+	//	slsa.SLSA_SOURCE_SCS_VSA,
+
+	// Git is change history
+	slsa.SLSA_SOURCE_SCS_HISTORY,
+
+	// We will compute continuity from the GH api
+	// slsa.SLSA_SOURCE_SCS_CONTINUITY,
+
+	// Both git and GitHub have user  identities
+	slsa.SLSA_SOURCE_SCS_IDENTITY,
+
+	// We disable provenance until we check we have an attestation
+	// slsa.SLSA_SOURCE_SCS_PROVENANCE,
+
+	// This depends on branch protection
+	// slsa.SLSA_SOURCE_SCS_PROTECTED_REFS,
+
+	// We will check for two party review in the API
+	// slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
+}
+
+func New(options *models.BackendOptions) *Backend {
 	return &Backend{
 		authenticator: auth.New(),
-		Options:       Options{UseFork: true},
+		Options:       options,
 	}
 }
 
@@ -31,7 +80,7 @@ type Options struct {
 // Backend implemets the GitHub sourcetool backend
 type Backend struct {
 	authenticator *auth.Authenticator
-	Options       Options
+	Options       *models.BackendOptions
 }
 
 // getGitHubConnection builds a github connector to a repository
@@ -54,10 +103,15 @@ func (b *Backend) getGitHubConnection(repository *models.Repository, ref string)
 		return nil, err
 	}
 
-	return ghcontrol.NewGhConnectionWithClient(owner, name, ref, client), nil
+	ghc := ghcontrol.NewGhConnectionWithClient(owner, name, ref, client)
+	ghc.Options.AllowMergeCommits = b.Options.AllowMergeCommits
+	return ghc, nil
 }
 
-func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, branch *models.Branch) (*slsa.ControlSetStatus, error) {
+func (b *Backend) GetBranchControls(ctx context.Context, branch *models.Branch) (*slsa.ControlSet, error) {
+	if branch.Repository == nil {
+		return nil, fmt.Errorf("branch has no repository")
+	}
 	// get latest commit
 	ghc, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
 	if err != nil {
@@ -70,20 +124,26 @@ func (b *Backend) GetBranchControls(ctx context.Context, r *models.Repository, b
 		return nil, fmt.Errorf("fetching latest commit from %q: %w", branch.FullRef(), err)
 	}
 
-	return b.GetBranchControlsAtCommit(ctx, r, branch, &models.Commit{SHA: commit})
+	return b.GetBranchControlsAtCommit(ctx, branch, &models.Commit{SHA: commit})
 }
 
 // GetBranchControlsAtCommit
-func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repository, branch *models.Branch, commit *models.Commit) (*slsa.ControlSetStatus, error) {
+func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*slsa.ControlSet, error) {
+	if branch.Repository == nil {
+		return nil, fmt.Errorf("branch has no repository")
+	}
+
 	if commit == nil {
 		return nil, errors.New("commit is not set")
 	}
+
 	ghc, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
 	if err != nil {
 		return nil, fmt.Errorf("getting github connection: %w", err)
 	}
 
-	// Get the active controls
+	// The branch controls returned from ghcontrol only include the 4
+	// legacy checks sourcetool did (continuity, review, RequiredChecks, tag hygiene)
 	activeControls, err := ghc.GetBranchControls(ctx, branch.FullRef())
 	if err != nil {
 		return nil, fmt.Errorf("checking status: %w", err)
@@ -91,30 +151,101 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 
 	// We need to manually check for PROVENANCE_AVAILABLE which is not
 	// handled by ghcontrol
-	attestor := attest.NewProvenanceAttestor(
-		ghc, attest.GetDefaultVerifier(),
+	attester, err := attest.NewAttester(
+		attest.WithBackend(b), attest.WithVerifier(attest.GetDefaultVerifier()),
+		attest.WithAuthenticator(b.authenticator),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// Fetch the attestation. If found, then add the control:
-	attestation, _, err := attestor.GetProvenance(ctx, commit.SHA, branch.FullRef())
+	attestation, err := attester.GetRevisionProvenance(ctx, branch, commit)
 	if err != nil {
 		return nil, fmt.Errorf("attempting to read provenance from commit %q: %w", commit.SHA, err)
 	}
 	if attestation != nil {
-		activeControls.AddControl(&provenance.Control{
-			Name: slsa.ProvenanceAvailable.String(),
-		})
+		// We carry over the since date from the previous attestation, only if
+		// it > 0 (unix origin)
+		var t *time.Time
+		if ctrl := attestation.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE.String()); ctrl != nil {
+			if ctrl.GetSince() != nil && ctrl.GetSince().AsTime().Unix() != 0 {
+				rt := ctrl.GetSince().AsTime()
+				t = &rt
+			}
+		} else if ctrl := attestation.GetControl(slsa.DEPRECATED_ProvenanceAvailable.String()); ctrl != nil {
+			if ctrl.GetSince() != nil && ctrl.GetSince().AsTime().Unix() != 0 {
+				rt := ctrl.GetSince().AsTime()
+				t = &rt
+			}
+		}
+
+		if tc := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE); tc != nil {
+			if t != nil {
+				tc.Since = t
+			}
+		} else {
+			activeControls.AddControl(&slsa.Control{
+				Name:  slsa.SLSA_SOURCE_SCS_PROVENANCE,
+				Since: t,
+			})
+		}
 	} else {
 		log.Printf("No provenance attestation found on %s", commit.SHA)
 	}
 
-	status := slsa.NewControlSetStatus()
+	_, vsaPred, err := attester.GetRevisionVSA(ctx, branch, commit)
+	if err != nil {
+		return nil, fmt.Errorf("reading VSA: %w", err)
+	}
+
+	if vsaPred != nil {
+		if tc := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_VSA); tc == nil {
+			activeControls.AddControl(&slsa.Control{
+				Name: slsa.SLSA_SOURCE_SCS_VSA,
+			})
+		}
+	} else {
+		log.Printf("No VSA found for commit")
+	}
+
+	// NewControlSet returns all the controls for the framework in
+	// StateNotEnabled.
+	status := slsa.NewControlSet()
+	sinceForever := time.Unix(1207836000, 0) // April 10, 2008 (when github came online)
 	for i, ctrl := range status.Controls {
-		if c := activeControls.GetControl(ctrl.Name); c != nil {
-			t := c.GetSince().AsTime()
-			status.Controls[i].Since = &t
+		// Check if it's an inherent control, turn it on  and don't look back
+		if c := InherentControls.GetControl(slsa.ControlName(ctrl.Name.String())); c != "" {
+			status.Controls[i].Since = &sinceForever
 			status.Controls[i].State = slsa.StateActive
-			status.Controls[i].Message = b.controlImplementationMessage(slsa.ControlName(c.GetName()))
+			status.Controls[i].Message = "Inherent"
+			continue
+		}
+
+		// Check if it's one of the active controls and enable it and copy the since date
+		if c := activeControls.GetControl(ctrl.Name); c != nil {
+			status.Controls[i].Since = c.Since
+			status.Controls[i].State = slsa.StateActive
+			status.Controls[i].Message = b.controlImplementationMessage(c.GetName())
+		}
+
+		// Enable ORG_SAFE_EXPUNGE when branch protection (protected refs) is active.
+		// Without force push, content cannot be expunged.
+		if ctrl.Name == slsa.SLSA_SOURCE_ORG_SAFE_EXPUNGE {
+			if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_PROTECTED_REFS); c != nil {
+				status.Controls[i].Since = c.Since
+				status.Controls[i].State = slsa.StateActive
+				status.Controls[i].Message = b.controlImplementationMessage(ctrl.Name)
+			}
+		}
+
+		// Enable ORG_CONTINUITY when SCS branch continuity is active.
+		if ctrl.Name == slsa.SLSA_SOURCE_ORG_CONTINUITY {
+			if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_CONTINUITY); c != nil {
+				status.Controls[i].Since = c.Since
+				status.Controls[i].State = slsa.StateActive
+				status.Controls[i].Message = b.controlImplementationMessage(ctrl.Name)
+			}
 		}
 	}
 
@@ -123,8 +254,8 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 	// here and report back the status.
 	switchProvCtlToInProgress := false
 	var provenanceMessage string
-	if c := activeControls.GetControl(slsa.ProvenanceAvailable); c == nil {
-		pr, err := b.FindWorkflowPR(ctx, r)
+	if c := activeControls.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE); c == nil {
+		pr, err := b.FindWorkflowPR(ctx, branch.Repository)
 		if err != nil {
 			return nil, fmt.Errorf("looking for provenance workflow pull request: %w", err)
 		}
@@ -139,11 +270,11 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 	// Populate the recommended actions
 	for i := range status.Controls {
 		// Piggyback on this loop to switch the provenance status for efficiency
-		if switchProvCtlToInProgress && status.Controls[i].Name == slsa.ProvenanceAvailable {
+		if switchProvCtlToInProgress && status.Controls[i].Name == slsa.SLSA_SOURCE_SCS_PROVENANCE {
 			status.Controls[i].State = slsa.StateInProgress
 			status.Controls[i].Message = provenanceMessage
 		}
-		action := b.getRecommendedAction(r, branch, status.Controls[i].Name, status.Controls[i].State)
+		action := b.getRecommendedAction(branch.Repository, branch, status.Controls[i].Name, status.Controls[i].State)
 		status.Controls[i].RecommendedAction = action
 	}
 
@@ -153,14 +284,15 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, r *models.Repos
 // controlImplementationMessage returns an implementation message to populate the
 // status message when controls are active.
 func (b *Backend) controlImplementationMessage(ctrlName slsa.ControlName) string {
+	//nolint:exhaustive
 	switch ctrlName {
-	case slsa.ProvenanceAvailable:
+	case slsa.SLSA_SOURCE_SCS_PROVENANCE, slsa.DEPRECATED_ProvenanceAvailable:
 		return "Signed provenance metadata is being published on every commit"
-	case slsa.TagHygiene:
+	case slsa.SLSA_SOURCE_SCS_PROTECTED_REFS, slsa.DEPRECATED_TagHygiene:
 		return "Tag protections are configured in the repository"
-	case slsa.ReviewEnforced:
+	case slsa.DEPRECATED_ReviewEnforced:
 		return "Code review is enforced in the repository"
-	case slsa.ContinuityEnforced:
+	case slsa.SLSA_SOURCE_ORG_CONTINUITY, slsa.DEPRECATED_ContinuityEnforced:
 		return "Push and delete protection is enabled on the branch"
 	case slsa.PolicyAvailable:
 		return "The repository has published a policy"
@@ -169,8 +301,11 @@ func (b *Backend) controlImplementationMessage(ctrlName slsa.ControlName) string
 	}
 }
 
-func (b *Backend) GetTagControls(context.Context, *models.Tag) (*slsa.Controls, error) {
-	return nil, fmt.Errorf("not yet implemented")
+func (b *Backend) GetTagControls(ctx context.Context, branch *models.Branch, tag *models.Tag) (*slsa.ControlSet, error) {
+	if tag.Commit == nil || tag.Commit.SHA == "" {
+		return nil, errors.New("tag commit is empty")
+	}
+	return b.GetBranchControlsAtCommit(ctx, branch, tag.Commit)
 }
 
 func (b *Backend) ControlConfigurationDescr(branch *models.Branch, config models.ControlConfiguration) string {
@@ -229,7 +364,7 @@ func (b *Backend) GetLatestCommit(ctx context.Context, r *models.Repository, bra
 func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, control slsa.ControlName, state slsa.ControlState) *slsa.ControlRecommendedAction {
 	//nolint:exhaustive // Not all drivers handle all controls
 	switch control {
-	case slsa.ProvenanceAvailable:
+	case slsa.DEPRECATED_ProvenanceAvailable:
 		switch state {
 		case slsa.StateInProgress:
 			return &slsa.ControlRecommendedAction{
@@ -243,7 +378,7 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 		default:
 			return nil
 		}
-	case slsa.ContinuityEnforced:
+	case slsa.SLSA_SOURCE_ORG_CONTINUITY, slsa.DEPRECATED_ContinuityEnforced:
 		if state == slsa.StateNotEnabled {
 			return &slsa.ControlRecommendedAction{
 				Message: "Enable branch push/delete protection",
@@ -251,7 +386,7 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 			}
 		}
 		return nil
-	case slsa.TagHygiene:
+	case slsa.SLSA_SOURCE_SCS_PROTECTED_REFS, slsa.DEPRECATED_TagHygiene:
 		if state == slsa.StateNotEnabled {
 			return &slsa.ControlRecommendedAction{
 				Message: "Enable tag push/update/delete protection",
@@ -261,5 +396,62 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 		return nil
 	default:
 		return nil
+	}
+}
+
+// GetPreviousCommit takes a commit in
+func (b *Backend) GetPreviousCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*models.Commit, error) {
+	ghx, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
+	if err != nil {
+		return nil, err
+	}
+	// TODO:IMPLEMENT
+	rawCommit, err := ghx.GetPriorCommit(ctx, commit.SHA)
+	if err != nil {
+		return nil, fmt.Errorf("fetching previous commit: %w", err)
+	}
+	return &models.Commit{
+		SHA: rawCommit,
+	}, nil
+}
+
+// GetDefaultBranch returns the default branch
+func (b *Backend) GetDefaultBranch(ctx context.Context, repo *models.Repository) (*models.Branch, error) {
+	ghx, err := b.getGitHubConnection(repo, "")
+	if err != nil {
+		return nil, err
+	}
+	branchName, err := ghx.GetDefaultBranch(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetching default branch: %w", err)
+	}
+
+	return &models.Branch{
+		Name:       branchName,
+		Repository: repo,
+	}, nil
+}
+
+// GetRevisionCommit returns the commit of a revision (or error)
+func (b *Backend) GetRevisionCommit(ctx context.Context, repo *models.Repository, rev models.Revision) (*models.Commit, error) {
+	switch inst := rev.(type) {
+	case *models.Commit:
+		return inst, nil
+	case *models.Tag:
+		if inst.Commit == nil {
+			ghx, err := b.getGitHubConnection(repo, "")
+			if err != nil {
+				return nil, err
+			}
+			tagCommit, err := ghx.GetTagCommit(ctx, inst.GetName())
+			if err != nil {
+				return nil, err
+			}
+
+			inst.Commit = tagCommit
+		}
+		return inst.Commit, nil
+	default:
+		return nil, errors.New("not implemented yet or invalid revision")
 	}
 }

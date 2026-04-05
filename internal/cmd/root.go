@@ -10,22 +10,21 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/auth"
 )
 
 var githubToken string
 
-func getVerifier(vo *verifierOptions) attest.Verifier {
-	options := attest.DefaultVerifierOptions
-	if vo.expectedIssuer != "" {
-		options.ExpectedIssuer = vo.expectedIssuer
-	}
-	if vo.expectedSan != "" {
-		options.ExpectedSan = vo.expectedSan
-	}
-	return attest.NewBndVerifier(options)
-}
+// func getVerifier(vo *verifierOptions) attest.Verifier {
+// 	options := attest.DefaultVerifierOptions
+// 	if vo.expectedIssuer != "" {
+// 		options.ExpectedIssuer = vo.expectedIssuer
+// 	}
+// 	if vo.expectedSan != "" {
+// 		options.ExpectedSan = vo.expectedSan
+// 	}
+// 	return attest.NewBndVerifier(options)
+// }
 
 func buildRootCommand() *cobra.Command {
 	// rootCmd represents the base command when called without any subcommands

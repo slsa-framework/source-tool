@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/go-github/v69/github"
 	"github.com/hashicorp/go-retryablehttp"
+
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 const tokenEnvVar = "GITHUB_TOKEN" //nolint:gosec // These are not credentials
@@ -116,4 +118,34 @@ func (ghc *GitHubConnection) GetDefaultBranch(ctx context.Context) (string, erro
 	}
 
 	return repo.GetDefaultBranch(), nil
+}
+
+func (ghc *GitHubConnection) GetTagCommit(ctx context.Context, tagName string) (*models.Commit, error) {
+	ref, _, err := ghc.Client().Git.GetRef(ctx, ghc.owner, ghc.repo, "tags/"+tagName)
+	if err != nil {
+		return nil, fmt.Errorf("fetching ref %s: %w", ghc.ref, err)
+	}
+
+	obj := ref.GetObject()
+
+	// If the ref points directly to a commit, return it
+	if obj.GetType() == "commit" {
+		return &models.Commit{
+			SHA: obj.GetSHA(),
+		}, nil
+	}
+
+	// For annotated tags, the ref points to a tag object.
+	// Dereference it to get the commit.
+	tag, _, err := ghc.Client().Git.GetTag(ctx, ghc.owner, ghc.repo, obj.GetSHA())
+	if err != nil {
+		return nil, fmt.Errorf("fetching tag object %s: %w", obj.GetSHA(), err)
+	}
+
+	return &models.Commit{
+		SHA:     tag.GetObject().GetSHA(),
+		Author:  tag.GetTagger().GetLogin(),
+		Time:    tag.GetTagger().Date.GetTime(),
+		Message: tag.GetMessage(),
+	}, nil
 }

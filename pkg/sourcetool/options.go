@@ -11,6 +11,41 @@ import (
 
 type ConfigFn func(*Tool) error
 
+func WithGithubCollector(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitGHCollector = yesno
+		return nil
+	}
+}
+
+func WithGithubStorer(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitGHStorer = yesno
+		return nil
+	}
+}
+
+func WithNotesCollector(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitNotesCollector = yesno
+		return nil
+	}
+}
+
+func WithNotesStorer(yesno bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.InitNotesStorer = yesno
+		return nil
+	}
+}
+
+func WithStorageLocation(l ...string) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.StorageLocations = l
+		return nil
+	}
+}
+
 func WithAuthenticator(a *auth.Authenticator) ConfigFn {
 	return func(t *Tool) error {
 		if a == nil {
@@ -45,6 +80,13 @@ func WithUserForkOrg(org string) ConfigFn {
 func WithPolicyRepo(slug string) ConfigFn {
 	return func(t *Tool) error {
 		t.Options.PolicyRepo = slug
+		return nil
+	}
+}
+
+func WithAllowMergeCommits(allow bool) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.AllowMergeCommits = allow
 		return nil
 	}
 }

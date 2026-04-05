@@ -54,7 +54,7 @@ type DeviceCodeResponse struct {
 
 // TokenResponse is the data structure returned when exchanging tokens
 type TokenResponse struct {
-	AccessToken string `json:"access_token"` //nolint:gosec // G117 This is the github struct
+	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	Scope       string `json:"scope"`
 	Error       string `json:"error"`

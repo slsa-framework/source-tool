@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/slsa-framework/source-tool/pkg/policy"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
 
 type Options struct {
@@ -20,11 +21,25 @@ type Options struct {
 
 	// PolicyRepo is the repository where the policies are stored
 	PolicyRepo string
+
+	// Initialize GitHub attestations storer and fetcher
+	InitGHCollector bool
+	InitGHStorer    bool
+
+	// Initialize Dynamic notes storer and fetcher
+	InitNotesCollector bool
+	InitNotesStorer    bool
+
+	StorageLocations []string
+
+	models.BackendOptions
 }
 
 // DefaultOptions holds the default options the tool initializes with
 var Default = Options{
-	PolicyRepo:     fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo),
-	UseSSH:         true,
-	CreatePolicyPR: true,
+	PolicyRepo:         fmt.Sprintf("%s/%s", policy.SourcePolicyRepoOwner, policy.SourcePolicyRepo),
+	UseSSH:             true,
+	CreatePolicyPR:     true,
+	InitNotesCollector: true,
+	BackendOptions:     models.BackendOptions{},
 }
