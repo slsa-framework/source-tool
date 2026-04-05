@@ -22,6 +22,10 @@ jobs:
       previous: ${{ steps.go-versions.outputs.GO_VERSION_PREVIOUS }}
 
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
       - uses: carabiner-dev/actions/go/versions@7d7c2b1154a01df68e3fc4f12d07fd148a302a94 # v1.1.4
         id: go-versions
 
