@@ -11,7 +11,51 @@ on:
 permissions: {}
 
 jobs:
+  go-versions:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    outputs:
+      latest: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
+      previous: ${{ steps.go-versions.outputs.GO_VERSION_PREVIOUS }}
+
+    steps:
+      - uses: carabiner-dev/actions/go/versions@440c76def32d40be101b68d1f6a6b284b79aa74c # v1.1.2
+        id: go-versions
+
   test:
+    needs: go-versions
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    strategy:
+      matrix:
+        go-version:
+          - ${{ needs.go-versions.outputs.latest }}
+          - ${{ needs.go-versions.outputs.previous }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+          cache: false
+
+      - name: Run Go tests
+        run: |
+          go test -v ./...
+
+  verify:
     runs-on: ubuntu-latest
 
     permissions:
@@ -29,7 +73,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ steps.go-versions.outputs.latest }}
+          go-version: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
           check-latest: true
           cache: false
 
@@ -39,15 +83,11 @@ jobs:
       - name: Setup protoc
         uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # @v3.0.0
 
-      - name: Run Go tests
-        run: |
-          go test -v ./...
-
       - name: Check generated fakes
         run: |
           hack/verify-fakes.sh
 
-      - name: Check protobuf generated codew
+      - name: Check protobuf generated code
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           hack/verify-protos.sh
