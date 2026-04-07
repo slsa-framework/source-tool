@@ -5,7 +5,7 @@ go 1.25.8
 require (
 	github.com/carabiner-dev/attestation v0.2.1
 	github.com/carabiner-dev/collector v0.2.10-0.20260310234513-8d637f10649f
-	github.com/carabiner-dev/signer v0.3.8-0.20260310160610-a37998585604
+	github.com/carabiner-dev/signer v0.4.2
 	github.com/carabiner-dev/vcslocator v0.4.1
 	github.com/fatih/color v1.19.0
 	github.com/go-git/go-billy/v6 v6.0.0-20260226131633-45bd0956d66f
