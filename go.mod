@@ -6,7 +6,7 @@ require (
 	github.com/carabiner-dev/attestation v0.2.1
 	github.com/carabiner-dev/collector v0.3.4
 	github.com/carabiner-dev/signer v0.4.5
-	github.com/carabiner-dev/vcslocator v0.4.3-0.20260415221723-1e7d86696551
+	github.com/carabiner-dev/vcslocator v0.4.3
 	github.com/fatih/color v1.19.0
 	github.com/go-git/go-billy/v6 v6.0.0-20260226131633-45bd0956d66f
 	github.com/go-git/go-git/v6 v6.0.0-20260305211659-2083cf940afa
