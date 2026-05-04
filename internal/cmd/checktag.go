@@ -44,6 +44,10 @@ func (cto *checkTagOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&cto.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 	cmd.PersistentFlags().StringVar(&cto.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
 	cmd.PersistentFlags().Uint8Var(&cto.vsaRetries, "retries", 3, "Number of times to retry fetching the commit's VSA")
+
+	// Hidden alias for backwards compatibility with the old --tag_name flag.
+	cmd.PersistentFlags().StringVar(&cto.tag, "tag_name", "", "Git tag within the repository")
+	cmd.PersistentFlags().MarkHidden("tag_name") //nolint:errcheck,gosec
 }
 
 func addCheckTag(parentCmd *cobra.Command) {

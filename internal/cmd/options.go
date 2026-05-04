@@ -243,7 +243,6 @@ func (to *tagOptions) AddFlags(cmd *cobra.Command) {
 }
 
 type revisionOpts struct {
-	repoOptions
 	tagOptions
 	branchOptions
 	commitOptions
