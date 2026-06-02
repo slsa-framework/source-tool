@@ -21,6 +21,12 @@ import (
 var (
 	ErrProtectionAlreadyInPlace = errors.New("controls already in place in the repository")
 	ErrRepositoryAccessDenied   = errors.New("access to repository denied")
+	// ErrUnsupportedRepoPlan is returned when a control check or configuration
+	// hits a GitHub feature that the repository's plan does not include. This
+	// happens, for example, when reading branch rulesets on a private repo that
+	// is on a free plan: GitHub answers with a 403 asking to upgrade or make the
+	// repo public.
+	ErrUnsupportedRepoPlan = errors.New("repository plan does not support this feature (private repositories require GitHub Pro or a public repository to read branch rules)")
 )
 
 // AttestationStorageReader abstracts an attestation storage system where

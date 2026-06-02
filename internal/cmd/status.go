@@ -16,7 +16,23 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/policy"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool"
+	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
+
+// unsupportedRepoPlanError builds a user facing error explaining that the
+// repository plan does not support reading branch rules. This is the friendly
+// message the setup and status subcommands print instead of the raw GitHub 403
+// "Upgrade to GitHub Pro or make this repository public" response.
+func unsupportedRepoPlanError(repoPath string) error {
+	return fmt.Errorf(
+		"%s is a private repository on a GitHub plan that does not expose branch "+
+			"rules to the API.\n"+
+			"sourcetool cannot read or configure SLSA source controls on it yet.\n\n"+
+			"To continue, either make the repository public or upgrade its account "+
+			"to a plan that includes repository rules (GitHub Pro or higher).",
+		repoPath,
+	)
+}
 
 var (
 	w  = color.New(color.FgHiWhite, color.BgBlack).SprintFunc()
@@ -112,6 +128,9 @@ sourcetool status myorg/myrepo@mybranch
 			// Get the active repository controls
 			controls, err := srctool.GetBranchControls(cmd.Context(), opts.GetBranch())
 			if err != nil {
+				if errors.Is(err, models.ErrUnsupportedRepoPlan) {
+					return unsupportedRepoPlanError(opts.GetRepository().Path)
+				}
 				return fmt.Errorf("fetching active controls: %w", err)
 			}
 
