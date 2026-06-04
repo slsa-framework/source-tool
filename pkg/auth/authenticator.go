@@ -175,6 +175,12 @@ func (a *Authenticator) WhoAmI() (*models.Actor, error) {
 
 	ctx := context.Background()
 
+	// If we are on actions and the token is read from env, don't even try the
+	// user authentication path.
+	if os.Getenv("GITHUB_ACTIONS") != "" && os.Getenv("GITHUB_TOKEN") != "" && strings.Contains(os.Getenv("GITHUB_TOKEN"), token) {
+		return a.whoAmIActions(ctx, client, cacheKey)
+	}
+
 	// Get the user from the GitHub API
 	user, resp, err := client.Users.Get(ctx, "")
 	if err != nil {
@@ -205,8 +211,7 @@ func (a *Authenticator) whoAmIActions(ctx context.Context, client *github.Client
 	slug := os.Getenv("GITHUB_REPOSITORY")
 	if slug == "" {
 		return nil, errors.New(
-			"token cannot access the user endpoint and GITHUB_REPOSITORY is not set, " +
-				"unable to verify the token can be used by sourcetool",
+			"unable to verify access to the repo (and token cannot access the user endpoint)",
 		)
 	}
 
