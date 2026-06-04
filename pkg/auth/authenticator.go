@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
@@ -146,7 +146,11 @@ func (a *Authenticator) GetGitHubClient() (*github.Client, error) {
 	rClient.RetryMax = 3
 	rClient.Logger = nil // Comment this line to monitor GH api calls
 	httpClient := rClient.StandardClient()
-	return github.NewClient(httpClient).WithAuthToken(token), nil
+	client, err := github.NewClient(github.WithHTTPClient(httpClient), github.WithAuthToken(token))
+	if err != nil {
+		return nil, fmt.Errorf("creating github client: %w", err)
+	}
+	return client, nil
 }
 
 // WhoAmI returns the user authenticated with the token

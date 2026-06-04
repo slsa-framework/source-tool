@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v88/github"
 )
 
 // GetNotesForCommit returns the unparsed notes blob for a commit as stored in

@@ -11,7 +11,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v88/github"
 
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
@@ -38,13 +38,13 @@ type activity struct {
 func (ghc *GitHubConnection) commitActivity(ctx context.Context, commit, targetRef string) (*activity, error) {
 	// Unfortunately the gh_client doesn't have native support for this...'
 	reqUrl := fmt.Sprintf("repos/%s/%s/activity", ghc.Owner(), ghc.Repo())
-	req, err := ghc.Client().NewRequest("GET", reqUrl, nil)
+	req, err := ghc.Client().NewRequest(ctx, "GET", reqUrl, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var result []*activity
-	_, err = ghc.Client().Do(ctx, req, &result)
+	_, err = ghc.Client().Do(req, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -234,8 +234,8 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 // protection if one of them is missing. We check first so if other rules
 // already protect the branch, this function noops.
 func (ghc *GitHubConnection) EnableBranchRules(ctx context.Context) error {
-	branchRules, _, err := ghc.Client().Repositories.GetRulesForBranch(
-		ctx, ghc.Owner(), ghc.Repo(), GetBranchFromRef(ghc.ref),
+	branchRules, _, err := ghc.Client().Repositories.ListRulesForBranch(
+		ctx, ghc.Owner(), ghc.Repo(), GetBranchFromRef(ghc.ref), nil,
 	)
 	if err != nil {
 		return fmt.Errorf("fetching branch rules: %w", err)
@@ -286,7 +286,7 @@ func (ghc *GitHubConnection) EnableBranchRules(ctx context.Context) error {
 // protection on all branches.
 func (ghc *GitHubConnection) EnableTagRules(ctx context.Context) error {
 	allRules, _, err := ghc.Client().Repositories.GetAllRulesets(
-		ctx, ghc.Owner(), ghc.Repo(), true,
+		ctx, ghc.Owner(), ghc.Repo(), &github.RepositoryListRulesetsOptions{IncludesParents: github.Ptr(true)},
 	)
 	if err != nil {
 		return fmt.Errorf("fetching tag rules: %w", err)
@@ -357,7 +357,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, ref string) 
 	controls := &slsa.ControlSet{}
 
 	// Do the branch specific stuff.
-	branchRules, _, err := ghc.Client().Repositories.GetRulesForBranch(ctx, ghc.Owner(), ghc.Repo(), branch)
+	branchRules, _, err := ghc.Client().Repositories.ListRulesForBranch(ctx, ghc.Owner(), ghc.Repo(), branch, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +382,7 @@ func (ghc *GitHubConnection) GetBranchControls(ctx context.Context, ref string) 
 	controls.AddControl(requiredCheckControls...)
 
 	// Check the tag rules.
-	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
+	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), &github.RepositoryListRulesetsOptions{IncludesParents: github.Ptr(true)})
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +432,7 @@ func (ghc *GitHubConnection) GetTagControls(ctx context.Context, commit, ref str
 		Controls:       &slsa.ControlSet{},
 	}
 
-	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), true)
+	allRulesets, _, err := ghc.Client().Repositories.GetAllRulesets(ctx, ghc.Owner(), ghc.Repo(), &github.RepositoryListRulesetsOptions{IncludesParents: github.Ptr(true)})
 	if err != nil {
 		return nil, fmt.Errorf("getting repository rules from API: %w", err)
 	}
