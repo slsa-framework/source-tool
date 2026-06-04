@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v88/github"
 
 	"github.com/slsa-framework/source-tool/pkg/repo"
 	"github.com/slsa-framework/source-tool/pkg/repo/options"

@@ -6,9 +6,10 @@ package ghcontrol
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
@@ -28,7 +29,20 @@ func NewGhConnection(owner, repo, ref string) *GitHubConnection {
 	rClient := retryablehttp.NewClient()
 	rClient.RetryMax = int(opts.ApiRetries)
 	rClient.Logger = nil
-	return NewGhConnectionWithClient(owner, repo, ref, github.NewClient(rClient.StandardClient()))
+	return NewGhConnectionWithClient(owner, repo, ref, newGitHubClient(rClient.StandardClient(), ""))
+}
+
+// newGitHubClient builds a go-github client backed by the given HTTP client
+// and, when set, authenticated with the provided token. WithHTTPClient only
+// fails on a nil HTTP client and WithAuthToken never fails, so with a non-nil
+// httpClient the returned error can be safely ignored.
+func newGitHubClient(httpClient *http.Client, token string) *github.Client {
+	clientOpts := []github.ClientOptionsFunc{github.WithHTTPClient(httpClient)}
+	if token != "" {
+		clientOpts = append(clientOpts, github.WithAuthToken(token))
+	}
+	client, _ := github.NewClient(clientOpts...)
+	return client
 }
 
 func NewGhConnectionWithClient(owner, repo, ref string, client *github.Client) *GitHubConnection {
@@ -38,7 +52,7 @@ func NewGhConnectionWithClient(owner, repo, ref string, client *github.Client) *
 	if t := os.Getenv(tokenEnvVar); t != "" {
 		opts.accessToken = t
 		if client != nil {
-			client = client.WithAuthToken(t)
+			client = newGitHubClient(client.Client(), t)
 		}
 	}
 
@@ -72,7 +86,7 @@ func (ghc *GitHubConnection) GetFullRef() string {
 func (ghc *GitHubConnection) WithAuthToken(token string) *GitHubConnection {
 	if token != "" {
 		ghc.Options.accessToken = token
-		ghc.client = ghc.client.WithAuthToken(ghc.Options.accessToken)
+		ghc.client = newGitHubClient(ghc.client.Client(), ghc.Options.accessToken)
 	}
 	return ghc
 }

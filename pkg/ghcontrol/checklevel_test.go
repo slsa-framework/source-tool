@@ -5,12 +5,13 @@ package ghcontrol
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 
 	"github.com/slsa-framework/source-tool/pkg/slsa"
@@ -180,7 +181,7 @@ func newMockedGitHubClient(rulesetResponse *github.RepositoryRuleset, activityRe
 	// values.  We're not going to both with that and instead just return as many copies of the same response
 	// as needed.  In the future we might want to support testing different rules being enabled in different
 	// rulesets, but that's a problem for the future.
-	return github.NewClient(mock.NewMockedHTTPClient(
+	client, err := github.NewClient(github.WithHTTPClient(mock.NewMockedHTTPClient(
 		mock.WithRequestMatch(
 			mock.GetReposRulesetsByOwnerByRepo,
 			[]*github.RepositoryRuleset{
@@ -201,7 +202,11 @@ func newMockedGitHubClient(rulesetResponse *github.RepositoryRuleset, activityRe
 			mock.GetReposRulesBranchesByOwnerByRepoByBranch,
 			*branchRulesResponse,
 		),
-	))
+	)))
+	if err != nil {
+		panic(fmt.Sprintf("creating mocked github client: %v", err))
+	}
+	return client
 }
 
 // Helper to create a test GH Branch connection with no client.

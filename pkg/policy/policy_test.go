@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"reflect" // Ensure reflect is imported
 	"slices"
@@ -18,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v69/github" // Use v69
+	"github.com/google/go-github/v88/github" // Use v88
 	spb "github.com/in-toto/attestation/go/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -655,14 +654,15 @@ func setupMockGitHubTestEnv(t *testing.T, targetOwner, targetRepo, targetBranch 
 	server := httptest.NewServer(handler)
 
 	httpClient := server.Client()
-	ghClient := github.NewClient(httpClient)
-
-	baseURL, err := url.Parse(server.URL + "/")
+	baseURL := server.URL + "/"
+	ghClient, err := github.NewClient(
+		github.WithHTTPClient(httpClient),
+		github.WithEnterpriseURLs(baseURL, baseURL),
+	)
 	if err != nil {
-		server.Close() // Close the server if URL parsing fails
-		t.Fatalf("Failed to parse mock server URL: %v", err)
+		server.Close()
+		t.Fatalf("Failed to create GitHub client: %v", err)
 	}
-	ghClient.BaseURL = baseURL
 
 	ghConn := ghcontrol.NewGhConnectionWithClient(targetOwner, targetRepo, targetBranch, ghClient)
 	return ghConn, server
