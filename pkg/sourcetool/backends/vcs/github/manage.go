@@ -23,6 +23,11 @@ const (
 	workflowPath = ".github/workflows/compute_slsa_source.yaml"
 	// workflowSource = "git+https://github.com/slsa-"
 
+	// githubActionsBotLogin and githubActionsBotEmail are the login and email
+	// GitHub uses for the actions bot. It is not a regular noreply.github.com
+	githubActionsBotLogin = "github-actions[bot]"
+	githubActionsBotEmail = "41898282+github-actions[bot]@users.noreply.github.com"
+
 	// workflowCommitMessage will be used as the commit message and the PR title
 	workflowCommitMessage = "Add SLSA Source Provenance Workflow"
 
@@ -130,7 +135,7 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 			Body:  workflowPRBody,
 			CommitOptions: options.CommitOptions{
 				Name:  user.GetLogin(),
-				Email: user.GetLogin() + "@users.noreply.github.com",
+				Email: commitEmailForActor(user),
 			},
 		},
 		[]*repo.PullRequestFileEntry{
@@ -146,6 +151,16 @@ func (b *Backend) CreateWorkflowPR(r *models.Repository, branches []*models.Bran
 
 	// Success!
 	return pr, nil
+}
+
+// commitEmailForActor returns the no-reply email address to use when authoring
+// commits as the given actor. It's intended to handle the actions bot which
+// uses a different email.
+func commitEmailForActor(user *models.Actor) string {
+	if user.GetLogin() == githubActionsBotLogin {
+		return githubActionsBotEmail
+	}
+	return user.GetLogin() + "@users.noreply.github.com"
 }
 
 // CheckWorkflowFork verifies that the user has a fork of the repository
