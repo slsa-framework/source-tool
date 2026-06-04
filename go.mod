@@ -8,8 +8,8 @@ require (
 	github.com/carabiner-dev/signer v0.4.5
 	github.com/carabiner-dev/vcslocator v0.4.3
 	github.com/fatih/color v1.19.0
-	github.com/go-git/go-billy/v6 v6.0.0-20260226131633-45bd0956d66f
-	github.com/go-git/go-git/v6 v6.0.0-20260305211659-2083cf940afa
+	github.com/go-git/go-billy/v6 v6.0.0-alpha.1
+	github.com/go-git/go-git/v6 v6.0.0-alpha.4
 	github.com/google/go-github/v69 v69.2.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.8
@@ -121,7 +121,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/openvex/go-vex v0.2.8 // indirect
 	github.com/package-url/packageurl-go v0.1.5 // indirect
-	github.com/pjbgf/sha1cd v0.5.0 // indirect
+	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
