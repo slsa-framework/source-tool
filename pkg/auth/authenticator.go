@@ -10,6 +10,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -32,6 +35,11 @@ const (
 
 	// Token filename
 	githubTokenFileName = "sourcetool.github.token"
+
+	// githubActionsLogin is the identity reported when sourcetool is
+	// authenticated using the GitHub Actions token (which acts on behalf of
+	// the github-actions bot instead of a user).
+	githubActionsLogin = "github-actions[bot]"
 )
 
 var oauthScopes = []string{
@@ -148,8 +156,10 @@ func (a *Authenticator) WhoAmI() (*models.Actor, error) {
 		return nil, fmt.Errorf("reading token: %w", err)
 	}
 
+	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(token)))
+
 	// Check the cache to avoid requesting again
-	if user, ok := a.idCache[fmt.Sprintf("%x", sha256.Sum256([]byte(token)))]; ok {
+	if user, ok := a.idCache[cacheKey]; ok {
 		return user, nil
 	}
 
@@ -163,13 +173,56 @@ func (a *Authenticator) WhoAmI() (*models.Actor, error) {
 		return nil, err
 	}
 
+	ctx := context.Background()
+
 	// Get the user from the GitHub API
-	user, _, err := client.Users.Get(context.Background(), "")
+	user, resp, err := client.Users.Get(ctx, "")
 	if err != nil {
+		// The GitHub Actions token (and other GitHub App installation tokens)
+		// cannot read the /user endpoint. GitHub returns a 403 in that case
+		// ("Resource not accessible by integration"). If we hit a 403, check
+		// if the token can still be used by sourcetool by checking it against
+		// as an actions/installation token (not a pat).
+		if resp != nil && resp.StatusCode == http.StatusForbidden {
+			return a.whoAmIActions(ctx, client, cacheKey)
+		}
 		return nil, fmt.Errorf("fetching user data: %w", err)
 	}
 
-	return &models.Actor{
+	actor := &models.Actor{
 		Login: user.GetLogin(),
-	}, nil
+	}
+	a.idCache[cacheKey] = actor
+	return actor, nil
+}
+
+// whoAmIActions verifies that an actions/installation token can be used
+// by sourcetool. Instead of hitting the user endpoiint, we confirm it has
+// access to the repository where workflow is running.
+// On success it returns an agent synthesized from the github-actions bot
+// identity.
+func (a *Authenticator) whoAmIActions(ctx context.Context, client *github.Client, cacheKey string) (*models.Actor, error) {
+	slug := os.Getenv("GITHUB_REPOSITORY")
+	if slug == "" {
+		return nil, errors.New(
+			"token cannot access the user endpoint and GITHUB_REPOSITORY is not set, " +
+				"unable to verify the token can be used by sourcetool",
+		)
+	}
+
+	owner, repo, ok := strings.Cut(slug, "/")
+	if !ok || owner == "" || repo == "" {
+		return nil, fmt.Errorf("invalid GITHUB_REPOSITORY value %q", slug)
+	}
+
+	// Confirm the token actually grants access to the repository.
+	if _, _, err := client.Repositories.Get(ctx, owner, repo); err != nil {
+		return nil, fmt.Errorf("verifying actions token access to %s: %w", slug, err)
+	}
+
+	actor := &models.Actor{
+		Login: githubActionsLogin,
+	}
+	a.idCache[cacheKey] = actor
+	return actor, nil
 }
