@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	memfs "github.com/go-git/go-billy/v6/memfs"
-	git "github.com/go-git/go-git/v6"
-	"github.com/go-git/go-git/v6/storage/memory"
+	memfs "github.com/go-git/go-billy/v5/memfs"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/storage/memory"
 
 	"github.com/slsa-framework/source-tool/pkg/repo/options"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
@@ -23,7 +23,7 @@ func TestCloneAddFiles_CreatesValidCommit(t *testing.T) {
 	storer := memory.NewStorage()
 	fs := memfs.New()
 
-	repo, err := git.Init(storer, git.WithWorkTree(fs))
+	repo, err := git.Init(storer, fs)
 	if err != nil {
 		t.Fatalf("Failed to initialize test repository: %v", err)
 	}
