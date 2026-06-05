@@ -451,6 +451,16 @@ func (t *Tool) AttestRevision(
 			return nil, err
 		}
 
+		// Tag provenance is built from the VSA of the tagged commit. If that
+		// commit has no VSA, CreateTagProvenance returns a nil statement and here
+		// we fail with a clear message instead of a downstream "nil statement" error.
+		if prov == nil {
+			return nil, fmt.Errorf(
+				"no VSA found for tagged commit %s; ensure its source provenance was generated before tagging",
+				rev.GetCommit().SHA,
+			)
+		}
+
 		// 2. Run the provenance against the policy to determine the verified levels.
 		pe := policy.NewPolicyEvaluator()
 		pe.UseLocalPolicy = opts.LocalPolicy
