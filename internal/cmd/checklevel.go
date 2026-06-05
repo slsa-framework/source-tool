@@ -93,19 +93,26 @@ This is meant to be run within the corresponding GitHub Actions workflow.`,
 
 			pe := policy.NewPolicyEvaluator()
 			pe.UseLocalPolicy = opts.useLocalPolicy
-			verifiedLevels, policyPath, err := pe.EvaluateControl(cmd.Context(), opts.GetRepository(), opts.GetBranch(), controlStatus)
+			result, err := pe.EvaluateControl(cmd.Context(), opts.GetRepository(), opts.GetBranch(), controlStatus)
 			if err != nil {
 				return err
 			}
-			for _, level := range verifiedLevels {
+			for _, level := range result.VerifiedLevels {
 				if slsa.IsSlsaSourceLevel(level) {
 					fmt.Print(level)
 					break
 				}
 			}
 
+			// The achieved level can be below the policy target, surface it as a
+			// warning here (checklevel only reports, it does not gate on it).
+			if result.Shortfall != nil {
+				fmt.Fprintf(os.Stderr, "\nwarning: policy target level %s not met; achieved %s: %s\n",
+					result.Shortfall.TargetLevel, result.Shortfall.AchievedLevel, result.Shortfall.Reason)
+			}
+
 			unsignedVsa, err := attest.CreateUnsignedSourceVsa(
-				opts.GetBranch(), opts.GetCommit(), verifiedLevels, policyPath,
+				opts.GetBranch(), opts.GetCommit(), result.VerifiedLevels, result.PolicyPath,
 			)
 			if err != nil {
 				return err

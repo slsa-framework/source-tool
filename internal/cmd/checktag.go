@@ -126,7 +126,7 @@ func addCheckTag(parentCmd *cobra.Command) {
 			}
 
 			// Attest the commit passing the options
-			verifiedLevels, err := srctool.AttestRevision(
+			result, err := srctool.AttestRevision(
 				cmd.Context(), opts.GetBranch(), opts.GetRevision(),
 				sourcetool.WithLocalPolicy(opts.useLocalPolicy),
 				sourcetool.WithOutputPath(outputPath),
@@ -138,7 +138,7 @@ func addCheckTag(parentCmd *cobra.Command) {
 				return fmt.Errorf("attesting commit: %w", err)
 			}
 
-			fmt.Print(verifiedLevels.Levels())
+			fmt.Print(result.VerifiedLevels.Levels())
 			return nil
 		},
 	}
