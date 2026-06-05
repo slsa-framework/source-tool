@@ -370,33 +370,95 @@ func ComputeEligibleSince(controls *slsa.ControlSet, level slsa.SlsaSourceLevel)
 // Every function that determines properties to include in the result & VSA implements this interface.
 type computePolicyResult func(*ProtectedBranch, *ProtectedTag, *slsa.ControlSet) ([]slsa.ControlName, error)
 
-func computeSlsaLevel(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSet) ([]slsa.ControlName, error) {
+// PolicyShortfall captures why a branch achieves a SLSA source level lower than
+// the one its policy targets.
+//
+// It's meant to be an informational payload, not an error.
+type PolicyShortfall struct {
+	TargetLevel   slsa.SlsaSourceLevel
+	AchievedLevel slsa.SlsaSourceLevel
+	Reason        string
+}
+
+// EvaluationResult is the outcome of evaluating a branch or tag against its policy.
+type EvaluationResult struct {
+	VerifiedLevels slsa.SourceVerifiedLevels
+	PolicyPath     string
+	// Shortfall is non-nil when the achieved SLSA source level is below the
+	// policy's target level.
+	Shortfall *PolicyShortfall
+}
+
+// computeAchievableSlsaLevel determines the highest SLSA source level the controls
+// satisfy. When the achieved level is below the policy target it also returns a
+// PolicyShortfall describing the gap.
+//
+// Unlike a hard policy failure, a level below target is not an error. We want to
+// always generate provenance at the level achieved and surface the gap
+// so that the chain of provenance is never broken.
+func computeAchievableSlsaLevel(branchPolicy *ProtectedBranch, controls *slsa.ControlSet) (slsa.SlsaSourceLevel, *PolicyShortfall) {
+	target := slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel())
 	eligibleLevel := ComputeEligibleSlsaLevel(controls)
 
-	if !slsa.IsLevelHigherOrEqualTo(eligibleLevel, slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel())) {
-		return []slsa.ControlName{}, fmt.Errorf(
+	// Walk down the slsa levels, returning the first that:
+	//    a. does notexceed the target
+	//    b. the controls are eligible for, and
+	//    c. has been continuously eligible since
+	//       at or before the policy's "since" date.
+	for _, level := range []slsa.SlsaSourceLevel{
+		slsa.SlsaSourceLevel4, slsa.SlsaSourceLevel3, slsa.SlsaSourceLevel2,
+	} {
+		// Never stamp a level higher than the policy asks for.
+		if !slsa.IsLevelHigherOrEqualTo(target, level) {
+			continue
+		}
+		if !slsa.IsLevelHigherOrEqualTo(eligibleLevel, level) {
+			continue
+		}
+		eligibleSince, err := ComputeEligibleSince(controls, level)
+		if err != nil || eligibleSince == nil {
+			continue
+		}
+		if branchPolicy.GetSince().AsTime().Before(*eligibleSince) {
+			continue
+		}
+		return level, slsaLevelShortfall(target, level, eligibleLevel, branchPolicy, controls)
+	}
+
+	// Nothing above level 1 is satisfied. L1 is always achievable.
+	return slsa.SlsaSourceLevel1, slsaLevelShortfall(target, slsa.SlsaSourceLevel1, eligibleLevel, branchPolicy, controls)
+}
+
+// slsaLevelShortfall builds the PolicyShortfall when branch is below target
+func slsaLevelShortfall(target, achieved, eligibleLevel slsa.SlsaSourceLevel, branchPolicy *ProtectedBranch, controls *slsa.ControlSet) *PolicyShortfall {
+	if slsa.IsLevelHigherOrEqualTo(achieved, target) {
+		return nil
+	}
+
+	var reason string
+	switch {
+	case !slsa.IsLevelHigherOrEqualTo(eligibleLevel, target):
+		reason = fmt.Sprintf(
 			"policy sets target level %s which requires %v, but branch is only eligible for %s because it only has %v",
-			branchPolicy.GetTargetSlsaSourceLevel(),
-			slsa.GetRequiredControlsForLevel(slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel())),
-			eligibleLevel,
-			controls.Names(),
+			target, slsa.GetRequiredControlsForLevel(target), eligibleLevel, controls.Names(),
 		)
+	default:
+		eligibleSince, err := ComputeEligibleSince(controls, target)
+		if err != nil || eligibleSince == nil {
+			reason = fmt.Sprintf("policy sets target level %s, but cannot compute when controls made it eligible for that level", target)
+		} else {
+			reason = fmt.Sprintf(
+				"policy sets target level %s since %v, but it has only been eligible for that level since %v",
+				target, branchPolicy.GetSince().AsTime(), *eligibleSince,
+			)
+		}
 	}
 
-	// Check to see when this branch became eligible for the current target level.
-	eligibleSince, err := ComputeEligibleSince(controls, slsa.SlsaSourceLevel(branchPolicy.GetTargetSlsaSourceLevel()))
-	if err != nil {
-		return []slsa.ControlName{}, fmt.Errorf("could not compute eligible since: %w", err)
+	return &PolicyShortfall{
+		TargetLevel:   target,
+		AchievedLevel: achieved,
+		Reason:        reason,
 	}
-	if eligibleSince == nil {
-		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s, but cannot compute when controls made it eligible for that level", branchPolicy.GetTargetSlsaSourceLevel())
-	}
-
-	if branchPolicy.GetSince().AsTime().Before(*eligibleSince) {
-		return []slsa.ControlName{}, fmt.Errorf("policy sets target level %s since %v, but it has only been eligible for that level since %v", branchPolicy.GetTargetSlsaSourceLevel(), branchPolicy.GetSince().AsTime(), eligibleSince)
-	}
-
-	return []slsa.ControlName{slsa.ControlName(branchPolicy.GetTargetSlsaSourceLevel())}, nil
 }
 
 func computeReviewEnforced(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls *slsa.ControlSet) ([]slsa.ControlName, error) {
@@ -465,26 +527,34 @@ func computeOrgControls(branchPolicy *ProtectedBranch, _ *ProtectedTag, controls
 	return controlNames, nil
 }
 
-// Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a branch.
-func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls *slsa.ControlSet) (slsa.SourceVerifiedLevels, error) {
-	policyComputers := []computePolicyResult{
-		computeSlsaLevel,      // Add the SLSA Level to the VSA
+// Returns a list of controls to include in the vsa's 'verifiedLevels' field when
+// creating a VSA for a branch, along with a shortfall if the achieved SLSA source
+// level is below the policy's target.
+func evaluateBranchControls(branchPolicy *ProtectedBranch, tagPolicy *ProtectedTag, controls *slsa.ControlSet) (slsa.SourceVerifiedLevels, *PolicyShortfall, error) {
+	verifiedLevels := slsa.SourceVerifiedLevels{}
+
+	// The SLSA source level is special: a level below the policy target is not a
+	// hard error. We stamp the level actually achieved and report any shortcoming
+	// as a shortfall so the caller can still emit provenance.
+	achievedLevel, shortfall := computeAchievableSlsaLevel(branchPolicy, controls)
+	verifiedLevels = append(verifiedLevels, slsa.ControlName(achievedLevel))
+
+	// A required-but-missing control here is still a hard error.
+	additiveComputers := []computePolicyResult{
 		computeReviewEnforced, // Stamp if reviews are enforced
 		computeTagHygiene,     // Stamp the tag hygiene
 		computeOrgControls,    // Add other organizational controls
 	}
 
-	verifiedLevels := slsa.SourceVerifiedLevels{}
-
-	for _, pc := range policyComputers {
+	for _, pc := range additiveComputers {
 		computedControls, err := pc(branchPolicy, tagPolicy, controls)
 		if err != nil {
-			return slsa.SourceVerifiedLevels{}, fmt.Errorf("error computing branch controls: %w", err)
+			return slsa.SourceVerifiedLevels{}, nil, fmt.Errorf("error computing branch controls: %w", err)
 		}
 		verifiedLevels = append(verifiedLevels, computedControls...)
 	}
 
-	return verifiedLevels, nil
+	return verifiedLevels, shortfall, nil
 }
 
 // Returns a list of controls to include in the vsa's 'verifiedLevels' field when creating a VSA for a tag.
@@ -552,13 +622,14 @@ func NewPolicyEvaluator() *PolicyEvaluator {
 	return eval
 }
 
-// EvaluateControl checks the control against the policy and returns the resulting source level and policy path.
-func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Repository, branch *models.Branch, controlStatus *slsa.ControlSet) (slsa.SourceVerifiedLevels, string, error) {
-	// We want to check to ensure the repo hasn't enabled/disabled the rules since
+// EvaluateControl checks the control against the policy and returns the resulting
+// source level, policy path and any shortfall if we miss the policy's target.
+func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Repository, branch *models.Branch, controlStatus *slsa.ControlSet) (*EvaluationResult, error) {
+	// We want to ensure the repo hasn't enabled/disabled the rules since
 	// setting the 'since' field in their policy.
 	rp, policyPath, err := pe.GetPolicy(ctx, repo)
 	if err != nil {
-		return slsa.SourceVerifiedLevels{}, "", err
+		return nil, err
 	}
 
 	branchPolicy := rp.GetBranchPolicy(branch.Name)
@@ -569,27 +640,36 @@ func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Rep
 
 	if controlStatus.Time.Before(branchPolicy.GetSince().AsTime()) {
 		// This commit was pushed before they had an explicit policy.
-		return slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)}, policyPath, nil
+		return &EvaluationResult{
+			VerifiedLevels: slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
+			PolicyPath:     policyPath,
+		}, nil
 	}
 
-	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), controlStatus)
+	verifiedLevels, shortfall, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), controlStatus)
 	if err != nil {
-		return verifiedLevels, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
+		return nil, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
 
-	return verifiedLevels, policyPath, nil
+	return &EvaluationResult{
+		VerifiedLevels: verifiedLevels,
+		PolicyPath:     policyPath,
+		Shortfall:      shortfall,
+	}, nil
 }
 
-// Evaluates the provenance against the policy and returns the resulting source level and policy path
-func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.Repository, branch *models.Branch, prov *spb.Statement) (slsa.SourceVerifiedLevels, string, error) {
+// EvaluateSourceProv checks the provenance against the policy and returns the
+// resulting source level, policy path and any shortfall if we miss the the
+// policy's target.
+func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.Repository, branch *models.Branch, prov *spb.Statement) (*EvaluationResult, error) {
 	rp, policyPath, err := pe.GetPolicy(ctx, repo)
 	if err != nil {
-		return slsa.SourceVerifiedLevels{}, "", fmt.Errorf("getting policy: %w", err)
+		return nil, fmt.Errorf("getting policy: %w", err)
 	}
 
 	provPred, err := attest.GetSourceProvPred(prov)
 	if err != nil {
-		return slsa.SourceVerifiedLevels{}, "", err
+		return nil, err
 	}
 
 	branchPolicy := rp.GetBranchPolicy(branch.Name)
@@ -598,32 +678,39 @@ func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.
 		policyPath = "DEFAULT"
 	}
 
-	verifiedLevels, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), slsa.NewControlSetFromProvanenaceControls(provPred.GetControls()))
+	verifiedLevels, shortfall, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), slsa.NewControlSetFromProvanenaceControls(provPred.GetControls()))
 	if err != nil {
-		return slsa.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
+		return nil, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
 
 	// Looks good!
-	return verifiedLevels, policyPath, nil
+	return &EvaluationResult{
+		VerifiedLevels: verifiedLevels,
+		PolicyPath:     policyPath,
+		Shortfall:      shortfall,
+	}, nil
 }
 
 // Evaluates the provenance against the policy and returns the resulting source level and policy path
-func (pe *PolicyEvaluator) EvaluateTagProv(ctx context.Context, repo *models.Repository, prov *spb.Statement) (slsa.SourceVerifiedLevels, string, error) {
+func (pe *PolicyEvaluator) EvaluateTagProv(ctx context.Context, repo *models.Repository, prov *spb.Statement) (*EvaluationResult, error) {
 	rp, policyPath, err := pe.GetPolicy(ctx, repo)
 	if err != nil {
-		return slsa.SourceVerifiedLevels{}, "", err
+		return nil, err
 	}
 
 	provPred, err := attest.GetTagProvPred(prov)
 	if err != nil {
-		return slsa.SourceVerifiedLevels{}, "", err
+		return nil, err
 	}
 
 	outputVerifiedLevels, err := evaluateTagProv(rp.GetProtectedTag(), provPred)
 	if err != nil {
-		return slsa.SourceVerifiedLevels{}, policyPath, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
+		return nil, fmt.Errorf("error evaluating policy %s: %w", policyPath, err)
 	}
 
-	// Looks good!
-	return outputVerifiedLevels, policyPath, nil
+	// Looks good! Tag evaluation has no SLSA-level shortfall concept.
+	return &EvaluationResult{
+		VerifiedLevels: outputVerifiedLevels,
+		PolicyPath:     policyPath,
+	}, nil
 }

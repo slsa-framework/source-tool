@@ -377,11 +377,20 @@ var defaultAttestOptions = AttestOptions{
 	UseStdOut: true,
 }
 
+// AttestationResult is the outcome of attesting a revision.
+// Both attestations are always produced (and optionally pushed) regardless of
+// whether the policy's target level was achieved. Shortfall will be not nil
+// when the achieved SLSA level is below the policy's target.
+type AttestationResult struct {
+	VerifiedLevels slsa.SourceVerifiedLevels
+	Shortfall      *policy.PolicyShortfall
+}
+
 // AttestRevision checks the source control system status, the repository policy
 // and generates the repository attestations (provenance & VSA) for a revision
 func (t *Tool) AttestRevision(
 	ctx context.Context, branch *models.Branch, rev models.Revision, funcs ...AttOpFn,
-) (slsa.SourceVerifiedLevels, error) {
+) (*AttestationResult, error) {
 	var agent *collector.Agent
 	var err error
 
@@ -405,6 +414,7 @@ func (t *Tool) AttestRevision(
 	var provenanceData []byte
 	var verifiedLevels slsa.SourceVerifiedLevels
 	var policyPath string
+	var shortfall *policy.PolicyShortfall
 
 	_, isCommit := rev.(*models.Commit)
 	tag, isTag := rev.(*models.Tag)
@@ -416,14 +426,17 @@ func (t *Tool) AttestRevision(
 			return nil, err
 		}
 
-		// 2. Run the provenance against the policy to determine if the controls
-		// are still in the context and timelines of the policy.
+		// 2. Run the provenance against the policy to determine the verified
+		// levels. Any level below the policy target is reported as a shortfall, not
+		// an error. We still emit the provenance so the chain is never broken
+		// just because the policy levels are not met immediately.
 		pe := policy.NewPolicyEvaluator()
 		pe.UseLocalPolicy = opts.LocalPolicy
-		verifiedLevels, policyPath, err = pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
+		result, err := pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
 		}
+		verifiedLevels, policyPath, shortfall = result.VerifiedLevels, result.PolicyPath, result.Shortfall
 
 		provenanceData, err = protojson.Marshal(prov)
 		if err != nil {
@@ -438,14 +451,14 @@ func (t *Tool) AttestRevision(
 			return nil, err
 		}
 
-		// 2. Run the provenance against the policy to determine if the controls
-		// are still in the context and timelines of the policy.
+		// 2. Run the provenance against the policy to determine the verified levels.
 		pe := policy.NewPolicyEvaluator()
 		pe.UseLocalPolicy = opts.LocalPolicy
-		verifiedLevels, policyPath, err = pe.EvaluateTagProv(ctx, branch.Repository, prov)
+		result, err := pe.EvaluateTagProv(ctx, branch.Repository, prov)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
 		}
+		verifiedLevels, policyPath, shortfall = result.VerifiedLevels, result.PolicyPath, result.Shortfall
 
 		provenanceData, err = protojson.Marshal(prov)
 		if err != nil {
@@ -506,7 +519,10 @@ func (t *Tool) AttestRevision(
 		}
 	}
 
-	return verifiedLevels, nil
+	return &AttestationResult{
+		VerifiedLevels: verifiedLevels,
+		Shortfall:      shortfall,
+	}, nil
 }
 
 // getAttestationStore returns a collector with storer reposistories to push

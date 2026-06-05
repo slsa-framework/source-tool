@@ -204,19 +204,22 @@ func TestEvaluateSourceProv_Success(t *testing.T) {
 	defer os.Remove(expectedPolicyFilePath) //nolint:errcheck
 	pe := &PolicyEvaluator{UseLocalPolicy: expectedPolicyFilePath}
 
-	verifiedLevels, policyPath, err := pe.EvaluateSourceProv(t.Context(), &models.Repository{
+	result, err := pe.EvaluateSourceProv(t.Context(), &models.Repository{
 		Hostname: "github.com",
 		Path:     "the-canonical-repo",
 	}, &models.Branch{Name: "main"}, provenanceStatement)
 	if err != nil {
-		t.Errorf("EvaluateSourceProv() error = %v, want nil", err)
+		t.Fatalf("EvaluateSourceProv() error = %v, want nil", err)
 	}
-	if policyPath != expectedPolicyFilePath {
-		t.Errorf("EvaluateSourceProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
+	if result.PolicyPath != expectedPolicyFilePath {
+		t.Errorf("EvaluateSourceProv() policyPath = %q, want %q", result.PolicyPath, expectedPolicyFilePath)
+	}
+	if result.Shortfall != nil {
+		t.Errorf("EvaluateSourceProv() shortfall = %+v, want nil", result.Shortfall)
 	}
 	expectedLevels := slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel3), slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW, slsa.SLSA_SOURCE_SCS_PROTECTED_REFS, "ORG_SOURCE_TESTED"}
-	if !slices.Equal(verifiedLevels, expectedLevels) {
-		t.Errorf("EvaluateSourceProv() verifiedLevels = %v, want %v", verifiedLevels, expectedLevels)
+	if !slices.Equal(result.VerifiedLevels, expectedLevels) {
+		t.Errorf("EvaluateSourceProv() verifiedLevels = %v, want %v", result.VerifiedLevels, expectedLevels)
 	}
 }
 
@@ -251,11 +254,14 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 		expectedErrorContains string
 	}{
 		{
-			name:                  "Valid L2 Prov, Policy L3 -> Error (controls don't meet policy)",
-			policyContent:         &policyL3ReviewTagsNow,                                                                       // Expects L3
+			// The SLSA level itself now downgrades instead of erroring; this
+			// policy also requires review, which the L2 controls lack, so a hard
+			// error still results from the (additive) review control.
+			name:                  "Valid L2 Prov, Policy L3+Review -> Error (review control missing)",
+			policyContent:         &policyL3ReviewTagsNow,                                                                       // Expects L3 + review
 			provenanceStatement:   createStatementForTest(t, &validProvPredicateL2Controls, provenance.SourceProvPredicateType), // Prov only has L2 controls
 			ghConnBranch:          "main",
-			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_2",
+			expectedErrorContains: "policy requires review, but that control is not enabled",
 		},
 		{
 			name:                  "Malformed Policy JSON -> Error",
@@ -319,7 +325,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 				pe.UseLocalPolicy = policyFilePath
 			}
 
-			_, _, err := pe.EvaluateSourceProv(ctx, &models.Repository{
+			_, err := pe.EvaluateSourceProv(ctx, &models.Repository{
 				Hostname: "github.com",
 				Path:     "local/local",
 			}, &models.Branch{
@@ -332,6 +338,47 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 				t.Errorf("EvaluateSourceProv() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
 			}
 		})
+	}
+}
+
+// TestEvaluateSourceProv_Shortfall verifies that a SLSA level below the policy
+// target downgrades to the achievable level and reports a shortfall instead of
+// erroring, so provenance can still be emitted.
+func TestEvaluateSourceProv_Shortfall(t *testing.T) {
+	// Policy targets L3 with no additional control requirements.
+	policyL3NoExtras := RepoPolicy{
+		ProtectedBranches: []*ProtectedBranch{
+			{Name: "main", TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), Since: timestamppb.New(fixedTime)},
+		},
+	}
+	// Provenance only carries L2 controls.
+	provPredL2 := provenance.SourceProvenancePred{
+		Controls: controlsForLevel(slsa.SlsaSourceLevel2, &earlierFixedTime).ToProvenanceControls(),
+	}
+	stmt := createStatementForTest(t, &provPredL2, provenance.SourceProvPredicateType)
+
+	policyFilePath := createTempPolicyFile(t, &policyL3NoExtras)
+	defer os.Remove(policyFilePath) //nolint:errcheck
+	pe := &PolicyEvaluator{UseLocalPolicy: policyFilePath}
+
+	result, err := pe.EvaluateSourceProv(t.Context(), &models.Repository{
+		Hostname: "github.com",
+		Path:     "local/local",
+	}, &models.Branch{Name: "main"}, stmt)
+	if err != nil {
+		t.Fatalf("EvaluateSourceProv() error = %v, want nil (a shortfall must not error)", err)
+	}
+	if result.Shortfall == nil {
+		t.Fatalf("EvaluateSourceProv() shortfall = nil, want non-nil")
+	}
+	if result.Shortfall.TargetLevel != slsa.SlsaSourceLevel3 {
+		t.Errorf("shortfall.TargetLevel = %v, want %v", result.Shortfall.TargetLevel, slsa.SlsaSourceLevel3)
+	}
+	if result.Shortfall.AchievedLevel != slsa.SlsaSourceLevel2 {
+		t.Errorf("shortfall.AchievedLevel = %v, want %v", result.Shortfall.AchievedLevel, slsa.SlsaSourceLevel2)
+	}
+	if !slices.Contains(result.VerifiedLevels, slsa.ControlName(slsa.SlsaSourceLevel2)) {
+		t.Errorf("verifiedLevels = %v, want it to contain %v", result.VerifiedLevels, slsa.SlsaSourceLevel2)
 	}
 }
 
@@ -433,19 +480,19 @@ func TestEvaluateTagProv_Success(t *testing.T) {
 			defer os.Remove(expectedPolicyFilePath) //nolint:errcheck
 			pe := &PolicyEvaluator{UseLocalPolicy: expectedPolicyFilePath}
 
-			verifiedLevels, policyPath, err := pe.EvaluateTagProv(t.Context(), &models.Repository{
+			result, err := pe.EvaluateTagProv(t.Context(), &models.Repository{
 				Hostname:      "github.com",
 				Path:          "local/local",
 				DefaultBranch: "main",
 			}, provenanceStatement)
 			if err != nil {
-				t.Errorf("EvaluateTagProv() error = %v, want nil", err)
+				t.Fatalf("EvaluateTagProv() error = %v, want nil", err)
 			}
-			if policyPath != expectedPolicyFilePath {
-				t.Errorf("EvaluateTagProv() policyPath = %q, want %q", policyPath, expectedPolicyFilePath)
+			if result.PolicyPath != expectedPolicyFilePath {
+				t.Errorf("EvaluateTagProv() policyPath = %q, want %q", result.PolicyPath, expectedPolicyFilePath)
 			}
-			if !slices.Equal(verifiedLevels, tt.expectedLevels) {
-				t.Errorf("EvaluateTagProv() verifiedLevels = %v, want %v", verifiedLevels, tt.expectedLevels)
+			if !slices.Equal(result.VerifiedLevels, tt.expectedLevels) {
+				t.Errorf("EvaluateTagProv() verifiedLevels = %v, want %v", result.VerifiedLevels, tt.expectedLevels)
 			}
 		})
 	}
@@ -542,22 +589,22 @@ func TestEvaluateControl_Success(t *testing.T) {
 				}
 			}
 
-			verifiedLevels, policyPath, err := pe.EvaluateControl(
+			result, err := pe.EvaluateControl(
 				ctx,
 				&models.Repository{Hostname: "github.com", Path: "local/local"},
 				&models.Branch{Name: tt.ghConnBranch}, tt.controlStatus,
 			)
 			if err != nil {
-				t.Errorf("EvaluateControl() error = %v, want nil", err)
+				t.Fatalf("EvaluateControl() error = %v, want nil", err)
 			}
 
-			if policyPath != actualPolicyPath {
-				t.Errorf("EvaluateControl() policyPath = %q, want %q", policyPath, actualPolicyPath)
+			if result.PolicyPath != actualPolicyPath {
+				t.Errorf("EvaluateControl() policyPath = %q, want %q", result.PolicyPath, actualPolicyPath)
 			}
 
-			if !reflect.DeepEqual(verifiedLevels, tt.expectedLevels) {
-				if len(verifiedLevels) != 0 || len(tt.expectedLevels) != 0 {
-					t.Errorf("EvaluateControl() verifiedLevels = %v, want %v", verifiedLevels, tt.expectedLevels)
+			if !reflect.DeepEqual(result.VerifiedLevels, tt.expectedLevels) {
+				if len(result.VerifiedLevels) != 0 || len(tt.expectedLevels) != 0 {
+					t.Errorf("EvaluateControl() verifiedLevels = %v, want %v", result.VerifiedLevels, tt.expectedLevels)
 				}
 			}
 		})
@@ -585,14 +632,16 @@ func TestEvaluateControl_Failure(t *testing.T) {
 		expectedErrorContains string
 	}{
 		{
-			name:          "Commit time after policy Since, controls DO NOT meet policy -> Error",
+			// The SLSA level downgrades silently now; the hard error comes from
+			// the policy's review requirement, which the L2 controls don't meet.
+			name:          "Commit time after policy Since, review required but missing -> Error",
 			policyContent: &policyL3Review,
 			controlStatus: &slsa.ControlSet{
 				Time:     later.AsTime(),
 				Controls: controlsForLevel(slsa.SlsaSourceLevel2, &rearlier).Controls,
 			},
 			ghConnBranch:          "main",
-			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_2",
+			expectedErrorContains: "policy requires review, but that control is not enabled",
 		},
 		{
 			name:          "Malformed JSON -> Error",
@@ -627,7 +676,7 @@ func TestEvaluateControl_Failure(t *testing.T) {
 				pe.UseLocalPolicy = policyFilePath
 			}
 
-			_, _, err := pe.EvaluateControl(
+			_, err := pe.EvaluateControl(
 				ctx, &models.Repository{
 					Hostname: "github.com", Path: "local/local",
 				},
@@ -772,6 +821,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 	policyL1NoExtras := ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel1), RequireReview: false, Since: timestamppb.New(fixedTime)}
 	policyL2Review := ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel2), RequireReview: true, Since: timestamppb.New(fixedTime)}
 	policyL2NoReview := ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel2), RequireReview: false, Since: timestamppb.New(fixedTime)}
+	policyL3NoReview := ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), RequireReview: false, Since: timestamppb.New(fixedTime)}
 
 	// Tag policies
 	tagHygienePolicy := ProtectedTag{Since: timestamppb.New(fixedTime), TagHygiene: true}
@@ -788,6 +838,8 @@ func TestEvaluateBranchControls(t *testing.T) {
 		expectedLevels        slsa.SourceVerifiedLevels
 		expectError           bool
 		expectedErrorContains string
+		expectShortfall       bool
+		expectedAchievedLevel slsa.SlsaSourceLevel
 	}{
 		{
 			name:           "Success - L3, Review, Tags",
@@ -832,13 +884,14 @@ func TestEvaluateBranchControls(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:                  "Error - computeSlsaLevel Fails (Policy L3, Controls L1)",
-			branchPolicy:          &policyL3Review,
+			name:                  "Shortfall - SLSA level below target downgrades, no error (Policy L3, Controls L1)",
+			branchPolicy:          &policyL3NoReview,
 			tagPolicy:             &noTagHygienePolicy,
-			controls:              &slsa.ControlSet{},
-			expectedLevels:        slsa.SourceVerifiedLevels{},
-			expectError:           true,
-			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+			controls:              controlsForLevel(slsa.SlsaSourceLevel1, &earlierFixedTime),
+			expectedLevels:        slsa.SourceVerifiedLevels{slsa.ControlName(slsa.SlsaSourceLevel1)},
+			expectError:           false,
+			expectShortfall:       true,
+			expectedAchievedLevel: slsa.SlsaSourceLevel1,
 		},
 		{
 			name:                  "Error - computeReviewEnforced Fails (Policy L2+Review, Review control missing)",
@@ -870,7 +923,7 @@ func TestEvaluateBranchControls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLevels, err := evaluateBranchControls(tt.branchPolicy, tt.tagPolicy, tt.controls)
+			gotLevels, shortfall, err := evaluateBranchControls(tt.branchPolicy, tt.tagPolicy, tt.controls)
 
 			if tt.expectError {
 				if err == nil {
@@ -882,6 +935,15 @@ func TestEvaluateBranchControls(t *testing.T) {
 				if err != nil {
 					t.Errorf("evaluateBranchControls() error = %v, want nil", err)
 				}
+			}
+
+			switch {
+			case tt.expectShortfall && shortfall == nil:
+				t.Errorf("evaluateBranchControls() shortfall = nil, want non-nil")
+			case !tt.expectShortfall && shortfall != nil:
+				t.Errorf("evaluateBranchControls() shortfall = %+v, want nil", shortfall)
+			case tt.expectShortfall && shortfall.AchievedLevel != tt.expectedAchievedLevel:
+				t.Errorf("evaluateBranchControls() shortfall.AchievedLevel = %v, want %v", shortfall.AchievedLevel, tt.expectedAchievedLevel)
 			}
 
 			// Sort slices for robust comparison
@@ -1144,7 +1206,7 @@ func TestComputeOrgControls(t *testing.T) {
 	}
 }
 
-func TestComputeSlsaLevel(t *testing.T) {
+func TestComputeAchievableSlsaLevel(t *testing.T) {
 	rnow := time.Now()
 	now := &rnow
 	rearlier := time.Now().Add(-time.Hour)
@@ -1157,102 +1219,101 @@ func TestComputeSlsaLevel(t *testing.T) {
 	policyUnknownLevel := ProtectedBranch{TargetSlsaSourceLevel: "UNKNOWN_LEVEL", Since: timestamppb.New(rnow)}
 
 	tests := []struct {
-		name                  string
-		branchPolicy          *ProtectedBranch
-		controls              *slsa.ControlSet
-		expectedLevels        []slsa.ControlName
-		expectError           bool
-		expectedErrorContains string
+		name            string
+		branchPolicy    *ProtectedBranch
+		controls        *slsa.ControlSet
+		expectedLevel   slsa.SlsaSourceLevel
+		expectShortfall bool
 	}{
 		{
-			name:           "Controls L4-eligible (since 'earlier'), Policy L4 (since 'now'): success",
-			branchPolicy:   &policyL4Now,
-			controls:       controlsForLevel(slsa.SlsaSourceLevel4, earlier),
-			expectedLevels: []slsa.ControlName{slsa.ControlName(slsa.SlsaSourceLevel4)},
-			expectError:    false,
+			name:          "Controls L4-eligible (since 'earlier'), Policy L4 (since 'now'): target met",
+			branchPolicy:  &policyL4Now,
+			controls:      controlsForLevel(slsa.SlsaSourceLevel4, earlier),
+			expectedLevel: slsa.SlsaSourceLevel4,
 		},
 		{
-			name:           "Controls L3-eligible (since 'earlier'), Policy L2 (since 'now'): success",
-			branchPolicy:   &policyL2Now,
-			controls:       controlsForLevel(slsa.SlsaSourceLevel3, earlier),
-			expectedLevels: []slsa.ControlName{slsa.ControlName(slsa.SlsaSourceLevel2)},
-			expectError:    false,
+			name:          "Controls L3-eligible (since 'earlier'), Policy L2 (since 'now'): capped at target, met",
+			branchPolicy:  &policyL2Now,
+			controls:      controlsForLevel(slsa.SlsaSourceLevel3, earlier),
+			expectedLevel: slsa.SlsaSourceLevel2,
 		},
 		{
-			name:                  "Controls L1-eligible, Policy L2: fail (eligibility)",
-			branchPolicy:          &policyL2Now,
-			controls:              &slsa.ControlSet{},
-			expectedLevels:        []slsa.ControlName{},
-			expectError:           true,
-			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+			name:            "Controls L1-eligible, Policy L2: downgrade to L1",
+			branchPolicy:    &policyL2Now,
+			controls:        &slsa.ControlSet{},
+			expectedLevel:   slsa.SlsaSourceLevel1,
+			expectShortfall: true,
 		},
 		{
-			name:           "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): compliant Policy.Since",
-			branchPolicy:   &policyL3Now,
-			controls:       controlsForLevel(slsa.SlsaSourceLevel3, earlier),
-			expectedLevels: []slsa.ControlName{slsa.ControlName(slsa.SlsaSourceLevel3)},
-			expectError:    false,
+			name:          "Eligible L3 (since 'earlier'), Policy L3 (since 'now'): target met",
+			branchPolicy:  &policyL3Now,
+			controls:      controlsForLevel(slsa.SlsaSourceLevel3, earlier),
+			expectedLevel: slsa.SlsaSourceLevel3,
 		},
 		{
-			name:                  "Controls L4-eligible (since 'now'), Policy L4 (since 'earlier'): fail (Policy.Since too early)",
-			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel4), Since: timestamppb.New(*earlier)},
-			controls:              controlsForLevel(slsa.SlsaSourceLevel4, now),
-			expectedLevels:        []slsa.ControlName{},
-			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_4 since",
+			name:            "Controls L4-eligible (since 'now'), Policy L4 (since 'earlier'): downgrade (Policy.Since too early)",
+			branchPolicy:    &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel4), Since: timestamppb.New(*earlier)},
+			controls:        controlsForLevel(slsa.SlsaSourceLevel4, now),
+			expectedLevel:   slsa.SlsaSourceLevel1,
+			expectShortfall: true,
 		},
 		{
-			name:                  "Controls L3-eligible (since 'now'), Policy L3 (since 'earlier'): fail (Policy.Since too early)",
-			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), Since: timestamppb.New(*earlier)},
-			controls:              controlsForLevel(slsa.SlsaSourceLevel3, now),
-			expectedLevels:        []slsa.ControlName{},
-			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_3 since",
+			name:            "Controls L3-eligible (since 'now'), Policy L3 (since 'earlier'): downgrade (Policy.Since too early)",
+			branchPolicy:    &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel3), Since: timestamppb.New(*earlier)},
+			controls:        controlsForLevel(slsa.SlsaSourceLevel3, now),
+			expectedLevel:   slsa.SlsaSourceLevel1,
+			expectShortfall: true,
 		},
 		{
-			name:                  "Controls L2-eligible (since 'now'), Policy L2 (since 'earlier'): fail (Policy.Since too early)",
-			branchPolicy:          &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel2), Since: timestamppb.New(*earlier)},
-			controls:              controlsForLevel(slsa.SlsaSourceLevel2, now),
-			expectedLevels:        []slsa.ControlName{},
-			expectError:           true,
-			expectedErrorContains: "policy sets target level SLSA_SOURCE_LEVEL_2 since",
+			name:            "Controls L2-eligible (since 'now'), Policy L2 (since 'earlier'): downgrade (Policy.Since too early)",
+			branchPolicy:    &ProtectedBranch{TargetSlsaSourceLevel: string(slsa.SlsaSourceLevel2), Since: timestamppb.New(*earlier)},
+			controls:        controlsForLevel(slsa.SlsaSourceLevel2, now),
+			expectedLevel:   slsa.SlsaSourceLevel1,
+			expectShortfall: true,
 		},
 		{
-			name:                  "Policy L?'UNKNOWN' (controls L3-eligible): fail (policy target unknown)",
-			branchPolicy:          &policyUnknownLevel,
-			controls:              controlsForLevel(slsa.SlsaSourceLevel3, now),
-			expectedLevels:        []slsa.ControlName{},
-			expectError:           true,
-			expectedErrorContains: "policy sets target level UNKNOWN_LEVEL",
+			// An unknown/typo'd target level sorts above the real levels, so it
+			// can never be "met": we stamp the highest eligible level and report
+			// a shortfall rather than erroring.
+			name:            "Policy 'UNKNOWN' target (controls L3-eligible): downgrade to eligible level",
+			branchPolicy:    &policyUnknownLevel,
+			controls:        controlsForLevel(slsa.SlsaSourceLevel3, now),
+			expectedLevel:   slsa.SlsaSourceLevel3,
+			expectShortfall: true,
 		},
 		{
-			name:                  "Controls L1-eligible, Policy L3: fail (eligibility)",
-			branchPolicy:          &policyL3Now,
-			controls:              &slsa.ControlSet{},
-			expectedLevels:        []slsa.ControlName{},
-			expectError:           true,
-			expectedErrorContains: "but branch is only eligible for SLSA_SOURCE_LEVEL_1",
+			name:            "Controls L1-eligible, Policy L3: downgrade to L1",
+			branchPolicy:    &policyL3Now,
+			controls:        &slsa.ControlSet{},
+			expectedLevel:   slsa.SlsaSourceLevel1,
+			expectShortfall: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLevels, err := computeSlsaLevel(tt.branchPolicy, nil, tt.controls)
+			gotLevel, shortfall := computeAchievableSlsaLevel(tt.branchPolicy, tt.controls)
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("computeSlsaLevel() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
-				} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
-					t.Errorf("computeSlsaLevel() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("computeSlsaLevel() error = %v, want nil", err)
-				}
+			if gotLevel != tt.expectedLevel {
+				t.Errorf("computeAchievableSlsaLevel() level = %v, want %v", gotLevel, tt.expectedLevel)
 			}
 
-			if !slices.Equal(gotLevels, tt.expectedLevels) {
-				t.Errorf("computeSlsaLevel() gotLevel = %v, want %v", gotLevels, tt.expectedLevels)
+			switch {
+			case tt.expectShortfall && shortfall == nil:
+				t.Errorf("computeAchievableSlsaLevel() shortfall = nil, want non-nil")
+			case !tt.expectShortfall && shortfall != nil:
+				t.Errorf("computeAchievableSlsaLevel() shortfall = %+v, want nil", shortfall)
+			case tt.expectShortfall && shortfall != nil:
+				if shortfall.AchievedLevel != tt.expectedLevel {
+					t.Errorf("computeAchievableSlsaLevel() shortfall.AchievedLevel = %v, want %v", shortfall.AchievedLevel, tt.expectedLevel)
+				}
+				wantTarget := slsa.SlsaSourceLevel(tt.branchPolicy.GetTargetSlsaSourceLevel())
+				if shortfall.TargetLevel != wantTarget {
+					t.Errorf("computeAchievableSlsaLevel() shortfall.TargetLevel = %v, want %v", shortfall.TargetLevel, wantTarget)
+				}
+				if shortfall.Reason == "" {
+					t.Errorf("computeAchievableSlsaLevel() shortfall.Reason is empty, want non-empty")
+				}
 			}
 		})
 	}

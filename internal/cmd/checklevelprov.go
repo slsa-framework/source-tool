@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
@@ -60,6 +61,7 @@ type checkLevelProvOpts struct {
 	outputUnsignedBundle string
 	outputSignedBundle   string
 	useLocalPolicy       string
+	silentDowngrade      bool
 }
 
 func (clp *checkLevelProvOpts) Validate() error {
@@ -78,6 +80,7 @@ func (clp *checkLevelProvOpts) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&clp.outputUnsignedBundle, "output_unsigned_bundle", "", "The path to write a bundle of unsigned attestations.")
 	cmd.PersistentFlags().StringVar(&clp.outputSignedBundle, "output_signed_bundle", "", "The path to write a bundle of signed attestations.")
 	cmd.PersistentFlags().StringVar(&clp.useLocalPolicy, "use_local_policy", "", "UNSAFE: Use the policy at this local path instead of the official one.")
+	cmd.PersistentFlags().BoolVar(&clp.silentDowngrade, "silent-downgrade", false, "Exit 0 when the SLSA level is below the policy target (still attests).")
 }
 
 func addCheckLevelProv(parentCmd *cobra.Command) {
@@ -162,7 +165,7 @@ and pushed to its remote (--push=note).
 			}
 
 			// Attest the commit passing the options
-			verifiedLevels, err := srctool.AttestRevision(
+			result, err := srctool.AttestRevision(
 				cmd.Context(), opts.GetBranch(), opts.GetRevision(),
 				sourcetool.WithLocalPolicy(opts.useLocalPolicy),
 				sourcetool.WithOutputPath(outputPath),
@@ -174,7 +177,24 @@ and pushed to its remote (--push=note).
 				return fmt.Errorf("attesting commit: %w", err)
 			}
 
-			fmt.Print(verifiedLevels.Levels())
+			fmt.Print(result.VerifiedLevels.Levels())
+
+			// The attestations are generated (and optionally pushed) regardless
+			// of the policy outcome. If the achieved level is below the policy
+			// target return exit code 2 or just a warning when --silent-downgrade
+			// is set.
+			if result.Shortfall != nil {
+				msg := fmt.Sprintf(
+					"policy target level %s not met; achieved %s: %s",
+					result.Shortfall.TargetLevel, result.Shortfall.AchievedLevel, result.Shortfall.Reason,
+				)
+				if opts.silentDowngrade {
+					fmt.Fprintf(os.Stderr, "warning: %s\n", msg)
+					return nil
+				}
+				return &exitError{code: 2, err: errors.New(msg)}
+			}
+
 			return nil
 		},
 	}
