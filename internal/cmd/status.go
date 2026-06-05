@@ -29,7 +29,7 @@ func unsupportedRepoPlanError(repoPath string) error {
 			"rules to the API.\n"+
 			"sourcetool cannot read or configure SLSA source controls on it yet.\n\n"+
 			"To continue, either make the repository public or upgrade its account "+
-			"to a plan that includes repository rules (GitHub Pro or higher).",
+			"to a plan that includes repository rules (GitHub Pro or higher)",
 		repoPath,
 	)
 }

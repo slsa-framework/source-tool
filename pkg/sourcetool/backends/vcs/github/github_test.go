@@ -72,7 +72,7 @@ func TestAsUnsupportedPlanError(t *testing.T) {
 			t.Parallel()
 			got := asUnsupportedPlanError(tc.err)
 			if !tc.expectPlan {
-				require.Nil(t, got)
+				require.NoError(t, got)
 				return
 			}
 			require.Error(t, got)
