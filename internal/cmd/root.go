@@ -26,11 +26,23 @@ var githubToken string
 // 	return attest.NewBndVerifier(options)
 // }
 
+// exitError wraps an error together with an exit code so commands can
+// signal other failuresdistinct from a generic failure (exit 1).
+type exitError struct {
+	code int
+	err  error
+}
+
+func (e *exitError) Error() string { return e.err.Error() }
+func (e *exitError) Unwrap() error { return e.err }
+
 func buildRootCommand() *cobra.Command {
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
-		Use:   "sourcetool",
-		Short: "A tool to manage SLSA Source in code repositories",
+		Use:           "sourcetool",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Short:         "A tool to manage SLSA Source in code repositories",
 		Long: `
 SLSA sourcetool: Manage SLSA Source controls and data
 
@@ -89,10 +101,21 @@ controls and much more.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	rootCmd := buildRootCommand()
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+	err := rootCmd.Execute()
+	if err == nil {
+		return
 	}
+
+	// Subcommands may send a specific exit code by returning an *exitError.
+	// Everything else is a generic failure (exit 1).
+	var ee *exitError
+	if errors.As(err, &ee) {
+		fmt.Println(ee.Error())
+		os.Exit(ee.code)
+	}
+
+	fmt.Printf("Error: %v\n", err)
+	os.Exit(1)
 }
 
 func CheckAuth() (*auth.Authenticator, error) {
