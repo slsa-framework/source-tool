@@ -80,6 +80,19 @@ func GetTagProvPred(statement *intoto.Statement) (*provenance.TagProvenancePred,
 }
 
 func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error) {
+	// Reuse a single agent per repository so its attestation cache is shared
+	// across the several reads we do for a revision (provenance, VSA, parent
+	// commit). Without this, each read builds a fresh agent with an empty cache
+	// and re-fetches the same git-notes data.
+	key := branch.Repository.GetHttpURL()
+
+	a.collectorMtx.Lock()
+	defer a.collectorMtx.Unlock()
+
+	if cached, ok := a.collectors[key]; ok {
+		return cached, nil
+	}
+
 	if err := collector.LoadDefaultRepositoryTypes(); err != nil {
 		return nil, err
 	}
@@ -129,6 +142,11 @@ func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error)
 			return nil, err
 		}
 	}
+
+	if a.collectors == nil {
+		a.collectors = map[string]*collector.Agent{}
+	}
+	a.collectors[key] = agent
 
 	return agent, nil
 }
