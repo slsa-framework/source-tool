@@ -370,8 +370,9 @@ func ComputeEligibleSince(controls *slsa.ControlSet, level slsa.SlsaSourceLevel)
 // Every function that determines properties to include in the result & VSA implements this interface.
 type computePolicyResult func(*ProtectedBranch, *ProtectedTag, *slsa.ControlSet) ([]slsa.ControlName, error)
 
-// PolicyShortfall captures why a branch achieves a SLSA source level lower tahn
+// PolicyShortfall captures why a branch achieves a SLSA source level lower than
 // the one its policy targets.
+//
 // It's meant to be an informational payload, not an error.
 type PolicyShortfall struct {
 	TargetLevel   slsa.SlsaSourceLevel
