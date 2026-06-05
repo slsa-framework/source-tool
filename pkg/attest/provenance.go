@@ -347,6 +347,10 @@ func (a *Attester) CreateTagProvenance(ctx context.Context, branch *models.Branc
 
 	if vsaAtt == nil {
 		// TODO: If there's not a VSA, should we still issue provenance?
+		// No VSA for the tagged commit: return a nil statement so the caller can
+		// report it. This usually means the commit's source provenance was never
+		// generated (or could not be read) before the tag was created.
+		Debugf("no VSA found for tagged commit %s, cannot build tag provenance", tag.Commit.SHA)
 		return nil, nil
 	}
 
