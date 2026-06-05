@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
+	"github.com/carabiner-dev/collector"
 	intoto "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -46,6 +48,14 @@ type Attester struct {
 	backend       models.VcsBackend
 	Options       AttesterOptions
 	authenticator *auth.Authenticator
+
+	// collectorMtx guards the memoized collector agents.
+	collectorMtx sync.Mutex
+	// collectors memoizes one collector agent per repository (keyed by its
+	// HTTP URL). Reusing the agent shares its attestation cache across the
+	// multiple reads done for a revision (e.g. provenance and VSA, which query
+	// the same subject), so the underlying git-notes data is fetched once.
+	collectors map[string]*collector.Agent
 }
 
 type optFn func(*Attester) error
