@@ -5,7 +5,7 @@ go 1.25.11
 require (
 	github.com/carabiner-dev/attestation v0.2.1
 	github.com/carabiner-dev/collector v0.3.5
-	github.com/carabiner-dev/signer v0.4.5
+	github.com/carabiner-dev/signer v0.5.0
 	github.com/carabiner-dev/vcslocator v0.4.4
 	github.com/fatih/color v1.19.0
 	github.com/go-git/go-billy/v5 v5.9.0
@@ -34,6 +34,7 @@ require (
 	github.com/avast/retry-go/v4 v4.7.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/carabiner-dev/command v0.3.1 // indirect
 	github.com/carabiner-dev/ghrfs v0.3.4 // indirect
 	github.com/carabiner-dev/github v0.2.3 // indirect
 	github.com/carabiner-dev/hasher v0.2.4 // indirect
@@ -138,8 +139,9 @@ require (
 	github.com/skeema/knownhosts v1.3.2 // indirect
 	github.com/spdx/tools-golang v0.5.7 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.7.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
-	github.com/theupdateframework/go-tuf/v2 v2.4.2-0.20260407074541-7e8f69f906ef // indirect
+	github.com/theupdateframework/go-tuf/v2 v2.4.2 // indirect
 	github.com/transparency-dev/formats v0.1.1 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect

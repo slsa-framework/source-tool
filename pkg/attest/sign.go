@@ -4,23 +4,26 @@
 package attest
 
 import (
+	"bytes"
+
 	"github.com/carabiner-dev/signer"
 	"github.com/carabiner-dev/signer/options"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Sign(data string) (string, error) {
-	bundle, err := signer.NewSigner().SignStatement(
+	artifact, err := signer.NewSigner().SignStatement(
 		[]byte(data), options.WithPayloadType("application/vnd.in-toto+json"),
 	)
 	if err != nil {
 		return "", err
 	}
 
-	json, err := protojson.Marshal(bundle)
-	if err != nil {
+	// SignStatement returns a polymorphic SignedArtifact; WriteTo emits its
+	// canonical JSON serialization (a sigstore bundle for the default backend).
+	var buf bytes.Buffer
+	if _, err := artifact.WriteTo(&buf); err != nil {
 		return "", err
 	}
 
-	return string(json), nil
+	return buf.String(), nil
 }
