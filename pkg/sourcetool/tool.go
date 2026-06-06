@@ -570,7 +570,7 @@ func (t *Tool) getAttestationStore(branch *models.Branch) (*collector.Agent, err
 	// Init commit notes storer
 	if t.Options.InitNotesStorer {
 		notesrepo, err := note.NewDynamic(
-			note.WithLocator(branch.Repository.GetHttpURL()),
+			note.DynamicRepoURL(branch.Repository.GetHttpURL()),
 			note.WithHttpAuth("github", token),
 			note.WithPush(true),
 		)
