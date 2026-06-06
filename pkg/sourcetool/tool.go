@@ -6,6 +6,7 @@
 package sourcetool
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -14,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/carabiner-dev/attestation"
 	"github.com/carabiner-dev/collector"
+	"github.com/carabiner-dev/collector/envelope"
 	cgithub "github.com/carabiner-dev/collector/repository/github"
 	"github.com/carabiner-dev/collector/repository/note"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -501,30 +504,31 @@ func (t *Tool) AttestRevision(
 		fmt.Printf("%s\n%s\n", string(provenanceData), vsaData)
 	}
 
-	fpath := opts.OutputPath
-	if fpath == "" {
-		f, err := os.CreateTemp("", "attestations-")
-		if err != nil {
-			return nil, fmt.Errorf("opening tmp file: %w", err)
+	// Write the bundle to disk only when an output path was requested. The push
+	// below works from memory, so there is no longer a need for a temp file.
+	if opts.OutputPath != "" {
+		if err := os.WriteFile(
+			opts.OutputPath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
+		); err != nil {
+			return nil, fmt.Errorf("writing attestations: %w", err)
 		}
-		f.Close() //nolint:errcheck,gosec
-		fpath = f.Name()
-	}
-
-	defer func() {
-		if opts.OutputPath == "" {
-			os.Remove(fpath) //nolint:errcheck,gosec
-		}
-	}()
-
-	if err := os.WriteFile(
-		fpath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
-	); err != nil {
-		return nil, fmt.Errorf("writing attestations: %w", err)
 	}
 
 	if opts.Push {
-		if err := agent.StoreFromFiles(ctx, []string{fpath}); err != nil {
+		// Push the attestations from memory rather than re-reading the bundle
+		// file: the file holds two records (provenance + VSA) as JSONL, which the
+		// storer's single-document parser can't ingest. Parse each signed bundle
+		// individually and store the envelopes directly.
+		var envelopes []attestation.Envelope
+		for _, data := range [][]byte{provenanceData, []byte(vsaData)} {
+			parsed, err := envelope.Parsers.Parse(bytes.NewReader(data))
+			if err != nil {
+				return nil, fmt.Errorf("parsing attestation to push: %w", err)
+			}
+			envelopes = append(envelopes, parsed...)
+		}
+
+		if err := agent.Store(ctx, envelopes); err != nil {
 			return nil, fmt.Errorf("pushing attestations: %w", err)
 		}
 	}
