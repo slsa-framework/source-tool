@@ -4,8 +4,8 @@ go 1.25.11
 
 require (
 	github.com/carabiner-dev/attestation v0.2.1
-	github.com/carabiner-dev/collector v0.3.6
-	github.com/carabiner-dev/signer v0.5.0
+	github.com/carabiner-dev/collector v0.3.7
+	github.com/carabiner-dev/signer v0.5.1
 	github.com/carabiner-dev/vcslocator v0.4.4
 	github.com/fatih/color v1.19.0
 	github.com/go-git/go-billy/v5 v5.9.0
