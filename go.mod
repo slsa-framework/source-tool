@@ -5,7 +5,7 @@ go 1.25.11
 require (
 	github.com/carabiner-dev/attestation v0.2.1
 	github.com/carabiner-dev/collector v0.3.7
-	github.com/carabiner-dev/signer v0.5.1
+	github.com/carabiner-dev/signer v0.5.2
 	github.com/carabiner-dev/vcslocator v0.4.4
 	github.com/fatih/color v1.19.0
 	github.com/go-git/go-billy/v5 v5.9.0
@@ -16,7 +16,7 @@ require (
 	github.com/in-toto/attestation v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2
 	github.com/migueleliasweb/go-github-mock v1.5.0
-	github.com/sigstore/sigstore-go v1.2.0
+	github.com/sigstore/sigstore-go v1.2.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.11

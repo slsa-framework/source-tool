@@ -112,8 +112,8 @@ github.com/carabiner-dev/predicates v0.5.0 h1:CG2xO5xTXWXakjJkAFuS2xSA2olP9Ew25k
 github.com/carabiner-dev/predicates v0.5.0/go.mod h1:EUm2p0CwKoUuc+OLbGkoxLdRqBrg/r957b8iN/ACWSA=
 github.com/carabiner-dev/sbomfs v0.1.0 h1:gEsmn85hod7JTLs2dDr5C1x4Af7FUEhI0lbTurNaEZs=
 github.com/carabiner-dev/sbomfs v0.1.0/go.mod h1:UyPyTSNx9JOLZVgTmM9WXdmgVqDWXCYwr1LK1Ts+7H0=
-github.com/carabiner-dev/signer v0.5.1 h1:gqWXoN7QXdMCWhMVtnZcyAd6dNNLuG0MtZirPzakit8=
-github.com/carabiner-dev/signer v0.5.1/go.mod h1:QSdF3/d+MqKehGQMw8NYSVa1vIm4cZ32bJ4smcV8PTw=
+github.com/carabiner-dev/signer v0.5.2 h1:0mWCaekAinluwm/gxLlX3Btrof2r04v68dO1kUZUiNc=
+github.com/carabiner-dev/signer v0.5.2/go.mod h1:QSdF3/d+MqKehGQMw8NYSVa1vIm4cZ32bJ4smcV8PTw=
 github.com/carabiner-dev/vcslocator v0.4.4 h1:5uzb2yKfslMHY9RkkpUW28jLx2iVX93Al/GjSvG/2Ok=
 github.com/carabiner-dev/vcslocator v0.4.4/go.mod h1:qfYEs44nf9Fm/kiN120rTgruJn7PoHQyLXWQ9aO+SwE=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
@@ -427,8 +427,8 @@ github.com/sigstore/rekor-tiles/v2 v2.2.2-0.20260601073857-5d098a2b6443 h1:/CO8F
 github.com/sigstore/rekor-tiles/v2 v2.2.2-0.20260601073857-5d098a2b6443/go.mod h1:w1h8wF8vq9lHjmtRdwJiEaoVxhP+WHIMpj4M39pkzp0=
 github.com/sigstore/sigstore v1.10.8 h1:1Mgkxvkw4AXMfIP1DOjc6kw0GkUgA8pGVpveN/EfOq4=
 github.com/sigstore/sigstore v1.10.8/go.mod h1:f9+B/4iaYimvUkySyb2mvc73n3RLqNn24grHZM/ET8M=
-github.com/sigstore/sigstore-go v1.2.0 h1:8k8sGMVUUWwZ/KA+s4Q66yEPEzcC1xZ8UsTgI46J9Fc=
-github.com/sigstore/sigstore-go v1.2.0/go.mod h1:I8BqVwAb/SaQJ5pBu5IDFY+ksq8O/1/kCag8XUgrsko=
+github.com/sigstore/sigstore-go v1.2.1 h1:YWP/rDbBaEBvtbkj6xtwsSj38ZCFEhTVVadNOXjVe3A=
+github.com/sigstore/sigstore-go v1.2.1/go.mod h1:I8BqVwAb/SaQJ5pBu5IDFY+ksq8O/1/kCag8XUgrsko=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.10.8 h1:tofVQ+UWJgad/69I5zbqxdFCN5gpIn9tRQP7iBzIpBw=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.10.8/go.mod h1:73AfJE8H6w5KGCFPBu4x/OG+i1Yxgmh0L/FtV7prd88=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.10.8 h1:8Mt7J36GcUEmbiJaiFhz2tud5ZIgkfVVCe2H/WJCHmw=
