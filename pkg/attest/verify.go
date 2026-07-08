@@ -4,7 +4,12 @@
 package attest
 
 import (
+	"errors"
+	"fmt"
+
+	"github.com/carabiner-dev/attestation"
 	"github.com/carabiner-dev/signer"
+	sapi "github.com/carabiner-dev/signer/api/v1"
 	"github.com/carabiner-dev/signer/options"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
@@ -12,6 +17,13 @@ import (
 type VerificationOptions struct {
 	ExpectedIssuer string
 	ExpectedSan    string
+
+	// AlternateSans lists additional signer identities accepted when
+	// verifying attestations. It carries the pre-rename workflow identity
+	// while repositories still have attestations signed with it.
+	//
+	// See https://github.com/slsa-framework/source-tool/issues/255
+	AlternateSans []string
 }
 
 const (
@@ -35,10 +47,17 @@ const (
 var DefaultVerifierOptions = VerificationOptions{
 	ExpectedIssuer: ExpectedIssuer,
 	ExpectedSan:    ExpectedSan,
+	AlternateSans:  []string{OldExpectedSan},
 }
 
 type Verifier interface {
 	Verify(data string) (*verify.VerificationResult, error)
+
+	// VerifyEnvelope checks the cryptographic signature of a parsed
+	// attestation envelope and ensures the signer matches the expected
+	// identity. Envelopes that carry no verifiable signature (eg bare
+	// statements) must return an error.
+	VerifyEnvelope(env attestation.Envelope) error
 }
 
 type BndVerifier struct {
@@ -61,6 +80,49 @@ func (bv *BndVerifier) Verify(data string) (*verify.VerificationResult, error) {
 		return nil, err
 	}
 	return vr, nil
+}
+
+// VerifyEnvelope verifies the signature of an attestation envelope fetched
+// by the collector and checks that the signer matches the expected identity
+// (issuer + SAN) or one of the accepted alternate identities.
+func (bv *BndVerifier) VerifyEnvelope(env attestation.Envelope) error {
+	if env == nil {
+		return errors.New("unable to verify, envelope is nil")
+	}
+
+	// Verify the envelope signatures. Note that this call only checks the
+	// cryptographic integrity of the envelope, identity verification is
+	// done below by matching the verification data.
+	if err := env.Verify(); err != nil {
+		return fmt.Errorf("verifying envelope signature: %w", err)
+	}
+
+	// Bare statements and unsigned envelopes return a nil verification (or
+	// one that is not verified). Reject them, we only trust signed bundles.
+	verification := env.GetVerification()
+	if verification == nil || !verification.GetVerified() {
+		return errors.New("envelope carries no verified signature")
+	}
+
+	// Check the signer identity against the expected SANs
+	for _, san := range append([]string{bv.Options.ExpectedSan}, bv.Options.AlternateSans...) {
+		if san == "" {
+			continue
+		}
+		if verification.MatchesIdentity(&sapi.Identity{
+			Sigstore: &sapi.IdentitySigstore{
+				Issuer:   bv.Options.ExpectedIssuer,
+				Identity: san,
+			},
+		}) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf(
+		"envelope signer does not match the expected identity (issuer %q identity %q)",
+		bv.Options.ExpectedIssuer, bv.Options.ExpectedSan,
+	)
 }
 
 func NewBndVerifier(opts VerificationOptions) *BndVerifier {

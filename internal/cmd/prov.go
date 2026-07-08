@@ -74,6 +74,7 @@ func addProv(parentCmd *cobra.Command) {
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithExpectedIdentity(opts.expectedIssuer, opts.expectedSan),
 				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
 			)
 			if err != nil {

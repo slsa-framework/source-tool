@@ -117,6 +117,7 @@ func addCheckTag(parentCmd *cobra.Command) {
 			// Initialize sourcetool
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithExpectedIdentity(opts.expectedIssuer, opts.expectedSan),
 				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
 				sourcetool.WithNotesStorer(notesStorer),
 				sourcetool.WithGithubStorer(githubStorer),

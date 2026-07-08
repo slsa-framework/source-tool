@@ -73,6 +73,7 @@ func (clp *checkLevelProvOpts) Validate() error {
 
 func (clp *checkLevelProvOpts) AddFlags(cmd *cobra.Command) {
 	clp.revisionOpts.AddFlags(cmd)
+	clp.verifierOptions.AddFlags(cmd)
 	clp.pushOptions.AddFlags(cmd)
 	clp.allowMergeCommitsOptions.AddFlags(cmd)
 	cmd.PersistentFlags().StringVar(&clp.prevBundlePath, "prev_bundle_path", "", "Path to the file with the attestations for the previous commit (as an in-toto bundle).")
@@ -156,6 +157,7 @@ and pushed to its remote (--push=note).
 			// Initialize sourcetool
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithExpectedIdentity(opts.expectedIssuer, opts.expectedSan),
 				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
 				sourcetool.WithNotesStorer(notesStorer),
 				sourcetool.WithGithubStorer(githubStorer),

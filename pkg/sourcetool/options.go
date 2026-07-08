@@ -90,3 +90,14 @@ func WithAllowMergeCommits(allow bool) ConfigFn {
 		return nil
 	}
 }
+
+// WithExpectedIdentity overrides the identity (OIDC issuer and SAN) expected
+// to have signed the attestations the tool verifies. Empty values keep the
+// corresponding default.
+func WithExpectedIdentity(issuer, san string) ConfigFn {
+	return func(t *Tool) error {
+		t.Options.ExpectedIssuer = issuer
+		t.Options.ExpectedSan = san
+		return nil
+	}
+}
