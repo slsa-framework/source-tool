@@ -69,6 +69,12 @@ const (
 	CONFIG_TAG_RULES      ControlConfiguration = "CONFIG_TAG_RULES"
 )
 
+// Digest algorithm names used in attestation subjects
+const (
+	DigestTypeGitCommit = "gitCommit"
+	DigestTypeSha1      = "sha1"
+)
+
 type Commit struct {
 	SHA     string
 	Author  string
@@ -101,7 +107,7 @@ func (c *Commit) GetCommit() *Commit {
 func (c *Commit) ToResourceDescriptor() *attestation.ResourceDescriptor {
 	return &attestation.ResourceDescriptor{
 		Digest: map[string]string{
-			"sha1": c.SHA, "gitCommit": c.SHA,
+			DigestTypeSha1: c.SHA, DigestTypeGitCommit: c.SHA,
 		},
 	}
 }

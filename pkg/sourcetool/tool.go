@@ -36,6 +36,9 @@ var ControlConfigurations = []models.ControlConfiguration{
 	models.CONFIG_POLICY, models.CONFIG_GEN_PROVENANCE, models.CONFIG_BRANCH_RULES, models.CONFIG_TAG_RULES,
 }
 
+// githubHostname is the hostname of the VCS system sourcetool supports (for now)
+const githubHostname = "github.com"
+
 // New initializes a new source tool instance.
 func New(funcs ...ConfigFn) (*Tool, error) {
 	t := &Tool{
@@ -194,7 +197,7 @@ func (t *Tool) FindPolicyPR(ctx context.Context, repo *models.Repository) (*mode
 	}
 
 	pr, err := t.impl.SearchPullRequest(ctx, t.Authenticator, &models.Repository{
-		Hostname: "github.com",
+		Hostname: githubHostname,
 		Path:     fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoRepo),
 	}, fmt.Sprintf("Add %s SLSA Source policy file", repo.Path))
 	if err != nil {

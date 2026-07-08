@@ -18,7 +18,7 @@ var colorHiRed = color.New(color.FgHiRed).SprintFunc()
 
 func addAuth(parentCmd *cobra.Command) {
 	authCmd := &cobra.Command{
-		GroupID:       "configuration",
+		GroupID:       cmdGroupConfiguration,
 		Short:         "Manage user authentication",
 		Use:           "auth",
 		SilenceUsage:  false,

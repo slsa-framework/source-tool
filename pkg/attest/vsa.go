@@ -51,7 +51,7 @@ func createUnsignedSourceVsaAllParams(branch *models.Branch, commit *models.Comm
 		return "", fmt.Errorf("creating struct from map: %w", err)
 	}
 	sub := []*spb.ResourceDescriptor{{
-		Digest:      map[string]string{"gitCommit": commit.SHA},
+		Digest:      map[string]string{models.DigestTypeGitCommit: commit.SHA},
 		Annotations: annotationStruct,
 	}}
 

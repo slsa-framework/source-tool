@@ -23,6 +23,9 @@ const (
 const (
 	statusPassed = "passed"
 	statusFailed = "failed"
+
+	auditModeBasicName = "basic"
+	auditModeFullName  = "full"
 )
 
 // Enable audit mode enum
@@ -30,9 +33,9 @@ const (
 func (e *AuditMode) String() string {
 	switch *e {
 	case AuditModeBasic:
-		return "basic"
+		return auditModeBasicName
 	case AuditModeFull:
-		return "full"
+		return auditModeFullName
 	}
 	return "error"
 }
@@ -40,14 +43,14 @@ func (e *AuditMode) String() string {
 // Set must have pointer receiver so it doesn't change the value of a copy
 func (e *AuditMode) Set(v string) error {
 	switch v {
-	case "basic":
+	case auditModeBasicName:
 		*e = AuditModeBasic
 		return nil
-	case "full":
+	case auditModeFullName:
 		*e = AuditModeFull
 		return nil
 	default:
-		return errors.New(`must be one of "foo", "bar", or "moo"`)
+		return fmt.Errorf("must be one of %q or %q", auditModeBasicName, auditModeFullName)
 	}
 }
 
@@ -119,7 +122,7 @@ func addAudit(parentCmd *cobra.Command) {
 	opts := &auditOpts{}
 	auditCmd := &cobra.Command{
 		Use:     "audit",
-		GroupID: "verification",
+		GroupID: cmdGroupVerification,
 		Short:   "Verifies multiple commits in the branch history",
 		Long: `Checks the revisions on the specified branch within the repository.
 

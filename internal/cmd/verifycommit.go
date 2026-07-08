@@ -18,6 +18,12 @@ type verifyCommitOptions struct {
 	revisionOpts
 }
 
+// Ref types reported in the verification results
+const (
+	refTypeBranch = "branch"
+	refTypeTag    = "tag"
+)
+
 // VerifyCommitResult represents the result of a commit verification
 type VerifyCommitResult struct {
 	Success        bool     `json:"success"`
@@ -58,7 +64,7 @@ func addVerifyCommit(cmd *cobra.Command) {
 	opts := verifyCommitOptions{}
 	verifyCommitCmd := &cobra.Command{
 		Use:     "verifycommit",
-		GroupID: "verification",
+		GroupID: cmdGroupVerification,
 		Short:   "Verifies the specified commit is valid",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
@@ -101,10 +107,10 @@ func addVerifyCommit(cmd *cobra.Command) {
 			var refName string
 			switch {
 			case opts.branch != "":
-				refType = "branch"
+				refType = refTypeBranch
 				refName = opts.branch
 			case opts.tag != "":
-				refType = "tag"
+				refType = refTypeTag
 				refName = opts.tag
 			default:
 				return fmt.Errorf("must specify either branch or tag")

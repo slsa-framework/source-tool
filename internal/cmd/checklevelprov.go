@@ -89,7 +89,7 @@ func addCheckLevelProv(parentCmd *cobra.Command) {
 
 	checklevelprovCmd := &cobra.Command{
 		Use:     "checklevelprov",
-		GroupID: "assessment",
+		GroupID: cmdGroupAssessment,
 		Example: `sourcetool checklevelprov owner/repo --push=note`,
 		Short:   "Checks the given commit against policy using & creating provenance",
 		Long: `Checks the given commit against policy using & creating provenance.

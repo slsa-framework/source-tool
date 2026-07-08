@@ -15,16 +15,13 @@ import (
 
 var githubToken string
 
-// func getVerifier(vo *verifierOptions) attest.Verifier {
-// 	options := attest.DefaultVerifierOptions
-// 	if vo.expectedIssuer != "" {
-// 		options.ExpectedIssuer = vo.expectedIssuer
-// 	}
-// 	if vo.expectedSan != "" {
-// 		options.ExpectedSan = vo.expectedSan
-// 	}
-// 	return attest.NewBndVerifier(options)
-// }
+// Command group IDs used to organize the subcommands in the help screen.
+const (
+	cmdGroupVerification  = "verification"
+	cmdGroupAssessment    = "assessment"
+	cmdGroupPolicy        = "policy"
+	cmdGroupConfiguration = "configuration"
+)
 
 // exitError wraps an error together with an exit code so commands can
 // signal other failuresdistinct from a generic failure (exit 1).
@@ -58,19 +55,19 @@ controls and much more.
 	// Define command groups for better organization
 	rootCmd.AddGroup(
 		&cobra.Group{
-			ID:    "verification",
+			ID:    cmdGroupVerification,
 			Title: "Verification Commands:",
 		},
 		&cobra.Group{
-			ID:    "assessment",
+			ID:    cmdGroupAssessment,
 			Title: "Assessment Commands:",
 		},
 		&cobra.Group{
-			ID:    "policy",
+			ID:    cmdGroupPolicy,
 			Title: "Policy Commands:",
 		},
 		&cobra.Group{
-			ID:    "configuration",
+			ID:    cmdGroupConfiguration,
 			Title: "Configuration & Setup Commands:",
 		},
 	)

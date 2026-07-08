@@ -206,7 +206,7 @@ func addPredToStatement(provPred proto.Message, predicateType, commit string) (*
 	}
 
 	sub := []*intoto.ResourceDescriptor{{
-		Digest: map[string]string{"gitCommit": commit},
+		Digest: map[string]string{models.DigestTypeGitCommit: commit},
 	}}
 
 	var predPb structpb.Struct
