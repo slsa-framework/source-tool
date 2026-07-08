@@ -60,12 +60,22 @@ func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 	vco.outputOptions.AddFlags(cmd)
 }
 
-func addVerifyCommit(cmd *cobra.Command) {
+// addVerify registers the verify command along with its deprecated
+// "verifycommit" alias, which is kept hidden and functional during the
+// phase-out period.
+func addVerify(cmd *cobra.Command) {
+	cmd.AddCommand(newVerifyCommand("verify", false, ""))
+	cmd.AddCommand(newVerifyCommand("verifycommit", true, `use "sourcetool verify" instead`))
+}
+
+func newVerifyCommand(use string, hidden bool, deprecated string) *cobra.Command {
 	opts := verifyCommitOptions{}
 	verifyCommitCmd := &cobra.Command{
-		Use:     "verifycommit",
-		GroupID: cmdGroupVerification,
-		Short:   "Verifies the specified commit is valid",
+		Use:        use,
+		GroupID:    cmdGroupVerification,
+		Hidden:     hidden,
+		Deprecated: deprecated,
+		Short:      "Verifies the specified commit is valid",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {
@@ -142,6 +152,6 @@ func addVerifyCommit(cmd *cobra.Command) {
 			return opts.writeResult(result)
 		},
 	}
-	opts.AddFlags(cmd)
-	cmd.AddCommand(verifyCommitCmd)
+	opts.AddFlags(verifyCommitCmd)
+	return verifyCommitCmd
 }

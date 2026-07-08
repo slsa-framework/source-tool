@@ -73,7 +73,7 @@ controls and much more.
 	)
 
 	// Verification commands
-	addVerifyCommit(rootCmd)
+	addVerify(rootCmd)
 	addAudit(rootCmd)
 
 	// Assessment commands
