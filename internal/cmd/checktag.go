@@ -30,6 +30,7 @@ func (cto *checkTagOptions) Validate() error {
 	errs := []error{
 		cto.revisionOpts.Validate(),
 		cto.verifierOptions.Validate(),
+		cto.pushOptions.Validate(),
 	}
 	return errors.Join(errs...)
 }
@@ -74,6 +75,10 @@ func addCheckTag(parentCmd *cobra.Command) {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return fmt.Errorf("validating options: %w", err)
+			}
+
 			// Here we need to translate the CLI options to the sourcetool
 			// options. Some of these will be deprecated as some point for
 			// a more concise options set.
@@ -89,14 +94,15 @@ func addCheckTag(parentCmd *cobra.Command) {
 			}
 
 			var githubStorer, notesStorer, pushAttestations bool
-			switch {
-			case slices.Contains(opts.pushLocation, "github"):
+			if slices.Contains(opts.pushLocation, pushRepoGithub) {
 				pushAttestations = true
 				githubStorer = true
-			case slices.Contains(opts.pushLocation, "notes"):
+			}
+			if slices.Contains(opts.pushLocation, pushRepoNote) {
 				pushAttestations = true
 				notesStorer = true
-			case len(opts.pushRepositories) > 0:
+			}
+			if len(opts.pushRepositories) > 0 {
 				pushAttestations = true
 			}
 
