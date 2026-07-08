@@ -91,6 +91,7 @@ func addVerifyCommit(cmd *cobra.Command) {
 			// Create a new sourcetool object
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithExpectedIdentity(opts.expectedIssuer, opts.expectedSan),
 			)
 			if err != nil {
 				return err
