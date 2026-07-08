@@ -113,15 +113,18 @@ func newVerifyCommand(use string, hidden bool, deprecated string) *cobra.Command
 				return err
 			}
 
+			// A tag is the more specific selector, so check it first: the
+			// branch is populated with the repository default when the user
+			// does not pass one, which would otherwise mask a --tag request.
 			var refType string
 			var refName string
 			switch {
-			case opts.branch != "":
-				refType = refTypeBranch
-				refName = opts.branch
 			case opts.tag != "":
 				refType = refTypeTag
 				refName = opts.tag
+			case opts.branch != "":
+				refType = refTypeBranch
+				refName = opts.branch
 			default:
 				return fmt.Errorf("must specify either branch or tag")
 			}
