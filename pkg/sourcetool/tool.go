@@ -51,9 +51,21 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 
 	t.backend = github.New(&t.Options.BackendOptions)
 
+	// Build the attestation verifier, honoring any identity overrides
+	verifierOptions := attest.DefaultVerifierOptions
+	if t.Options.ExpectedIssuer != "" {
+		verifierOptions.ExpectedIssuer = t.Options.ExpectedIssuer
+	}
+	if t.Options.ExpectedSan != "" {
+		// When pinning a custom identity, don't accept the default
+		// migration alternates.
+		verifierOptions.ExpectedSan = t.Options.ExpectedSan
+		verifierOptions.AlternateSans = nil
+	}
+
 	// Create the tool's attester
 	attester, err := attest.NewAttester(
-		attest.WithVerifier(attest.GetDefaultVerifier()),
+		attest.WithVerifier(attest.NewBndVerifier(verifierOptions)),
 		attest.WithBackend(t.backend),
 		attest.WithGithubCollector(t.Options.InitGHCollector),
 		attest.WithNotesCollector(t.Options.InitNotesCollector),

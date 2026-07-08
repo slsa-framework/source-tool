@@ -32,6 +32,12 @@ type Options struct {
 
 	StorageLocations []string
 
+	// ExpectedIssuer and ExpectedSan override the identity expected to have
+	// signed the attestations the tool verifies. When empty, the tool
+	// defaults to the SLSA source-actions workflow identity.
+	ExpectedIssuer string
+	ExpectedSan    string
+
 	models.BackendOptions
 }
 

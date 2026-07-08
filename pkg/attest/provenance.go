@@ -193,6 +193,13 @@ func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, re
 	// Range the attestations and find and validate that it matches our repo
 	// and expected resources
 	for _, att := range atts {
+		// Verify the envelope signature and the signer identity. Any
+		// attestations not signed by the expected workflow are discarded.
+		if err := a.verifier.VerifyEnvelope(att); err != nil {
+			Debugf("discarding VSA attestation: %v", err)
+			continue
+		}
+
 		predicate := att.GetPredicate().GetParsed()
 		vsaPred, ok := predicate.(*vsa.VerificationSummary)
 		if !ok {
@@ -266,10 +273,21 @@ func (a *Attester) GetRevisionProvenance(ctx context.Context, branch *models.Bra
 
 	// Now extract the provenance
 	for _, att := range atts {
+		// Verify the envelope signature and the signer identity. Any
+		// attestations not signed by the expected workflow are discarded.
+		if err := a.verifier.VerifyEnvelope(att); err != nil {
+			Debugf("discarding provenance attestation: %v", err)
+			continue
+		}
+
 		pred := &provenance.SourceProvenancePred{}
 		if err = protojson.Unmarshal(att.GetPredicate().GetData(), pred); err == nil {
 			return pred, nil
 		}
+	}
+	if err == nil {
+		// All fetched attestations failed signature/identity verification.
+		return nil, nil
 	}
 	return nil, fmt.Errorf("unable to parse predicate: %w", err)
 }
