@@ -34,6 +34,10 @@ const (
 	SourcePolicyUri       = "github.com/slsa-framework/source-policies"
 	SourcePolicyRepoOwner = "slsa-framework"
 	SourcePolicyRepo      = "source-policies"
+
+	// DefaultPolicyPath is the policy path reported when a branch is
+	// evaluated using the default policy.
+	DefaultPolicyPath = "DEFAULT"
 )
 
 // Returns the policy for the branch or nil if the branch doesn't have one.
@@ -635,7 +639,7 @@ func (pe *PolicyEvaluator) EvaluateControl(ctx context.Context, repo *models.Rep
 	branchPolicy := rp.GetBranchPolicy(branch.Name)
 	if branchPolicy == nil {
 		branchPolicy = createDefaultBranchPolicy(branch)
-		policyPath = "DEFAULT"
+		policyPath = DefaultPolicyPath
 	}
 
 	if controlStatus.Time.Before(branchPolicy.GetSince().AsTime()) {
@@ -675,7 +679,7 @@ func (pe *PolicyEvaluator) EvaluateSourceProv(ctx context.Context, repo *models.
 	branchPolicy := rp.GetBranchPolicy(branch.Name)
 	if branchPolicy == nil {
 		branchPolicy = createDefaultBranchPolicy(branch)
-		policyPath = "DEFAULT"
+		policyPath = DefaultPolicyPath
 	}
 
 	verifiedLevels, shortfall, err := evaluateBranchControls(branchPolicy, rp.GetProtectedTag(), slsa.NewControlSetFromProvanenaceControls(provPred.GetControls()))

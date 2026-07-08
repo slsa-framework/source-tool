@@ -60,7 +60,7 @@ linters:
     - godox
     - goheader
     - gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - gosmopolitan
@@ -110,6 +110,9 @@ linters:
     - zerologlint
 
   settings:
+    goconst:
+      # Repeated literals in table driven tests don't warrant constants.
+      ignore-tests: true
     gocyclo:
       min-complexity: 35
     godox:

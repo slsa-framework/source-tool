@@ -55,7 +55,7 @@ func addCheckTag(parentCmd *cobra.Command) {
 
 	checktagCmd := &cobra.Command{
 		Use:     "checktag",
-		GroupID: "assessment",
+		GroupID: cmdGroupAssessment,
 		Short:   "Checks to see if the tag operation should be allowed and issues a VSA",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {

@@ -119,7 +119,7 @@ func (impl *defaultToolImplementation) CreatePolicyPR(a *auth.Authenticator, opt
 	}
 
 	policyRepo := &models.Repository{
-		Hostname:      "github.com",
+		Hostname:      githubHostname,
 		Path:          fmt.Sprintf("%s/%s", policyRepoOwner, policyRepoName),
 		DefaultBranch: "main",
 	}
@@ -163,7 +163,7 @@ func (impl *defaultToolImplementation) CheckForks(opts *options.Options) error {
 func (impl *defaultToolImplementation) CheckPolicyFork(opts *options.Options) error {
 	manager := repo.NewPullRequestManager()
 	if _, err := manager.CheckFork(&models.Repository{
-		Hostname: "github.com", Path: opts.PolicyRepo,
+		Hostname: githubHostname, Path: opts.PolicyRepo,
 	}, ""); err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (impl *defaultToolImplementation) GetPolicyStatus(
 
 	host := r.Hostname
 	if host == "" {
-		host = "github.com"
+		host = githubHostname
 	}
 	prNr, err := impl.SearchPullRequest(ctx, a, &models.Repository{
 		Hostname: host,
