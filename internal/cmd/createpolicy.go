@@ -36,7 +36,7 @@ func addCreatePolicy(parentCmd *cobra.Command) {
 
 		The created policy should then be sent as a PR to slsa-framework/source-policies.`,
 		// Deprecated in favor of "sourcetool policy create". Kept hidden and
-		// functional during the phase-out period (see docs/cli-0.7.md).
+		// functional during the phase-out period.
 		Hidden:     true,
 		Deprecated: `use "sourcetool policy create" instead`,
 		RunE: func(cmd *cobra.Command, args []string) error {
