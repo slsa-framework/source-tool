@@ -50,7 +50,11 @@ controls and much more.
 `,
 	}
 
-	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
+	rootCmd.PersistentFlags().StringVar(&githubToken, "github-token", "", "the github token to use for auth")
+
+	// Hidden snake_case alias kept for backward compatibility.
+	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "")
+	rootCmd.PersistentFlags().MarkHidden("github_token") //nolint:errcheck,gosec
 
 	// Define command groups for better organization
 	rootCmd.AddGroup(
