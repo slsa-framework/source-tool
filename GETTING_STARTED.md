@@ -66,7 +66,7 @@ commits using the embedded attestations stored in git notes in your git reposito
 To verify the latest commit, run:
 
 ```bash
-   sourcetool verifycommit yourorg/yourrepo  
+   sourcetool verify yourorg/yourrepo  
 ```
 
 ## Onboarding Guide
@@ -150,6 +150,15 @@ The status subcommand will show the control implementation status, if a policy
 was found and the current SLSA level of the repository:
 
 ![](docs/media/image04-status.png)
+
+When the controls are eligible for a higher level than the policy verifies,
+status explains the gap (for example, when the policy targets a lower level or
+is not fully met). To print only the policy-verified SLSA source level, for
+example when scripting, pass `--level`:
+
+```bash
+sourcetool status yourorg/yourrepo --level
+```
 
 ## One-shot Repository Set Up
 
@@ -238,22 +247,61 @@ sourcetool policy view yourorg/yourrepo
 
 ![](docs/media/image09-policy.png )
 
-## Verifying Commits
+## Verifying Commits and Tags
 
 Once the SLSA controls are in place, each commit pushed into the repository will
 generate source provenance metadata and store it in git notes by default. These
 attestations and VSAs can be used to verify the SLSA level of the repository.
 
-To verify a commit, use the `verifycommit` subcommand. Pass it a commit locator
+To verify a revision, use the `verify` subcommand. Pass it a commit locator
 like this:
 
 ```bash
-sourcetool verifycommit slsa-framework/slsa-source-poc@fc0f59a9332e7873bb146b95cc4b39232eada7d2  
+sourcetool verify slsa-framework/source-tool@fc0f59a9332e7873bb146b95cc4b39232eada7d2  
 ```
 
 ![](docs/media/image10-pcy-json.png)
 
 If you omit the commit SHA, sourcetool will verify the last commit in the branch.
+You can also verify a tag with `--tag`:
+
+```bash
+sourcetool verify yourorg/yourrepo --tag v1.0.0
+```
+
+`verify` reports the policy-verified SLSA source level and exits with a non-zero
+status when the revision cannot be verified, which makes it convenient to gate
+scripts and CI.
+
+### Reading From Different Attestation Sources
+
+By default the reading subcommands (`verify`, `get`, `attest` and `audit`) read
+attestations from the git notes stored in your repository. If your attestations
+are also published to the GitHub attestations API (with `--push=github`), point
+the reader at that source with `--from`:
+
+```bash
+sourcetool verify yourorg/yourrepo --from=github
+sourcetool verify yourorg/yourrepo --from=github,note
+```
+
+Git notes is the default because reading from the GitHub attestations API
+requires the token to have attestations read access, which is not always granted
+in CI.
+
+## Retrieving Attestations
+
+To fetch and print the raw attestations for a revision, use the `get` subcommand:
+
+```bash
+sourcetool get yourorg/yourrepo
+```
+
+By default `get` prints both the source provenance and the VSA; use
+`--provenance` or `--vsa` to select just one. It verifies every attestation it
+prints and writes a warning to stderr when verification fails. Pass
+`--require-verified` to make it exit with a non-zero status on a verification
+failure.
 
 ## Troubleshooting
 
