@@ -302,7 +302,7 @@ func (ro *revisionOpts) ParseLocator(lString string) error {
 	}
 
 	if components.Branch != "" {
-		ro.tag = components.Branch
+		ro.branch = components.Branch
 	}
 
 	return nil
