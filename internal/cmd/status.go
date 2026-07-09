@@ -26,6 +26,7 @@ var (
 // statusOptions
 type statusOptions struct {
 	commitOptions
+	level bool
 }
 
 // Validate checks the options
@@ -39,6 +40,7 @@ func (so *statusOptions) Validate() error {
 // AddFlags adds the subcommands flags
 func (so *statusOptions) AddFlags(cmd *cobra.Command) {
 	so.commitOptions.AddFlags(cmd)
+	cmd.PersistentFlags().BoolVar(&so.level, "level", false, "print only the SLSA source level and exit")
 }
 
 // TODO(puerco): Most of the logic in this subcommand (except maybe the output)
@@ -115,8 +117,25 @@ sourcetool status myorg/myrepo@mybranch
 				return fmt.Errorf("fetching active controls: %w", err)
 			}
 
-			// Compute the maximum level possible:
+			// The eligible level is the highest the active controls could
+			// support, ignoring the repository policy.
 			toplevel := policy.ComputeEligibleSlsaLevel(controls.GetActiveControls())
+
+			// The verified level is what the repository policy actually grants.
+			// It can be lower than the eligible level when the policy targets a
+			// lower level or when the policy is not fully met.
+			pe := policy.NewPolicyEvaluator()
+			evalResult, err := pe.EvaluateControl(cmd.Context(), opts.GetRepository(), opts.GetBranch(), controls)
+			if err != nil {
+				return fmt.Errorf("evaluating controls against policy: %w", err)
+			}
+			verifiedLevel := firstSourceLevel(evalResult.VerifiedLevels)
+
+			// --level prints just the policy-verified level and exits, for scripting.
+			if opts.level {
+				fmt.Println(verifiedLevel)
+				return nil
+			}
 
 			title := fmt.Sprintf(
 				"\nSLSA Source Status for %s/%s@%s", opts.owner, opts.repository,
@@ -176,7 +195,8 @@ sourcetool status myorg/myrepo@mybranch
 				fmt.Println()
 			}
 
-			fmt.Println(w("Current SLSA Source level: " + toplevel))
+			fmt.Println(w("Current SLSA Source level: " + verifiedLevel))
+			printLevelGap(toplevel, verifiedLevel, evalResult.Shortfall)
 			fmt.Println("")
 			titled := false
 			for _, status := range controls.Controls {
@@ -215,4 +235,34 @@ sourcetool status myorg/myrepo@mybranch
 	}
 	opts.AddFlags(statusCmd)
 	parentCmd.AddCommand(statusCmd)
+}
+
+// firstSourceLevel returns the first SLSA source level among the verified
+// levels, defaulting to level 0 when none is present.
+func firstSourceLevel(levels slsa.SourceVerifiedLevels) string {
+	for _, level := range levels {
+		if slsa.IsSlsaSourceLevel(level) {
+			return string(level)
+		}
+	}
+	return string(slsa.SlsaSourceLevel0)
+}
+
+// printLevelGap explains when the policy-verified level is below the level the
+// active controls would otherwise support.
+func printLevelGap(eligible slsa.SlsaSourceLevel, verified string, shortfall *policy.PolicyShortfall) {
+	if verified == string(eligible) {
+		return
+	}
+	if shortfall != nil {
+		fmt.Printf(
+			"%s The controls are eligible for %s, but the policy target %s is not met: %s\n",
+			w2("⚠️ "), eligible, shortfall.TargetLevel, shortfall.Reason,
+		)
+		return
+	}
+	fmt.Printf(
+		"%s The controls are eligible for %s, but the policy only verifies %s. Raise the policy target to claim the higher level.\n",
+		w2("⚠️ "), eligible, verified,
+	)
 }
