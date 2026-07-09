@@ -75,6 +75,7 @@ controls and much more.
 	// Verification commands
 	addVerify(rootCmd)
 	addAudit(rootCmd)
+	addGet(rootCmd)
 	addStatus(rootCmd)
 
 	// Attestation commands

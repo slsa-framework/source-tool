@@ -601,6 +601,22 @@ func (t *Tool) AttestRevision(
 	}, nil
 }
 
+// GetRevisionAttestations fetches the stored attestations for a revision. The
+// includeProvenance and includeVSA flags select which predicate types are
+// requested. The returned envelopes carry their verification result and are not
+// filtered by it, so callers can print or inspect attestations that fail to
+// verify.
+func (t *Tool) GetRevisionAttestations(ctx context.Context, branch *models.Branch, rev models.Revision, includeProvenance, includeVSA bool) ([]attest.FetchedEnvelope, error) {
+	var types []attestation.PredicateType
+	if includeProvenance {
+		types = append(types, attest.ProvenancePredicateTypes...)
+	}
+	if includeVSA {
+		types = append(types, attest.VSAPredicateTypes...)
+	}
+	return t.Attester().FetchRevisionAttestations(ctx, branch, rev.GetCommit(), types...)
+}
+
 // getAttestationStore returns a collector with storer reposistories to push
 // the generated attestations.
 func (t *Tool) getAttestationStore(branch *models.Branch) (*collector.Agent, error) {
