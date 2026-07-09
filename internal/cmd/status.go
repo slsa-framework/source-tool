@@ -49,7 +49,7 @@ func (so *statusOptions) AddFlags(cmd *cobra.Command) {
 func addStatus(parentCmd *cobra.Command) {
 	opts := &statusOptions{}
 	statusCmd := &cobra.Command{
-		GroupID: cmdGroupAssessment,
+		GroupID: cmdGroupVerification,
 		Short:   "Check the SLSA Source status of a repo/branch",
 		Long: `
 sourcetool status: Check the SLSA Source status of a repo/branch

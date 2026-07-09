@@ -19,7 +19,6 @@ var githubToken string
 const (
 	cmdGroupVerification  = "verification"
 	cmdGroupAttestation   = "attestation"
-	cmdGroupAssessment    = "assessment"
 	cmdGroupPolicy        = "policy"
 	cmdGroupConfiguration = "configuration"
 )
@@ -64,10 +63,6 @@ controls and much more.
 			Title: "Attestation Commands:",
 		},
 		&cobra.Group{
-			ID:    cmdGroupAssessment,
-			Title: "Assessment Commands:",
-		},
-		&cobra.Group{
 			ID:    cmdGroupPolicy,
 			Title: "Policy Commands:",
 		},
@@ -80,24 +75,24 @@ controls and much more.
 	// Verification commands
 	addVerify(rootCmd)
 	addAudit(rootCmd)
+	addStatus(rootCmd)
 
 	// Attestation commands
 	addAttest(rootCmd)
 
-	// Assessment commands
-	addStatus(rootCmd)
-	addCheckLevel(rootCmd)
-	addCheckLevelProv(rootCmd)
-	addCheckTag(rootCmd)
-	addProv(rootCmd)
-
 	// Policy commands
 	addPolicy(rootCmd)
-	addCreatePolicy(rootCmd)
 
 	// Configuration & setup commands
 	addSetup(rootCmd)
 	addAuth(rootCmd)
+
+	// Hidden, deprecated commands kept for the phase-out period.
+	addCheckLevel(rootCmd)
+	addCheckLevelProv(rootCmd)
+	addCheckTag(rootCmd)
+	addProv(rootCmd)
+	addCreatePolicy(rootCmd)
 
 	return rootCmd
 }
