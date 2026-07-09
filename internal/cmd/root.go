@@ -18,6 +18,7 @@ var githubToken string
 // Command group IDs used to organize the subcommands in the help screen.
 const (
 	cmdGroupVerification  = "verification"
+	cmdGroupAttestation   = "attestation"
 	cmdGroupAssessment    = "assessment"
 	cmdGroupPolicy        = "policy"
 	cmdGroupConfiguration = "configuration"
@@ -59,6 +60,10 @@ controls and much more.
 			Title: "Verification Commands:",
 		},
 		&cobra.Group{
+			ID:    cmdGroupAttestation,
+			Title: "Attestation Commands:",
+		},
+		&cobra.Group{
 			ID:    cmdGroupAssessment,
 			Title: "Assessment Commands:",
 		},
@@ -75,6 +80,9 @@ controls and much more.
 	// Verification commands
 	addVerify(rootCmd)
 	addAudit(rootCmd)
+
+	// Attestation commands
+	addAttest(rootCmd)
 
 	// Assessment commands
 	addStatus(rootCmd)
