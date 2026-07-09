@@ -38,9 +38,10 @@ func (po *provOptions) AddFlags(cmd *cobra.Command) {
 func addProv(parentCmd *cobra.Command) {
 	opts := provOptions{}
 	provCmd := &cobra.Command{
-		Use:     "prov",
-		GroupID: cmdGroupAssessment,
-		Short:   "Creates provenance for the given commit, but does not check policy.",
+		Use:        "prov",
+		Hidden:     true,
+		Deprecated: `use "sourcetool attest --vsa=false" instead`,
+		Short:      "Creates provenance for the given commit, but does not check policy.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {

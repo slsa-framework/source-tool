@@ -55,9 +55,10 @@ func addCheckTag(parentCmd *cobra.Command) {
 	opts := &checkTagOptions{}
 
 	checktagCmd := &cobra.Command{
-		Use:     "checktag",
-		GroupID: cmdGroupAssessment,
-		Short:   "Checks to see if the tag operation should be allowed and issues a VSA",
+		Use:        "checktag",
+		Hidden:     true,
+		Deprecated: `use "sourcetool attest --tag <name>" instead`,
+		Short:      "Checks to see if the tag operation should be allowed and issues a VSA",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {
