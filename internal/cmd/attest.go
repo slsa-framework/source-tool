@@ -17,6 +17,7 @@ import (
 type attestOptions struct {
 	revisionOpts
 	pushOptions
+	fromOptions
 	allowMergeCommitsOptions
 	provenance      bool
 	vsa             bool
@@ -30,6 +31,7 @@ func (ao *attestOptions) Validate() error {
 	errs := []error{
 		ao.revisionOpts.Validate(),
 		ao.pushOptions.Validate(),
+		ao.fromOptions.Validate(),
 	}
 	if !ao.provenance && !ao.vsa {
 		errs = append(errs, errors.New("nothing to generate: enable --provenance and/or --vsa"))
@@ -40,6 +42,7 @@ func (ao *attestOptions) Validate() error {
 func (ao *attestOptions) AddFlags(cmd *cobra.Command) {
 	ao.revisionOpts.AddFlags(cmd)
 	ao.pushOptions.AddFlags(cmd)
+	ao.fromOptions.AddFlags(cmd)
 	ao.allowMergeCommitsOptions.AddFlags(cmd)
 	cmd.PersistentFlags().BoolVar(&ao.provenance, "provenance", true, "write the provenance attestation")
 	cmd.PersistentFlags().BoolVar(&ao.vsa, "vsa", true, "write the verification summary attestation (VSA)")
@@ -104,6 +107,8 @@ is given, and can be pushed to storage with --push.`,
 				sourcetool.WithAllowMergeCommits(opts.allowMergeCommits),
 				sourcetool.WithNotesStorer(notesStorer),
 				sourcetool.WithGithubStorer(githubStorer),
+				sourcetool.WithGithubCollector(opts.readGithub()),
+				sourcetool.WithNotesCollector(opts.readNotes()),
 			)
 			if err != nil {
 				return fmt.Errorf("creating sourcetool: %w", err)

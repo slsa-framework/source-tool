@@ -16,6 +16,7 @@ type verifyCommitOptions struct {
 	verifierOptions
 	outputOptions
 	revisionOpts
+	fromOptions
 }
 
 // Ref types reported in the verification results
@@ -49,6 +50,7 @@ func (vco *verifyCommitOptions) Validate() error {
 		vco.revisionOpts.Validate(),
 		vco.verifierOptions.Validate(),
 		vco.outputOptions.Validate(),
+		vco.fromOptions.Validate(),
 	}
 	return errors.Join(errs...)
 }
@@ -58,6 +60,7 @@ func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 	vco.commitOptions.AddFlags(cmd)
 	vco.verifierOptions.AddFlags(cmd)
 	vco.outputOptions.AddFlags(cmd)
+	vco.fromOptions.AddFlags(cmd)
 }
 
 // addVerify registers the verify command along with its deprecated
@@ -108,6 +111,8 @@ func newVerifyCommand(use string, hidden bool, deprecated string) *cobra.Command
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
 				sourcetool.WithExpectedIdentity(opts.expectedIssuer, opts.expectedSan),
+				sourcetool.WithGithubCollector(opts.readGithub()),
+				sourcetool.WithNotesCollector(opts.readNotes()),
 			)
 			if err != nil {
 				return err

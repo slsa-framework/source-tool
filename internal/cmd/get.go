@@ -15,13 +15,14 @@ import (
 
 type getOptions struct {
 	revisionOpts
+	fromOptions
 	provenance      bool
 	vsa             bool
 	requireVerified bool
 }
 
 func (o *getOptions) Validate() error {
-	errs := []error{o.revisionOpts.Validate()}
+	errs := []error{o.revisionOpts.Validate(), o.fromOptions.Validate()}
 	if !o.provenance && !o.vsa {
 		errs = append(errs, errors.New("nothing to get: enable --provenance and/or --vsa"))
 	}
@@ -30,6 +31,7 @@ func (o *getOptions) Validate() error {
 
 func (o *getOptions) AddFlags(cmd *cobra.Command) {
 	o.revisionOpts.AddFlags(cmd)
+	o.fromOptions.AddFlags(cmd)
 	cmd.PersistentFlags().BoolVar(&o.provenance, "provenance", true, "fetch the source provenance attestation")
 	cmd.PersistentFlags().BoolVar(&o.vsa, "vsa", true, "fetch the verification summary attestation (VSA)")
 	cmd.PersistentFlags().BoolVar(&o.requireVerified, "require-verified", false, "exit non-zero when a fetched attestation fails verification")
@@ -77,6 +79,8 @@ written to stderr but the attestation is still printed. Pass
 
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
+				sourcetool.WithGithubCollector(opts.readGithub()),
+				sourcetool.WithNotesCollector(opts.readNotes()),
 			)
 			if err != nil {
 				return fmt.Errorf("creating sourcetool: %w", err)
