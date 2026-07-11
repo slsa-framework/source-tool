@@ -7,13 +7,13 @@ using GitHub's existing functionality.
 
 * Users create a [policy](#policy) for the repo & branches they want to protect,
   indicating their desired SLSA level. 
-* Users call the .github/workflows/slsa_with_provenance.yml reusable workflow on any
+* Users call the `compute_slsa_source.yml` reusable workflow from
+  [source-actions](https://github.com/slsa-framework/source-actions) on any
   `push` changes to protected branches.
-* The slsa_with_provenance workflow gets the attestations, if any, for the prior
-  commit.
-* The slsa_with_provenance workflow evaluates their controls, the current commit, and
-  prior attestations, to determine the SLSA Source level of the current commit.
-* A VSA, 'source provenance', are created within the workflow, and
+* The workflow gets the attestations, if any, for the prior commit.
+* The workflow evaluates their controls, the current commit, and prior
+  attestations, to determine the SLSA Source level of the current commit.
+* A VSA and 'source provenance' are created within the workflow, and
   are stored in [git notes](https://git-scm.com/docs/git-notes) for the current commit.
 * Downstream users can get the VSA for the revision they're consuming by getting the
   git notes for that revision.
@@ -39,7 +39,7 @@ purposes and may be deprecated.
 
 TODO: Should we cut this section and feature?
 
-In the control-only approach the `sourcetool` with the `checklevel` command fetches the
+In the control-only approach the `sourcetool status` command fetches the
 rulesets that are _currently_ enabled on the source repository.
 
 If all of the following are true:
@@ -243,7 +243,7 @@ Source provenance covers changes to a branch.  It indicates:
       }
     }
   ],
-  "predicateType": "https://github.com/slsa-framework/source-tool/source-provenance/v1-draft",
+  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft",
   "predicate": {
     "activity_type": "pr_merge",
     "actor": "TomHennen",

@@ -16,6 +16,7 @@ type verifyCommitOptions struct {
 	verifierOptions
 	outputOptions
 	revisionOpts
+	fromOptions
 }
 
 // Ref types reported in the verification results
@@ -49,6 +50,7 @@ func (vco *verifyCommitOptions) Validate() error {
 		vco.revisionOpts.Validate(),
 		vco.verifierOptions.Validate(),
 		vco.outputOptions.Validate(),
+		vco.fromOptions.Validate(),
 	}
 	return errors.Join(errs...)
 }
@@ -58,14 +60,25 @@ func (vco *verifyCommitOptions) AddFlags(cmd *cobra.Command) {
 	vco.commitOptions.AddFlags(cmd)
 	vco.verifierOptions.AddFlags(cmd)
 	vco.outputOptions.AddFlags(cmd)
+	vco.fromOptions.AddFlags(cmd)
 }
 
-func addVerifyCommit(cmd *cobra.Command) {
+// addVerify registers the verify command along with its deprecated
+// "verifycommit" alias, which is kept hidden and functional during the
+// phase-out period.
+func addVerify(cmd *cobra.Command) {
+	cmd.AddCommand(newVerifyCommand("verify", false, ""))
+	cmd.AddCommand(newVerifyCommand("verifycommit", true, `use "sourcetool verify" instead`))
+}
+
+func newVerifyCommand(use string, hidden bool, deprecated string) *cobra.Command {
 	opts := verifyCommitOptions{}
 	verifyCommitCmd := &cobra.Command{
-		Use:     "verifycommit",
-		GroupID: cmdGroupVerification,
-		Short:   "Verifies the specified commit is valid",
+		Use:        use,
+		GroupID:    cmdGroupVerification,
+		Hidden:     hidden,
+		Deprecated: deprecated,
+		Short:      "Verifies the specified commit is valid",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				if err := opts.ParseLocator(args[0]); err != nil {
@@ -98,20 +111,25 @@ func addVerifyCommit(cmd *cobra.Command) {
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
 				sourcetool.WithExpectedIdentity(opts.expectedIssuer, opts.expectedSan),
+				sourcetool.WithGithubCollector(opts.readGithub()),
+				sourcetool.WithNotesCollector(opts.readNotes()),
 			)
 			if err != nil {
 				return err
 			}
 
+			// A tag is the more specific selector, so check it first: the
+			// branch is populated with the repository default when the user
+			// does not pass one, which would otherwise mask a --tag request.
 			var refType string
 			var refName string
 			switch {
-			case opts.branch != "":
-				refType = refTypeBranch
-				refName = opts.branch
 			case opts.tag != "":
 				refType = refTypeTag
 				refName = opts.tag
+			case opts.branch != "":
+				refType = refTypeBranch
+				refName = opts.branch
 			default:
 				return fmt.Errorf("must specify either branch or tag")
 			}
@@ -142,6 +160,6 @@ func addVerifyCommit(cmd *cobra.Command) {
 			return opts.writeResult(result)
 		},
 	}
-	opts.AddFlags(cmd)
-	cmd.AddCommand(verifyCommitCmd)
+	opts.AddFlags(verifyCommitCmd)
+	return verifyCommitCmd
 }

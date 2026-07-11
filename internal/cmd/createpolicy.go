@@ -30,12 +30,15 @@ func addCreatePolicy(parentCmd *cobra.Command) {
 	opts := createPolicyOptions{}
 
 	createpolicyCmd := &cobra.Command{
-		Use:     "createpolicy",
-		GroupID: cmdGroupPolicy,
-		Short:   "Creates a policy in a local copy of source-policies",
+		Use:   "createpolicy",
+		Short: "Creates a policy in a local copy of source-policies",
 		Long: `Creates a SLSA source policy in a local copy of source-policies.
 
 		The created policy should then be sent as a PR to slsa-framework/source-policies.`,
+		// Deprecated in favor of "sourcetool policy create". Kept hidden and
+		// functional during the phase-out period.
+		Hidden:     true,
+		Deprecated: `use "sourcetool policy create" instead`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

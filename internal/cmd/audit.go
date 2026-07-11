@@ -63,6 +63,7 @@ type auditOpts struct {
 	branchOptions
 	verifierOptions
 	outputOptions
+	fromOptions
 	auditDepth   int
 	endingCommit string
 	auditMode    AuditMode
@@ -104,6 +105,7 @@ func (ao *auditOpts) Validate() error {
 		ao.branchOptions.Validate(),
 		ao.verifierOptions.Validate(),
 		ao.outputOptions.Validate(),
+		ao.fromOptions.Validate(),
 	}
 	return errors.Join(errs...)
 }
@@ -112,6 +114,7 @@ func (ao *auditOpts) AddFlags(cmd *cobra.Command) {
 	ao.branchOptions.AddFlags(cmd)
 	ao.verifierOptions.AddFlags(cmd)
 	ao.outputOptions.AddFlags(cmd)
+	ao.fromOptions.AddFlags(cmd)
 	cmd.PersistentFlags().IntVar(&ao.auditDepth, "depth", 0, "The max number of revisions to audit (depth <= audit all revisions).")
 	cmd.PersistentFlags().StringVar(&ao.endingCommit, "ending-commit", "", "The commit to stop auditing at.")
 	ao.auditMode = AuditModeBasic
@@ -165,6 +168,8 @@ Future:
 			srctool, err := sourcetool.New(
 				sourcetool.WithAuthenticator(authenticator),
 				sourcetool.WithExpectedIdentity(opts.expectedIssuer, opts.expectedSan),
+				sourcetool.WithGithubCollector(opts.readGithub()),
+				sourcetool.WithNotesCollector(opts.readNotes()),
 			)
 			if err != nil {
 				return err

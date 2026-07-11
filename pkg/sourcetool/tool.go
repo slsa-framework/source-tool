@@ -351,9 +351,29 @@ type AttestOptions struct {
 	OutputPath  string
 	UseStdOut   bool
 	Push        bool
+
+	// Provenance and VSA select which attestations are written to the output.
+	// VSA also gates policy evaluation: when false, the policy is not consulted
+	// and only the provenance is produced.
+	Provenance bool
+	VSA        bool
 }
 
 type AttOpFn func(*AttestOptions) error
+
+func WithProvenance(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.Provenance = s
+		return nil
+	}
+}
+
+func WithVSA(s bool) AttOpFn {
+	return func(ao *AttestOptions) error {
+		ao.VSA = s
+		return nil
+	}
+}
 
 func WithLocalPolicy(p string) AttOpFn {
 	return func(ao *AttestOptions) error {
@@ -391,8 +411,10 @@ func WithPush(s bool) AttOpFn {
 }
 
 var defaultAttestOptions = AttestOptions{
-	Sign:      true,
-	UseStdOut: true,
+	Sign:       true,
+	UseStdOut:  true,
+	Provenance: true,
+	VSA:        true,
 }
 
 // AttestationResult is the outcome of attesting a revision.
@@ -428,6 +450,11 @@ func (t *Tool) AttestRevision(
 		}
 	}
 
+	// At least one attestation kind must be selected.
+	if !opts.Provenance && !opts.VSA {
+		return nil, errors.New("nothing to generate: enable provenance and/or the VSA")
+	}
+
 	var vsaData string
 	var provenanceData []byte
 	var verifiedLevels slsa.SourceVerifiedLevels
@@ -438,32 +465,36 @@ func (t *Tool) AttestRevision(
 	tag, isTag := rev.(*models.Tag)
 
 	if isCommit {
-		// 1. Create the provenance attestation
+		// Create the provenance attestation. It is always built: it is emitted
+		// when requested and it is the basis for the policy evaluation below.
 		prov, err := t.Attester().CreateSourceProvenance(ctx, branch, rev.GetCommit())
 		if err != nil {
 			return nil, err
 		}
 
-		// 2. Run the provenance against the policy to determine the verified
-		// levels. Any level below the policy target is reported as a shortfall, not
-		// an error. We still emit the provenance so the chain is never broken
-		// just because the policy levels are not met immediately.
-		pe := policy.NewPolicyEvaluator()
-		pe.UseLocalPolicy = opts.LocalPolicy
-		result, err := pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
-		if err != nil {
-			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+		if opts.Provenance {
+			provenanceData, err = protojson.Marshal(prov)
+			if err != nil {
+				return nil, fmt.Errorf("generating provenance attestation: %w", err)
+			}
 		}
-		verifiedLevels, policyPath, shortfall = result.VerifiedLevels, result.PolicyPath, result.Shortfall
 
-		provenanceData, err = protojson.Marshal(prov)
-		if err != nil {
-			return nil, fmt.Errorf("generating provenance attestation: %w", err)
+		// The VSA is the only policy-dependent output. Run the provenance
+		// against the policy only when a VSA is requested. Any level below the
+		// policy target is reported as a shortfall, not an error.
+		if opts.VSA {
+			pe := policy.NewPolicyEvaluator()
+			pe.UseLocalPolicy = opts.LocalPolicy
+			result, err := pe.EvaluateSourceProv(ctx, branch.Repository, branch, prov)
+			if err != nil {
+				return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+			}
+			verifiedLevels, policyPath, shortfall = result.VerifiedLevels, result.PolicyPath, result.Shortfall
 		}
 	}
 
 	if isTag {
-		// 1. Create the provenance attestation
+		// Create the tag provenance attestation.
 		prov, err := t.Attester().CreateTagProvenance(ctx, branch, tag, "")
 		if err != nil {
 			return nil, err
@@ -479,63 +510,79 @@ func (t *Tool) AttestRevision(
 			)
 		}
 
-		// 2. Run the provenance against the policy to determine the verified levels.
-		pe := policy.NewPolicyEvaluator()
-		pe.UseLocalPolicy = opts.LocalPolicy
-		result, err := pe.EvaluateTagProv(ctx, branch.Repository, prov)
-		if err != nil {
-			return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+		if opts.Provenance {
+			provenanceData, err = protojson.Marshal(prov)
+			if err != nil {
+				return nil, fmt.Errorf("generating tag provenance attestation: %w", err)
+			}
 		}
-		verifiedLevels, policyPath, shortfall = result.VerifiedLevels, result.PolicyPath, result.Shortfall
 
-		provenanceData, err = protojson.Marshal(prov)
-		if err != nil {
-			return nil, fmt.Errorf("generating tag provenance attestation: %w", err)
+		// Run the provenance against the policy only when a VSA is requested.
+		if opts.VSA {
+			pe := policy.NewPolicyEvaluator()
+			pe.UseLocalPolicy = opts.LocalPolicy
+			result, err := pe.EvaluateTagProv(ctx, branch.Repository, prov)
+			if err != nil {
+				return nil, fmt.Errorf("evaluating provenance with policy: %w", err)
+			}
+			verifiedLevels, policyPath, shortfall = result.VerifiedLevels, result.PolicyPath, result.Shortfall
 		}
 	}
 
-	// create vsa
-	vsaData, err = attest.CreateUnsignedSourceVsa(
-		branch, rev.GetCommit(), verifiedLevels, policyPath,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating VSA: %w", err)
+	if opts.VSA {
+		vsaData, err = attest.CreateUnsignedSourceVsa(
+			branch, rev.GetCommit(), verifiedLevels, policyPath,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating VSA: %w", err)
+		}
+	}
+
+	// Assemble the selected attestations into the output bundle.
+	var attestations [][]byte
+	if opts.Provenance {
+		attestations = append(attestations, provenanceData)
+	}
+	if opts.VSA {
+		attestations = append(attestations, []byte(vsaData))
 	}
 
 	if opts.Sign {
-		provenanceDataString, err := attest.Sign(string(provenanceData))
-		if err != nil {
-			return nil, err
-		}
-		provenanceData = []byte(provenanceDataString)
-
-		vsaData, err = attest.Sign(vsaData)
-		if err != nil {
-			return nil, err
+		for i, data := range attestations {
+			signed, err := attest.Sign(string(data))
+			if err != nil {
+				return nil, err
+			}
+			attestations[i] = []byte(signed)
 		}
 	}
 
+	// Serialize the bundle as JSONL (one attestation per line).
+	var bundle []byte
+	for _, data := range attestations {
+		bundle = append(bundle, data...)
+		bundle = append(bundle, '\n')
+	}
+
 	if opts.UseStdOut {
-		fmt.Printf("%s\n%s\n", string(provenanceData), vsaData)
+		fmt.Printf("%s", string(bundle))
 	}
 
 	// Write the bundle to disk only when an output path was requested. The push
 	// below works from memory, so there is no longer a need for a temp file.
 	if opts.OutputPath != "" {
-		if err := os.WriteFile(
-			opts.OutputPath, fmt.Appendf(nil, "%s\n%s\n", string(provenanceData), vsaData), os.FileMode(0o600),
-		); err != nil {
+		if err := os.WriteFile(opts.OutputPath, bundle, os.FileMode(0o600)); err != nil {
 			return nil, fmt.Errorf("writing attestations: %w", err)
 		}
 	}
 
 	if opts.Push {
 		// Push the attestations from memory rather than re-reading the bundle
-		// file: the file holds two records (provenance + VSA) as JSONL, which the
-		// storer's single-document parser can't ingest. Parse each signed bundle
+		// file: the bundle holds the records as JSONL, which the storer's
+		// single-document parser can't ingest. Parse each signed bundle
 		// individually and store the envelopes directly.
 		var envelopes []attestation.Envelope
-		for _, data := range [][]byte{provenanceData, []byte(vsaData)} {
+		for _, data := range attestations {
 			parsed, err := envelope.Parsers.Parse(bytes.NewReader(data))
 			if err != nil {
 				return nil, fmt.Errorf("parsing attestation to push: %w", err)
@@ -552,6 +599,22 @@ func (t *Tool) AttestRevision(
 		VerifiedLevels: verifiedLevels,
 		Shortfall:      shortfall,
 	}, nil
+}
+
+// GetRevisionAttestations fetches the stored attestations for a revision. The
+// includeProvenance and includeVSA flags select which predicate types are
+// requested. The returned envelopes carry their verification result and are not
+// filtered by it, so callers can print or inspect attestations that fail to
+// verify.
+func (t *Tool) GetRevisionAttestations(ctx context.Context, branch *models.Branch, rev models.Revision, includeProvenance, includeVSA bool) ([]attest.FetchedEnvelope, error) {
+	var types []attestation.PredicateType
+	if includeProvenance {
+		types = append(types, attest.ProvenancePredicateTypes...)
+	}
+	if includeVSA {
+		types = append(types, attest.VSAPredicateTypes...)
+	}
+	return t.Attester().FetchRevisionAttestations(ctx, branch, rev.GetCommit(), types...)
 }
 
 // getAttestationStore returns a collector with storer reposistories to push

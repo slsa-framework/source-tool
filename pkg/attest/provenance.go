@@ -393,3 +393,66 @@ func (a *Attester) CreateTagProvenance(ctx context.Context, branch *models.Branc
 
 	return addPredToStatement(&curProvPred, provenance.TagProvPredicateType, tag.Commit.SHA)
 }
+
+// FetchedEnvelope carries an attestation fetched for a revision together with
+// its predicate type, its serialized predicate data, and the result of
+// verifying its signature and signer identity.
+type FetchedEnvelope struct {
+	PredicateType string
+	Data          []byte
+	VerifyErr     error
+}
+
+// Predicate type sets used when fetching attestations for a revision.
+var (
+	ProvenancePredicateTypes = []attestation.PredicateType{
+		attestation.PredicateType(provenance.SourceProvPredicateType),
+		attestation.PredicateType(provenance.TagProvPredicateType),
+	}
+	VSAPredicateTypes = []attestation.PredicateType{
+		attestation.PredicateType(VsaPredicateType),
+	}
+)
+
+// FetchRevisionAttestations returns the attestations stored for a commit that
+// match any of the given predicate types. Unlike GetRevisionVSA and
+// GetRevisionProvenance it does not discard envelopes that fail verification.
+// Each returned entry carries the result of verifying it so callers can decide
+// what to do with an attestation that fails.
+func (a *Attester) FetchRevisionAttestations(ctx context.Context, branch *models.Branch, commit *models.Commit, predicateTypes ...attestation.PredicateType) ([]FetchedEnvelope, error) {
+	if commit == nil {
+		return nil, errors.New("commit is nil")
+	}
+	c, err := a.getCollector(branch)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get collector: %w", err)
+	}
+
+	types := map[attestation.PredicateType]struct{}{}
+	for _, pt := range predicateTypes {
+		types[pt] = struct{}{}
+	}
+	matcher := &filters.PredicateTypeMatcher{PredicateTypes: types}
+
+	atts, err := c.FetchAttestationsBySubject(
+		ctx, []attestation.Subject{commit.ToResourceDescriptor()},
+		collector.WithQuery(attestation.NewQuery().WithFilter(matcher)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("fetching attestations: %w", err)
+	}
+
+	result := make([]FetchedEnvelope, 0, len(atts))
+	for _, att := range atts {
+		pred := att.GetPredicate()
+		if pred == nil {
+			continue
+		}
+		result = append(result, FetchedEnvelope{
+			PredicateType: string(pred.GetType()),
+			Data:          pred.GetData(),
+			VerifyErr:     a.verifier.VerifyEnvelope(att),
+		})
+	}
+	return result, nil
+}

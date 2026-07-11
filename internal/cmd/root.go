@@ -18,7 +18,7 @@ var githubToken string
 // Command group IDs used to organize the subcommands in the help screen.
 const (
 	cmdGroupVerification  = "verification"
-	cmdGroupAssessment    = "assessment"
+	cmdGroupAttestation   = "attestation"
 	cmdGroupPolicy        = "policy"
 	cmdGroupConfiguration = "configuration"
 )
@@ -50,7 +50,11 @@ controls and much more.
 `,
 	}
 
-	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "the github token to use for auth")
+	rootCmd.PersistentFlags().StringVar(&githubToken, "github-token", "", "the github token to use for auth")
+
+	// Hidden snake_case alias kept for backward compatibility.
+	rootCmd.PersistentFlags().StringVar(&githubToken, "github_token", "", "")
+	rootCmd.PersistentFlags().MarkHidden("github_token") //nolint:errcheck,gosec
 
 	// Define command groups for better organization
 	rootCmd.AddGroup(
@@ -59,8 +63,8 @@ controls and much more.
 			Title: "Verification Commands:",
 		},
 		&cobra.Group{
-			ID:    cmdGroupAssessment,
-			Title: "Assessment Commands:",
+			ID:    cmdGroupAttestation,
+			Title: "Attestation Commands:",
 		},
 		&cobra.Group{
 			ID:    cmdGroupPolicy,
@@ -73,23 +77,27 @@ controls and much more.
 	)
 
 	// Verification commands
-	addVerifyCommit(rootCmd)
+	addVerify(rootCmd)
 	addAudit(rootCmd)
-
-	// Assessment commands
+	addGet(rootCmd)
 	addStatus(rootCmd)
-	addCheckLevel(rootCmd)
-	addCheckLevelProv(rootCmd)
-	addCheckTag(rootCmd)
-	addProv(rootCmd)
+
+	// Attestation commands
+	addAttest(rootCmd)
 
 	// Policy commands
 	addPolicy(rootCmd)
-	addCreatePolicy(rootCmd)
 
 	// Configuration & setup commands
 	addSetup(rootCmd)
 	addAuth(rootCmd)
+
+	// Hidden, deprecated commands kept for the phase-out period.
+	addCheckLevel(rootCmd)
+	addCheckLevelProv(rootCmd)
+	addCheckTag(rootCmd)
+	addProv(rootCmd)
+	addCreatePolicy(rootCmd)
 
 	return rootCmd
 }

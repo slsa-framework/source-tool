@@ -225,8 +225,14 @@ func (vo *verifierOptions) Validate() error {
 }
 
 func (vo *verifierOptions) AddFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&vo.expectedIssuer, "expected_issuer", "", "The expected issuer of the attestation signer certificate")
-	cmd.PersistentFlags().StringVar(&vo.expectedSan, "expected_san", "", "The expected SAN string in the attestation signer certificate")
+	cmd.PersistentFlags().StringVar(&vo.expectedIssuer, "expected-issuer", "", "The expected issuer of the attestation signer certificate")
+	cmd.PersistentFlags().StringVar(&vo.expectedSan, "expected-san", "", "The expected SAN string in the attestation signer certificate")
+
+	// Hidden snake_case aliases kept for backward compatibility.
+	cmd.PersistentFlags().StringVar(&vo.expectedIssuer, "expected_issuer", "", "")
+	cmd.PersistentFlags().MarkHidden("expected_issuer") //nolint:errcheck,gosec
+	cmd.PersistentFlags().StringVar(&vo.expectedSan, "expected_san", "", "")
+	cmd.PersistentFlags().MarkHidden("expected_san") //nolint:errcheck,gosec
 }
 
 type tagOptions struct {
@@ -302,7 +308,7 @@ func (ro *revisionOpts) ParseLocator(lString string) error {
 	}
 
 	if components.Branch != "" {
-		ro.tag = components.Branch
+		ro.branch = components.Branch
 	}
 
 	return nil

@@ -95,10 +95,11 @@ func addCheckLevelProv(parentCmd *cobra.Command) {
 	opts := &checkLevelProvOpts{}
 
 	checklevelprovCmd := &cobra.Command{
-		Use:     "checklevelprov",
-		GroupID: cmdGroupAssessment,
-		Example: `sourcetool checklevelprov owner/repo --push=note`,
-		Short:   "Checks the given commit against policy using & creating provenance",
+		Use:        "checklevelprov",
+		Hidden:     true,
+		Deprecated: `use "sourcetool attest" instead`,
+		Example:    `sourcetool checklevelprov owner/repo --push=note`,
+		Short:      "Checks the given commit against policy using & creating provenance",
 		Long: `Checks the given commit against policy using & creating provenance.
 
 The checklevelprov subcommand computes the SLSA level of a commit by retrieving
