@@ -220,6 +220,9 @@ sourcetool is about to perform the following actions on your behalf:
 				cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()},
 			)
 			if err != nil {
+				if errors.Is(err, models.ErrUnsupportedRepoPlan) {
+					return unsupportedRepoPlanError(opts.GetRepository().Path)
+				}
 				return fmt.Errorf("onboarding repo: %w", err)
 			}
 
@@ -446,6 +449,10 @@ a fork of the repository you want to protect.
 				cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cs,
 			)
 			if err != nil {
+				if errors.Is(err, models.ErrUnsupportedRepoPlan) {
+					return unsupportedRepoPlanError(opts.GetRepository().Path)
+				}
+
 				// if strings.Contains(err.Error(), models.ErrProtectionAlreadyInPlace.Error()) {
 				if errors.Is(err, models.ErrProtectionAlreadyInPlace) {
 					fmt.Printf("\n   ℹ️  Controls already enabled on %s\n\n", opts.GetRepository().Path)

@@ -149,6 +149,16 @@ func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, b
 		return fmt.Errorf("verifying options: %w", err)
 	}
 
+	// Read the current controls before changing anything. This is a read-only
+	// call that fails fast with models.ErrUnsupportedRepoPlan when the repo is
+	// private on a free plan, letting us warn the user before we mutate the
+	// repository.
+	for _, branch := range branches {
+		if _, err := t.impl.GetBranchControls(ctx, t.backend, branch); err != nil {
+			return fmt.Errorf("checking repository controls: %w", err)
+		}
+	}
+
 	if err := t.backend.ConfigureControls(
 		repo, branches, []models.ControlConfiguration{
 			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,

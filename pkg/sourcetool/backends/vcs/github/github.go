@@ -8,7 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
+
+	"github.com/google/go-github/v69/github"
 
 	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/auth"
@@ -16,6 +19,28 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
+
+// asUnsupportedPlanError inspects an error returned from the GitHub API and,
+// when it is a 403 raised because the repository's plan does not include the
+// requested feature (for example reading branch rulesets on a private repo on a
+// free plan), returns models.ErrUnsupportedRepoPlan wrapping the original
+// error. It returns nil if err is not that case so callers can fall through to
+// their normal handling. The check is done on the typed *github.ErrorResponse
+// rather than on the error string so it does not break if GitHub rewords the
+// message.
+func asUnsupportedPlanError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var ghErr *github.ErrorResponse
+	if !errors.As(err, &ghErr) {
+		return nil
+	}
+	if ghErr.Response == nil || ghErr.Response.StatusCode != http.StatusForbidden {
+		return nil
+	}
+	return fmt.Errorf("%w: %w", models.ErrUnsupportedRepoPlan, err)
+}
 
 // InherentControls are the controls that are always true because we are
 // in git and/org GitHub.
@@ -146,6 +171,12 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 	// legacy checks sourcetool did (continuity, review, RequiredChecks, tag hygiene)
 	activeControls, err := ghc.GetBranchControls(ctx, branch.FullRef())
 	if err != nil {
+		// Reading branch rules 403s on private repos that are on a free plan.
+		// Surface a typed, actionable error before anything else happens so the
+		// caller can warn the user instead of leaking the raw API message.
+		if planErr := asUnsupportedPlanError(err); planErr != nil {
+			return nil, planErr
+		}
 		return nil, fmt.Errorf("checking status: %w", err)
 	}
 

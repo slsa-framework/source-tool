@@ -344,3 +344,32 @@ func TestOnboardRepository(t *testing.T) {
 		})
 	}
 }
+
+// TestOnboardRepositoryUnsupportedPlanWarnsBeforeMutation reproduces
+// slsa-framework/source-tool#326: when the repository plan does not support
+// reading branch rules (a private repo on a free plan returns a 403), the
+// onboard flow must surface models.ErrUnsupportedRepoPlan and must NOT perform
+// any mutating action (it must not call the backend ConfigureControls).
+func TestOnboardRepositoryUnsupportedPlanWarnsBeforeMutation(t *testing.T) {
+	t.Parallel()
+
+	timp := &sourcetoolfakes.FakeToolImplementation{}
+	timp.VerifyOptionsForFullOnboardReturns(nil)
+	// The pre-mutation read trips the plan limitation.
+	timp.GetBranchControlsReturns(nil, models.ErrUnsupportedRepoPlan)
+
+	bend := &modelsfakes.FakeVcsBackend{}
+
+	tool := &Tool{impl: timp, backend: bend}
+
+	err := tool.OnboardRepository(
+		t.Context(), &models.Repository{Path: "example/repo"}, []*models.Branch{{Name: "main"}},
+	)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, models.ErrUnsupportedRepoPlan)
+
+	// The mutation must never run: ConfigureControls is the destructive call and
+	// it has to stay at zero invocations.
+	require.Equal(t, 0, bend.ConfigureControlsCallCount(), "must not mutate the repository after an unsupported-plan warning")
+}
