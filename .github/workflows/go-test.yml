@@ -22,11 +22,11 @@ jobs:
       previous: ${{ steps.go-versions.outputs.GO_VERSION_PREVIOUS }}
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: carabiner-dev/actions/go/versions@94f29392187fe5082d1195a7d4cae3a7ddf09d9c # v1.2.1
+      - uses: carabiner-dev/actions/go/versions@2a4b2cd115ede14629b03ef7e77586d3269d4c72 # v1.2.3
         id: go-versions
 
   unit-test:
@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -73,11 +73,11 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: carabiner-dev/actions/go/versions@94f29392187fe5082d1195a7d4cae3a7ddf09d9c # v1.2.1
+      - uses: carabiner-dev/actions/go/versions@2a4b2cd115ede14629b03ef7e77586d3269d4c72 # v1.2.3
         id: go-versions
 
       - name: Set up Go
