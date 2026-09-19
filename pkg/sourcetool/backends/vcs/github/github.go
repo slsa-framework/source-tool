@@ -66,11 +66,28 @@ var InherentControls = slsa.ControlNameSet{
 	// slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
 }
 
-func New(options *models.BackendOptions) *Backend {
-	return &Backend{
+// Option configures a GitHub backend.
+type Option func(*Backend)
+
+// WithVerifier configures the verifier used when reading prior attestations.
+func WithVerifier(verifier attest.Verifier) Option {
+	return func(backend *Backend) {
+		if verifier != nil {
+			backend.verifier = verifier
+		}
+	}
+}
+
+func New(options *models.BackendOptions, opts ...Option) *Backend {
+	backend := &Backend{
 		authenticator: auth.New(),
 		Options:       options,
+		verifier:      attest.GetDefaultVerifier(),
 	}
+	for _, opt := range opts {
+		opt(backend)
+	}
+	return backend
 }
 
 type Options struct {
@@ -81,6 +98,7 @@ type Options struct {
 type Backend struct {
 	authenticator *auth.Authenticator
 	Options       *models.BackendOptions
+	verifier      attest.Verifier
 }
 
 // getGitHubConnection builds a github connector to a repository
@@ -152,7 +170,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 	// We need to manually check for PROVENANCE_AVAILABLE which is not
 	// handled by ghcontrol
 	attester, err := attest.NewAttester(
-		attest.WithBackend(b), attest.WithVerifier(attest.GetDefaultVerifier()),
+		attest.WithBackend(b), attest.WithVerifier(b.verifier),
 		attest.WithAuthenticator(b.authenticator),
 	)
 	if err != nil {
