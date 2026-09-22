@@ -22,7 +22,7 @@ jobs:
     steps:
 
       - name: Setup bnd
-        uses: carabiner-dev/actions/install/bnd@32587e82f960d49b36101e8c45d1956e511965d3 # v1.2.9
+        uses: carabiner-dev/actions/install/bnd@d41fe10fe88deaf493ce026007da73738b9f570c # v1.3.0
 
       - name: Check out code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
