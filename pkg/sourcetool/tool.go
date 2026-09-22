@@ -52,8 +52,6 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 		}
 	}
 
-	t.backend = github.New(&t.Options.BackendOptions)
-
 	// Build the attestation verifier, honoring any identity overrides
 	verifierOptions := attest.DefaultVerifierOptions
 	if t.Options.ExpectedIssuer != "" {
@@ -66,10 +64,16 @@ func New(funcs ...ConfigFn) (*Tool, error) {
 		verifierOptions.ExpectedSanPrefix = ""
 		verifierOptions.AlternateSans = nil
 	}
+	verifier := attest.NewBndVerifier(verifierOptions)
+
+	t.backend = github.New(
+		&t.Options.BackendOptions,
+		github.WithVerifier(verifier),
+	)
 
 	// Create the tool's attester
 	attester, err := attest.NewAttester(
-		attest.WithVerifier(attest.NewBndVerifier(verifierOptions)),
+		attest.WithVerifier(verifier),
 		attest.WithBackend(t.backend),
 		attest.WithGithubCollector(t.Options.InitGHCollector),
 		attest.WithNotesCollector(t.Options.InitNotesCollector),
