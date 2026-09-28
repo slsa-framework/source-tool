@@ -17,7 +17,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.13.0
 	github.com/migueleliasweb/go-github-mock v1.5.0
 	github.com/sigstore/sigstore-go v1.3.0
-	github.com/slsa-framework/protos v0.0.0-20260905230943-612c99695f3b
+	github.com/slsa-framework/protos v0.0.0-20260928155916-9fa868b2a756
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/mod v0.41.0
