@@ -30,7 +30,7 @@ func GetSourceProvPred(statement *intoto.Statement) (*provenance.SourceProvenanc
 	if statement == nil {
 		return nil, errors.New("nil statement")
 	}
-	if statement.GetPredicateType() != provenance.SourceProvPredicateType {
+	if !provenance.IsSourceProvPredicateType(statement.GetPredicateType()) {
 		return nil, fmt.Errorf("unsupported predicate type: %s", statement.GetPredicateType())
 	}
 	if statement.GetPredicate() == nil {
@@ -57,7 +57,7 @@ func GetTagProvPred(statement *intoto.Statement) (*provenance.TagProvenancePred,
 	if statement == nil {
 		return nil, errors.New("nil statement")
 	}
-	if statement.GetPredicateType() != provenance.TagProvPredicateType {
+	if !provenance.IsTagProvPredicateType(statement.GetPredicateType()) {
 		return nil, fmt.Errorf("unsupported predicate type: %s", statement.GetPredicateType())
 	}
 	if statement.GetPredicate() == nil {
@@ -246,7 +246,8 @@ func (a *Attester) GetRevisionProvenance(ctx context.Context, branch *models.Bra
 	// Configure the matcher to filter all the predicate types of the provenance
 	matcher := &filters.PredicateTypeMatcher{
 		PredicateTypes: map[attestation.PredicateType]struct{}{
-			attestation.PredicateType(provenance.SourceProvPredicateType): {},
+			attestation.PredicateType(provenance.SourceProvPredicateType):      {},
+			attestation.PredicateType(provenance.SourceProvPredicateTypeDraft): {},
 		},
 	}
 
@@ -411,6 +412,8 @@ var (
 	ProvenancePredicateTypes = []attestation.PredicateType{
 		attestation.PredicateType(provenance.SourceProvPredicateType),
 		attestation.PredicateType(provenance.TagProvPredicateType),
+		attestation.PredicateType(provenance.SourceProvPredicateTypeDraft),
+		attestation.PredicateType(provenance.TagProvPredicateTypeDraft),
 	}
 	VSAPredicateTypes = []attestation.PredicateType{
 		attestation.PredicateType(VsaPredicateType),

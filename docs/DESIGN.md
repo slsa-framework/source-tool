@@ -243,7 +243,7 @@ Source provenance covers changes to a branch.  It indicates:
       }
     }
   ],
-  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft",
+  "predicateType": "https://github.com/slsa-framework/source-tool/source-provenance/v1",
   "predicate": {
     "activity_type": "pr_merge",
     "actor": "TomHennen",
@@ -296,7 +296,7 @@ Tag provenance records a tag creation event.  It indicates:
       }
     }
   ],
-  "predicateType": "https://github.com/slsa-framework/slsa-source-poc/tag-provenance/v1-draft",
+  "predicateType": "https://github.com/slsa-framework/source-tool/tag-provenance/v1",
   "predicate": {
     "actor": "TomHennen",
     "controls": [

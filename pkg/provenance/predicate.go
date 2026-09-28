@@ -9,13 +9,33 @@
 package provenance
 
 import (
+	"slices"
+
 	sourcetoolv1 "github.com/slsa-framework/protos/sourcetool/v1"
 )
 
+// Predicate types of the statements source-tool issues. The draft types are
+// what source-tool wrote before the predicates were promoted to v1; the
+// payload is the same, and attestations already issued under them remain
+// valid, so readers accept both while writers only emit the v1 types.
 const (
-	SourceProvPredicateType = "https://github.com/slsa-framework/slsa-source-poc/source-provenance/v1-draft"
-	TagProvPredicateType    = "https://github.com/slsa-framework/slsa-source-poc/tag-provenance/v1-draft"
+	SourceProvPredicateType      = sourcetoolv1.PredicateTypeSourceProvenance
+	TagProvPredicateType         = sourcetoolv1.PredicateTypeTagProvenance
+	SourceProvPredicateTypeDraft = sourcetoolv1.PredicateTypeSourceProvenanceDraft
+	TagProvPredicateTypeDraft    = sourcetoolv1.PredicateTypeTagProvenanceDraft
 )
+
+// IsSourceProvPredicateType returns true when predicateType identifies a
+// statement carrying a SourceProvenancePred, in any of its versions.
+func IsSourceProvPredicateType(predicateType string) bool {
+	return slices.Contains(sourcetoolv1.SourceProvenancePredicateTypes, predicateType)
+}
+
+// IsTagProvPredicateType returns true when predicateType identifies a
+// statement carrying a TagProvenancePred, in any of its versions.
+func IsTagProvPredicateType(predicateType string) bool {
+	return slices.Contains(sourcetoolv1.TagProvenancePredicateTypes, predicateType)
+}
 
 type (
 	// SourceProvenancePred is the source provenance predicate.
