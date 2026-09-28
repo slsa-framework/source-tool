@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/slsa-framework/source-tool/pkg/audit"
+	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 )
 
@@ -81,6 +82,27 @@ type AuditCommitResultJSON struct {
 	PriorCommit       string      `json:"prior_commit,omitempty"`
 	Link              string      `json:"link,omitempty"`
 	Error             string      `json:"error,omitempty"`
+}
+
+// ControlJSON is the JSON rendering of a provenance control. The predicate
+// types are protobuf messages meant for protojson, so their timestamps are
+// formatted here before the result goes through encoding/json.
+type ControlJSON struct {
+	Name  string `json:"name"`
+	Since string `json:"since"`
+}
+
+// provControlsToJSON converts provenance controls to their JSON rendering.
+func provControlsToJSON(controls []*provenance.Control) []ControlJSON {
+	ret := make([]ControlJSON, 0, len(controls))
+	for _, c := range controls {
+		var since string
+		if c.GetSince() != nil {
+			since = c.GetSince().AsTime().Format("2006-01-02T15:04:05.000Z")
+		}
+		ret = append(ret, ControlJSON{Name: c.GetName(), Since: since})
+	}
+	return ret
 }
 
 // AuditResultJSON represents the full audit result in JSON format
@@ -314,7 +336,7 @@ func convertAuditResultToJSON(owner, repo string, ar *audit.AuditCommitResult, m
 		}
 
 		if ar.ProvPred != nil {
-			result.ProvControls = ar.ProvPred.GetControls()
+			result.ProvControls = provControlsToJSON(ar.ProvPred.GetControls())
 			result.PrevCommit = ar.ProvPred.GetPrevCommit()
 			result.PriorCommit = ar.PriorCommit
 			matches := ar.ProvPred.GetPrevCommit() == ar.PriorCommit

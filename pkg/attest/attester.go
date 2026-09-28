@@ -184,8 +184,8 @@ func (a *Attester) createCurrentProvenance(ctx context.Context, branch *models.B
 	// ... indeed, but don't set the `since`` date because doing so breaks
 	// checking against policies.
 	// See https://github.com/slsa-framework/source-tool/issues/272
-	if curProvPred.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE.String()) == nil {
-		curProvPred.AddControl(
+	if provenance.GetControl(&curProvPred, slsa.SLSA_SOURCE_SCS_PROVENANCE.String()) == nil {
+		provenance.AddControl(&curProvPred,
 			&provenance.Control{
 				Name: slsa.SLSA_SOURCE_SCS_PROVENANCE.String(),
 			},

@@ -13,6 +13,7 @@ import (
 	"github.com/slsa-framework/source-tool/pkg/attest"
 	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/ghcontrol"
+	"github.com/slsa-framework/source-tool/pkg/provenance"
 	"github.com/slsa-framework/source-tool/pkg/slsa"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
@@ -186,12 +187,12 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		// We carry over the since date from the previous attestation, only if
 		// it > 0 (unix origin)
 		var t *time.Time
-		if ctrl := attestation.GetControl(slsa.SLSA_SOURCE_SCS_PROVENANCE.String()); ctrl != nil {
+		if ctrl := provenance.GetControl(attestation, slsa.SLSA_SOURCE_SCS_PROVENANCE.String()); ctrl != nil {
 			if ctrl.GetSince() != nil && ctrl.GetSince().AsTime().Unix() != 0 {
 				rt := ctrl.GetSince().AsTime()
 				t = &rt
 			}
-		} else if ctrl := attestation.GetControl(slsa.DEPRECATED_ProvenanceAvailable.String()); ctrl != nil {
+		} else if ctrl := provenance.GetControl(attestation, slsa.DEPRECATED_ProvenanceAvailable.String()); ctrl != nil {
 			if ctrl.GetSince() != nil && ctrl.GetSince().AsTime().Unix() != 0 {
 				rt := ctrl.GetSince().AsTime()
 				t = &rt
