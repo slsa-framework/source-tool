@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write # create the release and upload the binaries
+      contents: write # create the release and upload the binaries and the SBOM
 
     outputs:
       tag_name: ${{ steps.tag.outputs.tag_name }}
@@ -48,6 +48,19 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The SBOM is pushed to the release, so the attester picks it up as
+      # one more release asset when it attests the run.
+      - name: Generate SBOM
+        id: sbom
+        uses: carabiner-dev/actions/unpack/sbom@d41fe10fe88deaf493ce026007da73738b9f570c # v1.3.0
+        with:
+          push-to-release: ${{ steps.tag.outputs.tag_name }}
+          # goreleaser leaves its build output under dist/, which unpack
+          # would otherwise scan while discovering codebases.
+          ignore: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   # Attest the release with the SLSA attester: the reusable workflow gives
   # the attester a dedicated job and signs the provenance with the
