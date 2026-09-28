@@ -14,5 +14,5 @@ fakes: ## Rebuild the implementation fakes
 	go generate ./...
 
 .PHONY: proto
-proto: ## Rebuild the policies and provenance predicate from protocol buffer definitions
+proto: ## Rebuild the policy types from the protocol buffer definitions
 	buf generate

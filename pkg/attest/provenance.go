@@ -329,7 +329,7 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 	// There was prior provenance, so update the Since field for each property
 	// to the oldest encountered.
 	for i, curControl := range curProvPred.GetControls() {
-		prevControl := prevProvPred.GetControl(curControl.GetName())
+		prevControl := provenance.GetControl(prevProvPred, curControl.GetName())
 		// No prior version of this control
 		if prevControl == nil {
 			continue
