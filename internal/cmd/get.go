@@ -19,6 +19,7 @@ type getOptions struct {
 	provenance      bool
 	vsa             bool
 	requireVerified bool
+	raw             bool
 }
 
 func (o *getOptions) Validate() error {
@@ -35,6 +36,7 @@ func (o *getOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&o.provenance, "provenance", true, "fetch the source provenance attestation")
 	cmd.PersistentFlags().BoolVar(&o.vsa, "vsa", true, "fetch the verification summary attestation (VSA)")
 	cmd.PersistentFlags().BoolVar(&o.requireVerified, "require-verified", false, "exit non-zero when a fetched attestation fails verification")
+	cmd.PersistentFlags().BoolVar(&o.raw, "raw", false, "print the full signed envelopes as stored instead of the extracted statements")
 }
 
 func addGet(parentCmd *cobra.Command) {
@@ -48,6 +50,11 @@ func addGet(parentCmd *cobra.Command) {
 get retrieves the source provenance and the verification summary
 attestation (VSA) for a commit or a tag and prints them to stdout. Use
 --provenance and --vsa to select which of the two are fetched.
+
+By default get prints the attestation data extracted from the signed
+envelopes. Pass --raw to print instead the full envelopes as they are
+stored in the backing system, including signatures and verification
+material.
 
 Every attestation is verified: if verification fails, a message is
 written to stderr but the attestation is still printed. Pass
@@ -100,7 +107,11 @@ written to stderr but the attestation is still printed. Pass
 
 			verificationFailed := false
 			for _, att := range fetched {
-				fmt.Printf("%s\n", string(att.Data))
+				data := att.Data
+				if opts.raw {
+					data = att.Raw
+				}
+				fmt.Printf("%s\n", string(data))
 				if att.VerifyErr != nil {
 					verificationFailed = true
 					fmt.Fprintf(os.Stderr, "warning: %s attestation failed verification: %v\n", att.PredicateType, att.VerifyErr)

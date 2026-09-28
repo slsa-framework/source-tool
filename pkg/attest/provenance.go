@@ -5,6 +5,7 @@ package attest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -395,11 +396,13 @@ func (a *Attester) CreateTagProvenance(ctx context.Context, branch *models.Branc
 }
 
 // FetchedEnvelope carries an attestation fetched for a revision together with
-// its predicate type, its serialized predicate data, and the result of
-// verifying its signature and signer identity.
+// its predicate type, its serialized predicate data, the envelope as stored in
+// the backing system, and the result of verifying its signature and signer
+// identity.
 type FetchedEnvelope struct {
 	PredicateType string
 	Data          []byte
+	Raw           []byte
 	VerifyErr     error
 }
 
@@ -448,9 +451,16 @@ func (a *Attester) FetchRevisionAttestations(ctx context.Context, branch *models
 		if pred == nil {
 			continue
 		}
+		// Serializing the envelope reproduces its stored form: the storers
+		// write envelopes with json.Marshal too.
+		raw, err := json.Marshal(att)
+		if err != nil {
+			return nil, fmt.Errorf("serializing envelope: %w", err)
+		}
 		result = append(result, FetchedEnvelope{
 			PredicateType: string(pred.GetType()),
 			Data:          pred.GetData(),
+			Raw:           raw,
 			VerifyErr:     a.verifier.VerifyEnvelope(att),
 		})
 	}
