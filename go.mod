@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/in-toto/attestation v1.2.0
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.13.0
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.14.0
 	github.com/migueleliasweb/go-github-mock v1.5.0
 	github.com/sigstore/sigstore-go v1.3.0
 	github.com/slsa-framework/protos v0.0.0-20260928155916-9fa868b2a756
