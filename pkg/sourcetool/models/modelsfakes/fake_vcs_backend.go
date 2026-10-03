@@ -12,12 +12,8 @@ import (
 type FakeVcsBackend struct {
 	ConfigureControlsStub        func(*models.Repository, []*models.Branch, []models.ControlConfiguration) error
 	configureControlsMutex       sync.RWMutex
-	configureControlsArgsForCall []struct {
-		arg1 *models.Repository
-		arg2 []*models.Branch
-		arg3 []models.ControlConfiguration
-	}
-	configureControlsReturns struct {
+	configureControlsArgsForCall []FakeVcsBackendConfigureControlsArgs
+	configureControlsReturns     struct {
 		result1 error
 	}
 	configureControlsReturnsOnCall map[int]struct {
@@ -25,11 +21,8 @@ type FakeVcsBackend struct {
 	}
 	ControlConfigurationDescrStub        func(*models.Branch, models.ControlConfiguration) string
 	controlConfigurationDescrMutex       sync.RWMutex
-	controlConfigurationDescrArgsForCall []struct {
-		arg1 *models.Branch
-		arg2 models.ControlConfiguration
-	}
-	controlConfigurationDescrReturns struct {
+	controlConfigurationDescrArgsForCall []FakeVcsBackendControlConfigurationDescrArgs
+	controlConfigurationDescrReturns     struct {
 		result1 string
 	}
 	controlConfigurationDescrReturnsOnCall map[int]struct {
@@ -37,12 +30,8 @@ type FakeVcsBackend struct {
 	}
 	ControlPrecheckStub        func(*models.Repository, []*models.Branch, models.ControlConfiguration) (bool, string, models.ControlPreRemediationFn, error)
 	controlPrecheckMutex       sync.RWMutex
-	controlPrecheckArgsForCall []struct {
-		arg1 *models.Repository
-		arg2 []*models.Branch
-		arg3 models.ControlConfiguration
-	}
-	controlPrecheckReturns struct {
+	controlPrecheckArgsForCall []FakeVcsBackendControlPrecheckArgs
+	controlPrecheckReturns     struct {
 		result1 bool
 		result2 string
 		result3 models.ControlPreRemediationFn
@@ -56,11 +45,8 @@ type FakeVcsBackend struct {
 	}
 	FindProvenanceWorkflowsStub        func(context.Context, *models.Branch) ([]*models.ProvenanceWorkflow, error)
 	findProvenanceWorkflowsMutex       sync.RWMutex
-	findProvenanceWorkflowsArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Branch
-	}
-	findProvenanceWorkflowsReturns struct {
+	findProvenanceWorkflowsArgsForCall []FakeVcsBackendFindProvenanceWorkflowsArgs
+	findProvenanceWorkflowsReturns     struct {
 		result1 []*models.ProvenanceWorkflow
 		result2 error
 	}
@@ -70,11 +56,8 @@ type FakeVcsBackend struct {
 	}
 	GetBranchControlsStub        func(context.Context, *models.Branch) (*slsa.ControlSet, error)
 	getBranchControlsMutex       sync.RWMutex
-	getBranchControlsArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Branch
-	}
-	getBranchControlsReturns struct {
+	getBranchControlsArgsForCall []FakeVcsBackendGetBranchControlsArgs
+	getBranchControlsReturns     struct {
 		result1 *slsa.ControlSet
 		result2 error
 	}
@@ -84,12 +67,8 @@ type FakeVcsBackend struct {
 	}
 	GetBranchControlsAtCommitStub        func(context.Context, *models.Branch, *models.Commit) (*slsa.ControlSet, error)
 	getBranchControlsAtCommitMutex       sync.RWMutex
-	getBranchControlsAtCommitArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}
-	getBranchControlsAtCommitReturns struct {
+	getBranchControlsAtCommitArgsForCall []FakeVcsBackendGetBranchControlsAtCommitArgs
+	getBranchControlsAtCommitReturns     struct {
 		result1 *slsa.ControlSet
 		result2 error
 	}
@@ -99,11 +78,8 @@ type FakeVcsBackend struct {
 	}
 	GetDefaultBranchStub        func(context.Context, *models.Repository) (*models.Branch, error)
 	getDefaultBranchMutex       sync.RWMutex
-	getDefaultBranchArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Repository
-	}
-	getDefaultBranchReturns struct {
+	getDefaultBranchArgsForCall []FakeVcsBackendGetDefaultBranchArgs
+	getDefaultBranchReturns     struct {
 		result1 *models.Branch
 		result2 error
 	}
@@ -113,12 +89,8 @@ type FakeVcsBackend struct {
 	}
 	GetLatestCommitStub        func(context.Context, *models.Repository, *models.Branch) (*models.Commit, error)
 	getLatestCommitMutex       sync.RWMutex
-	getLatestCommitArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Repository
-		arg3 *models.Branch
-	}
-	getLatestCommitReturns struct {
+	getLatestCommitArgsForCall []FakeVcsBackendGetLatestCommitArgs
+	getLatestCommitReturns     struct {
 		result1 *models.Commit
 		result2 error
 	}
@@ -128,12 +100,8 @@ type FakeVcsBackend struct {
 	}
 	GetPreviousCommitStub        func(context.Context, *models.Branch, *models.Commit) (*models.Commit, error)
 	getPreviousCommitMutex       sync.RWMutex
-	getPreviousCommitArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}
-	getPreviousCommitReturns struct {
+	getPreviousCommitArgsForCall []FakeVcsBackendGetPreviousCommitArgs
+	getPreviousCommitReturns     struct {
 		result1 *models.Commit
 		result2 error
 	}
@@ -143,12 +111,8 @@ type FakeVcsBackend struct {
 	}
 	GetRevisionCommitStub        func(context.Context, *models.Repository, models.Revision) (*models.Commit, error)
 	getRevisionCommitMutex       sync.RWMutex
-	getRevisionCommitArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Repository
-		arg3 models.Revision
-	}
-	getRevisionCommitReturns struct {
+	getRevisionCommitArgsForCall []FakeVcsBackendGetRevisionCommitArgs
+	getRevisionCommitReturns     struct {
 		result1 *models.Commit
 		result2 error
 	}
@@ -158,12 +122,8 @@ type FakeVcsBackend struct {
 	}
 	GetTagControlsStub        func(context.Context, *models.Branch, *models.Tag) (*slsa.ControlSet, error)
 	getTagControlsMutex       sync.RWMutex
-	getTagControlsArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Tag
-	}
-	getTagControlsReturns struct {
+	getTagControlsArgsForCall []FakeVcsBackendGetTagControlsArgs
+	getTagControlsReturns     struct {
 		result1 *slsa.ControlSet
 		result2 error
 	}
@@ -172,7 +132,81 @@ type FakeVcsBackend struct {
 		result2 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
+}
+
+// FakeVcsBackendConfigureControlsArgs holds the arguments of one call to ConfigureControls.
+type FakeVcsBackendConfigureControlsArgs struct {
+	Arg1 *models.Repository
+	Arg2 []*models.Branch
+	Arg3 []models.ControlConfiguration
+}
+
+// FakeVcsBackendControlConfigurationDescrArgs holds the arguments of one call to ControlConfigurationDescr.
+type FakeVcsBackendControlConfigurationDescrArgs struct {
+	Arg1 *models.Branch
+	Arg2 models.ControlConfiguration
+}
+
+// FakeVcsBackendControlPrecheckArgs holds the arguments of one call to ControlPrecheck.
+type FakeVcsBackendControlPrecheckArgs struct {
+	Arg1 *models.Repository
+	Arg2 []*models.Branch
+	Arg3 models.ControlConfiguration
+}
+
+// FakeVcsBackendFindProvenanceWorkflowsArgs holds the arguments of one call to FindProvenanceWorkflows.
+type FakeVcsBackendFindProvenanceWorkflowsArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Branch
+}
+
+// FakeVcsBackendGetBranchControlsArgs holds the arguments of one call to GetBranchControls.
+type FakeVcsBackendGetBranchControlsArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Branch
+}
+
+// FakeVcsBackendGetBranchControlsAtCommitArgs holds the arguments of one call to GetBranchControlsAtCommit.
+type FakeVcsBackendGetBranchControlsAtCommitArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Branch
+	Arg3 *models.Commit
+}
+
+// FakeVcsBackendGetDefaultBranchArgs holds the arguments of one call to GetDefaultBranch.
+type FakeVcsBackendGetDefaultBranchArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Repository
+}
+
+// FakeVcsBackendGetLatestCommitArgs holds the arguments of one call to GetLatestCommit.
+type FakeVcsBackendGetLatestCommitArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Repository
+	Arg3 *models.Branch
+}
+
+// FakeVcsBackendGetPreviousCommitArgs holds the arguments of one call to GetPreviousCommit.
+type FakeVcsBackendGetPreviousCommitArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Branch
+	Arg3 *models.Commit
+}
+
+// FakeVcsBackendGetRevisionCommitArgs holds the arguments of one call to GetRevisionCommit.
+type FakeVcsBackendGetRevisionCommitArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Repository
+	Arg3 models.Revision
+}
+
+// FakeVcsBackendGetTagControlsArgs holds the arguments of one call to GetTagControls.
+type FakeVcsBackendGetTagControlsArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Branch
+	Arg3 *models.Tag
 }
 
 func (fake *FakeVcsBackend) ConfigureControls(arg1 *models.Repository, arg2 []*models.Branch, arg3 []models.ControlConfiguration) error {
@@ -188,11 +222,7 @@ func (fake *FakeVcsBackend) ConfigureControls(arg1 *models.Repository, arg2 []*m
 	}
 	fake.configureControlsMutex.Lock()
 	ret, specificReturn := fake.configureControlsReturnsOnCall[len(fake.configureControlsArgsForCall)]
-	fake.configureControlsArgsForCall = append(fake.configureControlsArgsForCall, struct {
-		arg1 *models.Repository
-		arg2 []*models.Branch
-		arg3 []models.ControlConfiguration
-	}{arg1, arg2Copy, arg3Copy})
+	fake.configureControlsArgsForCall = append(fake.configureControlsArgsForCall, FakeVcsBackendConfigureControlsArgs{arg1, arg2Copy, arg3Copy})
 	stub := fake.ConfigureControlsStub
 	fakeReturns := fake.configureControlsReturns
 	fake.recordInvocation("ConfigureControls", []interface{}{arg1, arg2Copy, arg3Copy})
@@ -222,7 +252,15 @@ func (fake *FakeVcsBackend) ConfigureControlsArgsForCall(i int) (*models.Reposit
 	fake.configureControlsMutex.RLock()
 	defer fake.configureControlsMutex.RUnlock()
 	argsForCall := fake.configureControlsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeVcsBackend) ConfigureControlsArgs() []FakeVcsBackendConfigureControlsArgs {
+	fake.configureControlsMutex.RLock()
+	defer fake.configureControlsMutex.RUnlock()
+	args := make([]FakeVcsBackendConfigureControlsArgs, len(fake.configureControlsArgsForCall))
+	copy(args, fake.configureControlsArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) ConfigureControlsReturns(result1 error) {
@@ -251,10 +289,7 @@ func (fake *FakeVcsBackend) ConfigureControlsReturnsOnCall(i int, result1 error)
 func (fake *FakeVcsBackend) ControlConfigurationDescr(arg1 *models.Branch, arg2 models.ControlConfiguration) string {
 	fake.controlConfigurationDescrMutex.Lock()
 	ret, specificReturn := fake.controlConfigurationDescrReturnsOnCall[len(fake.controlConfigurationDescrArgsForCall)]
-	fake.controlConfigurationDescrArgsForCall = append(fake.controlConfigurationDescrArgsForCall, struct {
-		arg1 *models.Branch
-		arg2 models.ControlConfiguration
-	}{arg1, arg2})
+	fake.controlConfigurationDescrArgsForCall = append(fake.controlConfigurationDescrArgsForCall, FakeVcsBackendControlConfigurationDescrArgs{arg1, arg2})
 	stub := fake.ControlConfigurationDescrStub
 	fakeReturns := fake.controlConfigurationDescrReturns
 	fake.recordInvocation("ControlConfigurationDescr", []interface{}{arg1, arg2})
@@ -284,7 +319,15 @@ func (fake *FakeVcsBackend) ControlConfigurationDescrArgsForCall(i int) (*models
 	fake.controlConfigurationDescrMutex.RLock()
 	defer fake.controlConfigurationDescrMutex.RUnlock()
 	argsForCall := fake.controlConfigurationDescrArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakeVcsBackend) ControlConfigurationDescrArgs() []FakeVcsBackendControlConfigurationDescrArgs {
+	fake.controlConfigurationDescrMutex.RLock()
+	defer fake.controlConfigurationDescrMutex.RUnlock()
+	args := make([]FakeVcsBackendControlConfigurationDescrArgs, len(fake.controlConfigurationDescrArgsForCall))
+	copy(args, fake.controlConfigurationDescrArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) ControlConfigurationDescrReturns(result1 string) {
@@ -318,11 +361,7 @@ func (fake *FakeVcsBackend) ControlPrecheck(arg1 *models.Repository, arg2 []*mod
 	}
 	fake.controlPrecheckMutex.Lock()
 	ret, specificReturn := fake.controlPrecheckReturnsOnCall[len(fake.controlPrecheckArgsForCall)]
-	fake.controlPrecheckArgsForCall = append(fake.controlPrecheckArgsForCall, struct {
-		arg1 *models.Repository
-		arg2 []*models.Branch
-		arg3 models.ControlConfiguration
-	}{arg1, arg2Copy, arg3})
+	fake.controlPrecheckArgsForCall = append(fake.controlPrecheckArgsForCall, FakeVcsBackendControlPrecheckArgs{arg1, arg2Copy, arg3})
 	stub := fake.ControlPrecheckStub
 	fakeReturns := fake.controlPrecheckReturns
 	fake.recordInvocation("ControlPrecheck", []interface{}{arg1, arg2Copy, arg3})
@@ -352,7 +391,15 @@ func (fake *FakeVcsBackend) ControlPrecheckArgsForCall(i int) (*models.Repositor
 	fake.controlPrecheckMutex.RLock()
 	defer fake.controlPrecheckMutex.RUnlock()
 	argsForCall := fake.controlPrecheckArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeVcsBackend) ControlPrecheckArgs() []FakeVcsBackendControlPrecheckArgs {
+	fake.controlPrecheckMutex.RLock()
+	defer fake.controlPrecheckMutex.RUnlock()
+	args := make([]FakeVcsBackendControlPrecheckArgs, len(fake.controlPrecheckArgsForCall))
+	copy(args, fake.controlPrecheckArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) ControlPrecheckReturns(result1 bool, result2 string, result3 models.ControlPreRemediationFn, result4 error) {
@@ -390,10 +437,7 @@ func (fake *FakeVcsBackend) ControlPrecheckReturnsOnCall(i int, result1 bool, re
 func (fake *FakeVcsBackend) FindProvenanceWorkflows(arg1 context.Context, arg2 *models.Branch) ([]*models.ProvenanceWorkflow, error) {
 	fake.findProvenanceWorkflowsMutex.Lock()
 	ret, specificReturn := fake.findProvenanceWorkflowsReturnsOnCall[len(fake.findProvenanceWorkflowsArgsForCall)]
-	fake.findProvenanceWorkflowsArgsForCall = append(fake.findProvenanceWorkflowsArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Branch
-	}{arg1, arg2})
+	fake.findProvenanceWorkflowsArgsForCall = append(fake.findProvenanceWorkflowsArgsForCall, FakeVcsBackendFindProvenanceWorkflowsArgs{arg1, arg2})
 	stub := fake.FindProvenanceWorkflowsStub
 	fakeReturns := fake.findProvenanceWorkflowsReturns
 	fake.recordInvocation("FindProvenanceWorkflows", []interface{}{arg1, arg2})
@@ -423,7 +467,15 @@ func (fake *FakeVcsBackend) FindProvenanceWorkflowsArgsForCall(i int) (context.C
 	fake.findProvenanceWorkflowsMutex.RLock()
 	defer fake.findProvenanceWorkflowsMutex.RUnlock()
 	argsForCall := fake.findProvenanceWorkflowsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakeVcsBackend) FindProvenanceWorkflowsArgs() []FakeVcsBackendFindProvenanceWorkflowsArgs {
+	fake.findProvenanceWorkflowsMutex.RLock()
+	defer fake.findProvenanceWorkflowsMutex.RUnlock()
+	args := make([]FakeVcsBackendFindProvenanceWorkflowsArgs, len(fake.findProvenanceWorkflowsArgsForCall))
+	copy(args, fake.findProvenanceWorkflowsArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) FindProvenanceWorkflowsReturns(result1 []*models.ProvenanceWorkflow, result2 error) {
@@ -455,10 +507,7 @@ func (fake *FakeVcsBackend) FindProvenanceWorkflowsReturnsOnCall(i int, result1 
 func (fake *FakeVcsBackend) GetBranchControls(arg1 context.Context, arg2 *models.Branch) (*slsa.ControlSet, error) {
 	fake.getBranchControlsMutex.Lock()
 	ret, specificReturn := fake.getBranchControlsReturnsOnCall[len(fake.getBranchControlsArgsForCall)]
-	fake.getBranchControlsArgsForCall = append(fake.getBranchControlsArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Branch
-	}{arg1, arg2})
+	fake.getBranchControlsArgsForCall = append(fake.getBranchControlsArgsForCall, FakeVcsBackendGetBranchControlsArgs{arg1, arg2})
 	stub := fake.GetBranchControlsStub
 	fakeReturns := fake.getBranchControlsReturns
 	fake.recordInvocation("GetBranchControls", []interface{}{arg1, arg2})
@@ -488,7 +537,15 @@ func (fake *FakeVcsBackend) GetBranchControlsArgsForCall(i int) (context.Context
 	fake.getBranchControlsMutex.RLock()
 	defer fake.getBranchControlsMutex.RUnlock()
 	argsForCall := fake.getBranchControlsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakeVcsBackend) GetBranchControlsArgs() []FakeVcsBackendGetBranchControlsArgs {
+	fake.getBranchControlsMutex.RLock()
+	defer fake.getBranchControlsMutex.RUnlock()
+	args := make([]FakeVcsBackendGetBranchControlsArgs, len(fake.getBranchControlsArgsForCall))
+	copy(args, fake.getBranchControlsArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) GetBranchControlsReturns(result1 *slsa.ControlSet, result2 error) {
@@ -520,11 +577,7 @@ func (fake *FakeVcsBackend) GetBranchControlsReturnsOnCall(i int, result1 *slsa.
 func (fake *FakeVcsBackend) GetBranchControlsAtCommit(arg1 context.Context, arg2 *models.Branch, arg3 *models.Commit) (*slsa.ControlSet, error) {
 	fake.getBranchControlsAtCommitMutex.Lock()
 	ret, specificReturn := fake.getBranchControlsAtCommitReturnsOnCall[len(fake.getBranchControlsAtCommitArgsForCall)]
-	fake.getBranchControlsAtCommitArgsForCall = append(fake.getBranchControlsAtCommitArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}{arg1, arg2, arg3})
+	fake.getBranchControlsAtCommitArgsForCall = append(fake.getBranchControlsAtCommitArgsForCall, FakeVcsBackendGetBranchControlsAtCommitArgs{arg1, arg2, arg3})
 	stub := fake.GetBranchControlsAtCommitStub
 	fakeReturns := fake.getBranchControlsAtCommitReturns
 	fake.recordInvocation("GetBranchControlsAtCommit", []interface{}{arg1, arg2, arg3})
@@ -554,7 +607,15 @@ func (fake *FakeVcsBackend) GetBranchControlsAtCommitArgsForCall(i int) (context
 	fake.getBranchControlsAtCommitMutex.RLock()
 	defer fake.getBranchControlsAtCommitMutex.RUnlock()
 	argsForCall := fake.getBranchControlsAtCommitArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeVcsBackend) GetBranchControlsAtCommitArgs() []FakeVcsBackendGetBranchControlsAtCommitArgs {
+	fake.getBranchControlsAtCommitMutex.RLock()
+	defer fake.getBranchControlsAtCommitMutex.RUnlock()
+	args := make([]FakeVcsBackendGetBranchControlsAtCommitArgs, len(fake.getBranchControlsAtCommitArgsForCall))
+	copy(args, fake.getBranchControlsAtCommitArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) GetBranchControlsAtCommitReturns(result1 *slsa.ControlSet, result2 error) {
@@ -586,10 +647,7 @@ func (fake *FakeVcsBackend) GetBranchControlsAtCommitReturnsOnCall(i int, result
 func (fake *FakeVcsBackend) GetDefaultBranch(arg1 context.Context, arg2 *models.Repository) (*models.Branch, error) {
 	fake.getDefaultBranchMutex.Lock()
 	ret, specificReturn := fake.getDefaultBranchReturnsOnCall[len(fake.getDefaultBranchArgsForCall)]
-	fake.getDefaultBranchArgsForCall = append(fake.getDefaultBranchArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Repository
-	}{arg1, arg2})
+	fake.getDefaultBranchArgsForCall = append(fake.getDefaultBranchArgsForCall, FakeVcsBackendGetDefaultBranchArgs{arg1, arg2})
 	stub := fake.GetDefaultBranchStub
 	fakeReturns := fake.getDefaultBranchReturns
 	fake.recordInvocation("GetDefaultBranch", []interface{}{arg1, arg2})
@@ -619,7 +677,15 @@ func (fake *FakeVcsBackend) GetDefaultBranchArgsForCall(i int) (context.Context,
 	fake.getDefaultBranchMutex.RLock()
 	defer fake.getDefaultBranchMutex.RUnlock()
 	argsForCall := fake.getDefaultBranchArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakeVcsBackend) GetDefaultBranchArgs() []FakeVcsBackendGetDefaultBranchArgs {
+	fake.getDefaultBranchMutex.RLock()
+	defer fake.getDefaultBranchMutex.RUnlock()
+	args := make([]FakeVcsBackendGetDefaultBranchArgs, len(fake.getDefaultBranchArgsForCall))
+	copy(args, fake.getDefaultBranchArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) GetDefaultBranchReturns(result1 *models.Branch, result2 error) {
@@ -651,11 +717,7 @@ func (fake *FakeVcsBackend) GetDefaultBranchReturnsOnCall(i int, result1 *models
 func (fake *FakeVcsBackend) GetLatestCommit(arg1 context.Context, arg2 *models.Repository, arg3 *models.Branch) (*models.Commit, error) {
 	fake.getLatestCommitMutex.Lock()
 	ret, specificReturn := fake.getLatestCommitReturnsOnCall[len(fake.getLatestCommitArgsForCall)]
-	fake.getLatestCommitArgsForCall = append(fake.getLatestCommitArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Repository
-		arg3 *models.Branch
-	}{arg1, arg2, arg3})
+	fake.getLatestCommitArgsForCall = append(fake.getLatestCommitArgsForCall, FakeVcsBackendGetLatestCommitArgs{arg1, arg2, arg3})
 	stub := fake.GetLatestCommitStub
 	fakeReturns := fake.getLatestCommitReturns
 	fake.recordInvocation("GetLatestCommit", []interface{}{arg1, arg2, arg3})
@@ -685,7 +747,15 @@ func (fake *FakeVcsBackend) GetLatestCommitArgsForCall(i int) (context.Context, 
 	fake.getLatestCommitMutex.RLock()
 	defer fake.getLatestCommitMutex.RUnlock()
 	argsForCall := fake.getLatestCommitArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeVcsBackend) GetLatestCommitArgs() []FakeVcsBackendGetLatestCommitArgs {
+	fake.getLatestCommitMutex.RLock()
+	defer fake.getLatestCommitMutex.RUnlock()
+	args := make([]FakeVcsBackendGetLatestCommitArgs, len(fake.getLatestCommitArgsForCall))
+	copy(args, fake.getLatestCommitArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) GetLatestCommitReturns(result1 *models.Commit, result2 error) {
@@ -717,11 +787,7 @@ func (fake *FakeVcsBackend) GetLatestCommitReturnsOnCall(i int, result1 *models.
 func (fake *FakeVcsBackend) GetPreviousCommit(arg1 context.Context, arg2 *models.Branch, arg3 *models.Commit) (*models.Commit, error) {
 	fake.getPreviousCommitMutex.Lock()
 	ret, specificReturn := fake.getPreviousCommitReturnsOnCall[len(fake.getPreviousCommitArgsForCall)]
-	fake.getPreviousCommitArgsForCall = append(fake.getPreviousCommitArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}{arg1, arg2, arg3})
+	fake.getPreviousCommitArgsForCall = append(fake.getPreviousCommitArgsForCall, FakeVcsBackendGetPreviousCommitArgs{arg1, arg2, arg3})
 	stub := fake.GetPreviousCommitStub
 	fakeReturns := fake.getPreviousCommitReturns
 	fake.recordInvocation("GetPreviousCommit", []interface{}{arg1, arg2, arg3})
@@ -751,7 +817,15 @@ func (fake *FakeVcsBackend) GetPreviousCommitArgsForCall(i int) (context.Context
 	fake.getPreviousCommitMutex.RLock()
 	defer fake.getPreviousCommitMutex.RUnlock()
 	argsForCall := fake.getPreviousCommitArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeVcsBackend) GetPreviousCommitArgs() []FakeVcsBackendGetPreviousCommitArgs {
+	fake.getPreviousCommitMutex.RLock()
+	defer fake.getPreviousCommitMutex.RUnlock()
+	args := make([]FakeVcsBackendGetPreviousCommitArgs, len(fake.getPreviousCommitArgsForCall))
+	copy(args, fake.getPreviousCommitArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) GetPreviousCommitReturns(result1 *models.Commit, result2 error) {
@@ -783,11 +857,7 @@ func (fake *FakeVcsBackend) GetPreviousCommitReturnsOnCall(i int, result1 *model
 func (fake *FakeVcsBackend) GetRevisionCommit(arg1 context.Context, arg2 *models.Repository, arg3 models.Revision) (*models.Commit, error) {
 	fake.getRevisionCommitMutex.Lock()
 	ret, specificReturn := fake.getRevisionCommitReturnsOnCall[len(fake.getRevisionCommitArgsForCall)]
-	fake.getRevisionCommitArgsForCall = append(fake.getRevisionCommitArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Repository
-		arg3 models.Revision
-	}{arg1, arg2, arg3})
+	fake.getRevisionCommitArgsForCall = append(fake.getRevisionCommitArgsForCall, FakeVcsBackendGetRevisionCommitArgs{arg1, arg2, arg3})
 	stub := fake.GetRevisionCommitStub
 	fakeReturns := fake.getRevisionCommitReturns
 	fake.recordInvocation("GetRevisionCommit", []interface{}{arg1, arg2, arg3})
@@ -817,7 +887,15 @@ func (fake *FakeVcsBackend) GetRevisionCommitArgsForCall(i int) (context.Context
 	fake.getRevisionCommitMutex.RLock()
 	defer fake.getRevisionCommitMutex.RUnlock()
 	argsForCall := fake.getRevisionCommitArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeVcsBackend) GetRevisionCommitArgs() []FakeVcsBackendGetRevisionCommitArgs {
+	fake.getRevisionCommitMutex.RLock()
+	defer fake.getRevisionCommitMutex.RUnlock()
+	args := make([]FakeVcsBackendGetRevisionCommitArgs, len(fake.getRevisionCommitArgsForCall))
+	copy(args, fake.getRevisionCommitArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) GetRevisionCommitReturns(result1 *models.Commit, result2 error) {
@@ -849,11 +927,7 @@ func (fake *FakeVcsBackend) GetRevisionCommitReturnsOnCall(i int, result1 *model
 func (fake *FakeVcsBackend) GetTagControls(arg1 context.Context, arg2 *models.Branch, arg3 *models.Tag) (*slsa.ControlSet, error) {
 	fake.getTagControlsMutex.Lock()
 	ret, specificReturn := fake.getTagControlsReturnsOnCall[len(fake.getTagControlsArgsForCall)]
-	fake.getTagControlsArgsForCall = append(fake.getTagControlsArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Tag
-	}{arg1, arg2, arg3})
+	fake.getTagControlsArgsForCall = append(fake.getTagControlsArgsForCall, FakeVcsBackendGetTagControlsArgs{arg1, arg2, arg3})
 	stub := fake.GetTagControlsStub
 	fakeReturns := fake.getTagControlsReturns
 	fake.recordInvocation("GetTagControls", []interface{}{arg1, arg2, arg3})
@@ -883,7 +957,15 @@ func (fake *FakeVcsBackend) GetTagControlsArgsForCall(i int) (context.Context, *
 	fake.getTagControlsMutex.RLock()
 	defer fake.getTagControlsMutex.RUnlock()
 	argsForCall := fake.getTagControlsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeVcsBackend) GetTagControlsArgs() []FakeVcsBackendGetTagControlsArgs {
+	fake.getTagControlsMutex.RLock()
+	defer fake.getTagControlsMutex.RUnlock()
+	args := make([]FakeVcsBackendGetTagControlsArgs, len(fake.getTagControlsArgsForCall))
+	copy(args, fake.getTagControlsArgsForCall)
+	return args
 }
 
 func (fake *FakeVcsBackend) GetTagControlsReturns(result1 *slsa.ControlSet, result2 error) {
@@ -922,9 +1004,18 @@ func (fake *FakeVcsBackend) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *FakeVcsBackend) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *FakeVcsBackend) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

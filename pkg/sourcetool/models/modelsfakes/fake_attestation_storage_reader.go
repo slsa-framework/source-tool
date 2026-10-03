@@ -14,12 +14,8 @@ import (
 type FakeAttestationStorageReader struct {
 	GetCommitProvenanceStub        func(context.Context, *models.Branch, *models.Commit) (*v1.Statement, *provenance.SourceProvenancePred, error)
 	getCommitProvenanceMutex       sync.RWMutex
-	getCommitProvenanceArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}
-	getCommitProvenanceReturns struct {
+	getCommitProvenanceArgsForCall []FakeAttestationStorageReaderGetCommitProvenanceArgs
+	getCommitProvenanceReturns     struct {
 		result1 *v1.Statement
 		result2 *provenance.SourceProvenancePred
 		result3 error
@@ -31,12 +27,8 @@ type FakeAttestationStorageReader struct {
 	}
 	GetCommitVsaStub        func(context.Context, *models.Branch, *models.Commit) (*v1.Statement, *v1a.VerificationSummary, error)
 	getCommitVsaMutex       sync.RWMutex
-	getCommitVsaArgsForCall []struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}
-	getCommitVsaReturns struct {
+	getCommitVsaArgsForCall []FakeAttestationStorageReaderGetCommitVsaArgs
+	getCommitVsaReturns     struct {
 		result1 *v1.Statement
 		result2 *v1a.VerificationSummary
 		result3 error
@@ -47,17 +39,28 @@ type FakeAttestationStorageReader struct {
 		result3 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
+}
+
+// FakeAttestationStorageReaderGetCommitProvenanceArgs holds the arguments of one call to GetCommitProvenance.
+type FakeAttestationStorageReaderGetCommitProvenanceArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Branch
+	Arg3 *models.Commit
+}
+
+// FakeAttestationStorageReaderGetCommitVsaArgs holds the arguments of one call to GetCommitVsa.
+type FakeAttestationStorageReaderGetCommitVsaArgs struct {
+	Arg1 context.Context
+	Arg2 *models.Branch
+	Arg3 *models.Commit
 }
 
 func (fake *FakeAttestationStorageReader) GetCommitProvenance(arg1 context.Context, arg2 *models.Branch, arg3 *models.Commit) (*v1.Statement, *provenance.SourceProvenancePred, error) {
 	fake.getCommitProvenanceMutex.Lock()
 	ret, specificReturn := fake.getCommitProvenanceReturnsOnCall[len(fake.getCommitProvenanceArgsForCall)]
-	fake.getCommitProvenanceArgsForCall = append(fake.getCommitProvenanceArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}{arg1, arg2, arg3})
+	fake.getCommitProvenanceArgsForCall = append(fake.getCommitProvenanceArgsForCall, FakeAttestationStorageReaderGetCommitProvenanceArgs{arg1, arg2, arg3})
 	stub := fake.GetCommitProvenanceStub
 	fakeReturns := fake.getCommitProvenanceReturns
 	fake.recordInvocation("GetCommitProvenance", []interface{}{arg1, arg2, arg3})
@@ -87,7 +90,15 @@ func (fake *FakeAttestationStorageReader) GetCommitProvenanceArgsForCall(i int) 
 	fake.getCommitProvenanceMutex.RLock()
 	defer fake.getCommitProvenanceMutex.RUnlock()
 	argsForCall := fake.getCommitProvenanceArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeAttestationStorageReader) GetCommitProvenanceArgs() []FakeAttestationStorageReaderGetCommitProvenanceArgs {
+	fake.getCommitProvenanceMutex.RLock()
+	defer fake.getCommitProvenanceMutex.RUnlock()
+	args := make([]FakeAttestationStorageReaderGetCommitProvenanceArgs, len(fake.getCommitProvenanceArgsForCall))
+	copy(args, fake.getCommitProvenanceArgsForCall)
+	return args
 }
 
 func (fake *FakeAttestationStorageReader) GetCommitProvenanceReturns(result1 *v1.Statement, result2 *provenance.SourceProvenancePred, result3 error) {
@@ -122,11 +133,7 @@ func (fake *FakeAttestationStorageReader) GetCommitProvenanceReturnsOnCall(i int
 func (fake *FakeAttestationStorageReader) GetCommitVsa(arg1 context.Context, arg2 *models.Branch, arg3 *models.Commit) (*v1.Statement, *v1a.VerificationSummary, error) {
 	fake.getCommitVsaMutex.Lock()
 	ret, specificReturn := fake.getCommitVsaReturnsOnCall[len(fake.getCommitVsaArgsForCall)]
-	fake.getCommitVsaArgsForCall = append(fake.getCommitVsaArgsForCall, struct {
-		arg1 context.Context
-		arg2 *models.Branch
-		arg3 *models.Commit
-	}{arg1, arg2, arg3})
+	fake.getCommitVsaArgsForCall = append(fake.getCommitVsaArgsForCall, FakeAttestationStorageReaderGetCommitVsaArgs{arg1, arg2, arg3})
 	stub := fake.GetCommitVsaStub
 	fakeReturns := fake.getCommitVsaReturns
 	fake.recordInvocation("GetCommitVsa", []interface{}{arg1, arg2, arg3})
@@ -156,7 +163,15 @@ func (fake *FakeAttestationStorageReader) GetCommitVsaArgsForCall(i int) (contex
 	fake.getCommitVsaMutex.RLock()
 	defer fake.getCommitVsaMutex.RUnlock()
 	argsForCall := fake.getCommitVsaArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeAttestationStorageReader) GetCommitVsaArgs() []FakeAttestationStorageReaderGetCommitVsaArgs {
+	fake.getCommitVsaMutex.RLock()
+	defer fake.getCommitVsaMutex.RUnlock()
+	args := make([]FakeAttestationStorageReaderGetCommitVsaArgs, len(fake.getCommitVsaArgsForCall))
+	copy(args, fake.getCommitVsaArgsForCall)
+	return args
 }
 
 func (fake *FakeAttestationStorageReader) GetCommitVsaReturns(result1 *v1.Statement, result2 *v1a.VerificationSummary, result3 error) {
@@ -198,9 +213,18 @@ func (fake *FakeAttestationStorageReader) Invocations() map[string][][]interface
 	return copiedInvocations
 }
 
+func (fake *FakeAttestationStorageReader) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *FakeAttestationStorageReader) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

@@ -13,13 +13,8 @@ import (
 type FakePrManagerImplementation struct {
 	CheckForkStub        func(*options.PullRequestManagerOptions, *auth.Authenticator, *models.Repository, string) (*models.Repository, error)
 	checkForkMutex       sync.RWMutex
-	checkForkArgsForCall []struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *auth.Authenticator
-		arg3 *models.Repository
-		arg4 string
-	}
-	checkForkReturns struct {
+	checkForkArgsForCall []FakePrManagerImplementationCheckForkArgs
+	checkForkReturns     struct {
 		result1 *models.Repository
 		result2 error
 	}
@@ -29,12 +24,8 @@ type FakePrManagerImplementation struct {
 	}
 	CloneRepoStub        func(*options.PullRequestManagerOptions, *auth.Authenticator, *models.Repository) (*repo.Clone, error)
 	cloneRepoMutex       sync.RWMutex
-	cloneRepoArgsForCall []struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *auth.Authenticator
-		arg3 *models.Repository
-	}
-	cloneRepoReturns struct {
+	cloneRepoArgsForCall []FakePrManagerImplementationCloneRepoArgs
+	cloneRepoReturns     struct {
 		result1 *repo.Clone
 		result2 error
 	}
@@ -44,11 +35,8 @@ type FakePrManagerImplementation struct {
 	}
 	CommitChangesStub        func(*options.PullRequestFileListOptions, *repo.Clone) error
 	commitChangesMutex       sync.RWMutex
-	commitChangesArgsForCall []struct {
-		arg1 *options.PullRequestFileListOptions
-		arg2 *repo.Clone
-	}
-	commitChangesReturns struct {
+	commitChangesArgsForCall []FakePrManagerImplementationCommitChangesArgs
+	commitChangesReturns     struct {
 		result1 error
 	}
 	commitChangesReturnsOnCall map[int]struct {
@@ -56,11 +44,8 @@ type FakePrManagerImplementation struct {
 	}
 	CopyFilesToCloneStub        func(*repo.Clone, []*repo.PullRequestFileEntry) error
 	copyFilesToCloneMutex       sync.RWMutex
-	copyFilesToCloneArgsForCall []struct {
-		arg1 *repo.Clone
-		arg2 []*repo.PullRequestFileEntry
-	}
-	copyFilesToCloneReturns struct {
+	copyFilesToCloneArgsForCall []FakePrManagerImplementationCopyFilesToCloneArgs
+	copyFilesToCloneReturns     struct {
 		result1 error
 	}
 	copyFilesToCloneReturnsOnCall map[int]struct {
@@ -68,13 +53,8 @@ type FakePrManagerImplementation struct {
 	}
 	CreatePullRequestStub        func(*options.PullRequestManagerOptions, *auth.Authenticator, *models.Repository, *options.PullRequestOptions) (*models.PullRequest, error)
 	createPullRequestMutex       sync.RWMutex
-	createPullRequestArgsForCall []struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *auth.Authenticator
-		arg3 *models.Repository
-		arg4 *options.PullRequestOptions
-	}
-	createPullRequestReturns struct {
+	createPullRequestArgsForCall []FakePrManagerImplementationCreatePullRequestArgs
+	createPullRequestReturns     struct {
 		result1 *models.PullRequest
 		result2 error
 	}
@@ -84,29 +64,63 @@ type FakePrManagerImplementation struct {
 	}
 	PushFeatureBranchStub        func(*options.PullRequestManagerOptions, *repo.Clone) error
 	pushFeatureBranchMutex       sync.RWMutex
-	pushFeatureBranchArgsForCall []struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *repo.Clone
-	}
-	pushFeatureBranchReturns struct {
+	pushFeatureBranchArgsForCall []FakePrManagerImplementationPushFeatureBranchArgs
+	pushFeatureBranchReturns     struct {
 		result1 error
 	}
 	pushFeatureBranchReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
+}
+
+// FakePrManagerImplementationCheckForkArgs holds the arguments of one call to CheckFork.
+type FakePrManagerImplementationCheckForkArgs struct {
+	Arg1 *options.PullRequestManagerOptions
+	Arg2 *auth.Authenticator
+	Arg3 *models.Repository
+	Arg4 string
+}
+
+// FakePrManagerImplementationCloneRepoArgs holds the arguments of one call to CloneRepo.
+type FakePrManagerImplementationCloneRepoArgs struct {
+	Arg1 *options.PullRequestManagerOptions
+	Arg2 *auth.Authenticator
+	Arg3 *models.Repository
+}
+
+// FakePrManagerImplementationCommitChangesArgs holds the arguments of one call to CommitChanges.
+type FakePrManagerImplementationCommitChangesArgs struct {
+	Arg1 *options.PullRequestFileListOptions
+	Arg2 *repo.Clone
+}
+
+// FakePrManagerImplementationCopyFilesToCloneArgs holds the arguments of one call to CopyFilesToClone.
+type FakePrManagerImplementationCopyFilesToCloneArgs struct {
+	Arg1 *repo.Clone
+	Arg2 []*repo.PullRequestFileEntry
+}
+
+// FakePrManagerImplementationCreatePullRequestArgs holds the arguments of one call to CreatePullRequest.
+type FakePrManagerImplementationCreatePullRequestArgs struct {
+	Arg1 *options.PullRequestManagerOptions
+	Arg2 *auth.Authenticator
+	Arg3 *models.Repository
+	Arg4 *options.PullRequestOptions
+}
+
+// FakePrManagerImplementationPushFeatureBranchArgs holds the arguments of one call to PushFeatureBranch.
+type FakePrManagerImplementationPushFeatureBranchArgs struct {
+	Arg1 *options.PullRequestManagerOptions
+	Arg2 *repo.Clone
 }
 
 func (fake *FakePrManagerImplementation) CheckFork(arg1 *options.PullRequestManagerOptions, arg2 *auth.Authenticator, arg3 *models.Repository, arg4 string) (*models.Repository, error) {
 	fake.checkForkMutex.Lock()
 	ret, specificReturn := fake.checkForkReturnsOnCall[len(fake.checkForkArgsForCall)]
-	fake.checkForkArgsForCall = append(fake.checkForkArgsForCall, struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *auth.Authenticator
-		arg3 *models.Repository
-		arg4 string
-	}{arg1, arg2, arg3, arg4})
+	fake.checkForkArgsForCall = append(fake.checkForkArgsForCall, FakePrManagerImplementationCheckForkArgs{arg1, arg2, arg3, arg4})
 	stub := fake.CheckForkStub
 	fakeReturns := fake.checkForkReturns
 	fake.recordInvocation("CheckFork", []interface{}{arg1, arg2, arg3, arg4})
@@ -136,7 +150,15 @@ func (fake *FakePrManagerImplementation) CheckForkArgsForCall(i int) (*options.P
 	fake.checkForkMutex.RLock()
 	defer fake.checkForkMutex.RUnlock()
 	argsForCall := fake.checkForkArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3, argsForCall.Arg4
+}
+
+func (fake *FakePrManagerImplementation) CheckForkArgs() []FakePrManagerImplementationCheckForkArgs {
+	fake.checkForkMutex.RLock()
+	defer fake.checkForkMutex.RUnlock()
+	args := make([]FakePrManagerImplementationCheckForkArgs, len(fake.checkForkArgsForCall))
+	copy(args, fake.checkForkArgsForCall)
+	return args
 }
 
 func (fake *FakePrManagerImplementation) CheckForkReturns(result1 *models.Repository, result2 error) {
@@ -168,11 +190,7 @@ func (fake *FakePrManagerImplementation) CheckForkReturnsOnCall(i int, result1 *
 func (fake *FakePrManagerImplementation) CloneRepo(arg1 *options.PullRequestManagerOptions, arg2 *auth.Authenticator, arg3 *models.Repository) (*repo.Clone, error) {
 	fake.cloneRepoMutex.Lock()
 	ret, specificReturn := fake.cloneRepoReturnsOnCall[len(fake.cloneRepoArgsForCall)]
-	fake.cloneRepoArgsForCall = append(fake.cloneRepoArgsForCall, struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *auth.Authenticator
-		arg3 *models.Repository
-	}{arg1, arg2, arg3})
+	fake.cloneRepoArgsForCall = append(fake.cloneRepoArgsForCall, FakePrManagerImplementationCloneRepoArgs{arg1, arg2, arg3})
 	stub := fake.CloneRepoStub
 	fakeReturns := fake.cloneRepoReturns
 	fake.recordInvocation("CloneRepo", []interface{}{arg1, arg2, arg3})
@@ -202,7 +220,15 @@ func (fake *FakePrManagerImplementation) CloneRepoArgsForCall(i int) (*options.P
 	fake.cloneRepoMutex.RLock()
 	defer fake.cloneRepoMutex.RUnlock()
 	argsForCall := fake.cloneRepoArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakePrManagerImplementation) CloneRepoArgs() []FakePrManagerImplementationCloneRepoArgs {
+	fake.cloneRepoMutex.RLock()
+	defer fake.cloneRepoMutex.RUnlock()
+	args := make([]FakePrManagerImplementationCloneRepoArgs, len(fake.cloneRepoArgsForCall))
+	copy(args, fake.cloneRepoArgsForCall)
+	return args
 }
 
 func (fake *FakePrManagerImplementation) CloneRepoReturns(result1 *repo.Clone, result2 error) {
@@ -234,10 +260,7 @@ func (fake *FakePrManagerImplementation) CloneRepoReturnsOnCall(i int, result1 *
 func (fake *FakePrManagerImplementation) CommitChanges(arg1 *options.PullRequestFileListOptions, arg2 *repo.Clone) error {
 	fake.commitChangesMutex.Lock()
 	ret, specificReturn := fake.commitChangesReturnsOnCall[len(fake.commitChangesArgsForCall)]
-	fake.commitChangesArgsForCall = append(fake.commitChangesArgsForCall, struct {
-		arg1 *options.PullRequestFileListOptions
-		arg2 *repo.Clone
-	}{arg1, arg2})
+	fake.commitChangesArgsForCall = append(fake.commitChangesArgsForCall, FakePrManagerImplementationCommitChangesArgs{arg1, arg2})
 	stub := fake.CommitChangesStub
 	fakeReturns := fake.commitChangesReturns
 	fake.recordInvocation("CommitChanges", []interface{}{arg1, arg2})
@@ -267,7 +290,15 @@ func (fake *FakePrManagerImplementation) CommitChangesArgsForCall(i int) (*optio
 	fake.commitChangesMutex.RLock()
 	defer fake.commitChangesMutex.RUnlock()
 	argsForCall := fake.commitChangesArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakePrManagerImplementation) CommitChangesArgs() []FakePrManagerImplementationCommitChangesArgs {
+	fake.commitChangesMutex.RLock()
+	defer fake.commitChangesMutex.RUnlock()
+	args := make([]FakePrManagerImplementationCommitChangesArgs, len(fake.commitChangesArgsForCall))
+	copy(args, fake.commitChangesArgsForCall)
+	return args
 }
 
 func (fake *FakePrManagerImplementation) CommitChangesReturns(result1 error) {
@@ -301,10 +332,7 @@ func (fake *FakePrManagerImplementation) CopyFilesToClone(arg1 *repo.Clone, arg2
 	}
 	fake.copyFilesToCloneMutex.Lock()
 	ret, specificReturn := fake.copyFilesToCloneReturnsOnCall[len(fake.copyFilesToCloneArgsForCall)]
-	fake.copyFilesToCloneArgsForCall = append(fake.copyFilesToCloneArgsForCall, struct {
-		arg1 *repo.Clone
-		arg2 []*repo.PullRequestFileEntry
-	}{arg1, arg2Copy})
+	fake.copyFilesToCloneArgsForCall = append(fake.copyFilesToCloneArgsForCall, FakePrManagerImplementationCopyFilesToCloneArgs{arg1, arg2Copy})
 	stub := fake.CopyFilesToCloneStub
 	fakeReturns := fake.copyFilesToCloneReturns
 	fake.recordInvocation("CopyFilesToClone", []interface{}{arg1, arg2Copy})
@@ -334,7 +362,15 @@ func (fake *FakePrManagerImplementation) CopyFilesToCloneArgsForCall(i int) (*re
 	fake.copyFilesToCloneMutex.RLock()
 	defer fake.copyFilesToCloneMutex.RUnlock()
 	argsForCall := fake.copyFilesToCloneArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakePrManagerImplementation) CopyFilesToCloneArgs() []FakePrManagerImplementationCopyFilesToCloneArgs {
+	fake.copyFilesToCloneMutex.RLock()
+	defer fake.copyFilesToCloneMutex.RUnlock()
+	args := make([]FakePrManagerImplementationCopyFilesToCloneArgs, len(fake.copyFilesToCloneArgsForCall))
+	copy(args, fake.copyFilesToCloneArgsForCall)
+	return args
 }
 
 func (fake *FakePrManagerImplementation) CopyFilesToCloneReturns(result1 error) {
@@ -363,12 +399,7 @@ func (fake *FakePrManagerImplementation) CopyFilesToCloneReturnsOnCall(i int, re
 func (fake *FakePrManagerImplementation) CreatePullRequest(arg1 *options.PullRequestManagerOptions, arg2 *auth.Authenticator, arg3 *models.Repository, arg4 *options.PullRequestOptions) (*models.PullRequest, error) {
 	fake.createPullRequestMutex.Lock()
 	ret, specificReturn := fake.createPullRequestReturnsOnCall[len(fake.createPullRequestArgsForCall)]
-	fake.createPullRequestArgsForCall = append(fake.createPullRequestArgsForCall, struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *auth.Authenticator
-		arg3 *models.Repository
-		arg4 *options.PullRequestOptions
-	}{arg1, arg2, arg3, arg4})
+	fake.createPullRequestArgsForCall = append(fake.createPullRequestArgsForCall, FakePrManagerImplementationCreatePullRequestArgs{arg1, arg2, arg3, arg4})
 	stub := fake.CreatePullRequestStub
 	fakeReturns := fake.createPullRequestReturns
 	fake.recordInvocation("CreatePullRequest", []interface{}{arg1, arg2, arg3, arg4})
@@ -398,7 +429,15 @@ func (fake *FakePrManagerImplementation) CreatePullRequestArgsForCall(i int) (*o
 	fake.createPullRequestMutex.RLock()
 	defer fake.createPullRequestMutex.RUnlock()
 	argsForCall := fake.createPullRequestArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3, argsForCall.Arg4
+}
+
+func (fake *FakePrManagerImplementation) CreatePullRequestArgs() []FakePrManagerImplementationCreatePullRequestArgs {
+	fake.createPullRequestMutex.RLock()
+	defer fake.createPullRequestMutex.RUnlock()
+	args := make([]FakePrManagerImplementationCreatePullRequestArgs, len(fake.createPullRequestArgsForCall))
+	copy(args, fake.createPullRequestArgsForCall)
+	return args
 }
 
 func (fake *FakePrManagerImplementation) CreatePullRequestReturns(result1 *models.PullRequest, result2 error) {
@@ -430,10 +469,7 @@ func (fake *FakePrManagerImplementation) CreatePullRequestReturnsOnCall(i int, r
 func (fake *FakePrManagerImplementation) PushFeatureBranch(arg1 *options.PullRequestManagerOptions, arg2 *repo.Clone) error {
 	fake.pushFeatureBranchMutex.Lock()
 	ret, specificReturn := fake.pushFeatureBranchReturnsOnCall[len(fake.pushFeatureBranchArgsForCall)]
-	fake.pushFeatureBranchArgsForCall = append(fake.pushFeatureBranchArgsForCall, struct {
-		arg1 *options.PullRequestManagerOptions
-		arg2 *repo.Clone
-	}{arg1, arg2})
+	fake.pushFeatureBranchArgsForCall = append(fake.pushFeatureBranchArgsForCall, FakePrManagerImplementationPushFeatureBranchArgs{arg1, arg2})
 	stub := fake.PushFeatureBranchStub
 	fakeReturns := fake.pushFeatureBranchReturns
 	fake.recordInvocation("PushFeatureBranch", []interface{}{arg1, arg2})
@@ -463,7 +499,15 @@ func (fake *FakePrManagerImplementation) PushFeatureBranchArgsForCall(i int) (*o
 	fake.pushFeatureBranchMutex.RLock()
 	defer fake.pushFeatureBranchMutex.RUnlock()
 	argsForCall := fake.pushFeatureBranchArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakePrManagerImplementation) PushFeatureBranchArgs() []FakePrManagerImplementationPushFeatureBranchArgs {
+	fake.pushFeatureBranchMutex.RLock()
+	defer fake.pushFeatureBranchMutex.RUnlock()
+	args := make([]FakePrManagerImplementationPushFeatureBranchArgs, len(fake.pushFeatureBranchArgsForCall))
+	copy(args, fake.pushFeatureBranchArgsForCall)
+	return args
 }
 
 func (fake *FakePrManagerImplementation) PushFeatureBranchReturns(result1 error) {
@@ -499,9 +543,18 @@ func (fake *FakePrManagerImplementation) Invocations() map[string][][]interface{
 	return copiedInvocations
 }
 
+func (fake *FakePrManagerImplementation) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *FakePrManagerImplementation) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

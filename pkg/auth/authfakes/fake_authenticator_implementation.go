@@ -12,11 +12,8 @@ import (
 type FakeAuthenticatorImplementation struct {
 	checkTokenStatusStub        func(context.Context, string) (string, error)
 	checkTokenStatusMutex       sync.RWMutex
-	checkTokenStatusArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-	}
-	checkTokenStatusReturns struct {
+	checkTokenStatusArgsForCall []FakeAuthenticatorImplementationCheckTokenStatusArgs
+	checkTokenStatusReturns     struct {
 		result1 string
 		result2 error
 	}
@@ -26,10 +23,8 @@ type FakeAuthenticatorImplementation struct {
 	}
 	openBrowserStub        func(string) error
 	openBrowserMutex       sync.RWMutex
-	openBrowserArgsForCall []struct {
-		arg1 string
-	}
-	openBrowserReturns struct {
+	openBrowserArgsForCall []FakeAuthenticatorImplementationOpenBrowserArgs
+	openBrowserReturns     struct {
 		result1 error
 	}
 	openBrowserReturnsOnCall map[int]struct {
@@ -37,10 +32,8 @@ type FakeAuthenticatorImplementation struct {
 	}
 	persistTokenStub        func(string) error
 	persistTokenMutex       sync.RWMutex
-	persistTokenArgsForCall []struct {
-		arg1 string
-	}
-	persistTokenReturns struct {
+	persistTokenArgsForCall []FakeAuthenticatorImplementationPersistTokenArgs
+	persistTokenReturns     struct {
 		result1 error
 	}
 	persistTokenReturnsOnCall map[int]struct {
@@ -48,12 +41,8 @@ type FakeAuthenticatorImplementation struct {
 	}
 	pollForTokenStub        func(context.Context, string, time.Duration) (string, error)
 	pollForTokenMutex       sync.RWMutex
-	pollForTokenArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-		arg3 time.Duration
-	}
-	pollForTokenReturns struct {
+	pollForTokenArgsForCall []FakeAuthenticatorImplementationPollForTokenArgs
+	pollForTokenReturns     struct {
 		result1 string
 		result2 error
 	}
@@ -63,9 +52,8 @@ type FakeAuthenticatorImplementation struct {
 	}
 	readTokenStub        func() (string, error)
 	readTokenMutex       sync.RWMutex
-	readTokenArgsForCall []struct {
-	}
-	readTokenReturns struct {
+	readTokenArgsForCall []struct{}
+	readTokenReturns     struct {
 		result1 string
 		result2 error
 	}
@@ -75,10 +63,8 @@ type FakeAuthenticatorImplementation struct {
 	}
 	requestDeviceCodeStub        func(context.Context) (*auth.DeviceCodeResponse, error)
 	requestDeviceCodeMutex       sync.RWMutex
-	requestDeviceCodeArgsForCall []struct {
-		arg1 context.Context
-	}
-	requestDeviceCodeReturns struct {
+	requestDeviceCodeArgsForCall []FakeAuthenticatorImplementationRequestDeviceCodeArgs
+	requestDeviceCodeReturns     struct {
 		result1 *auth.DeviceCodeResponse
 		result2 error
 	}
@@ -87,16 +73,42 @@ type FakeAuthenticatorImplementation struct {
 		result2 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
+}
+
+// FakeAuthenticatorImplementationCheckTokenStatusArgs holds the arguments of one call to checkTokenStatus.
+type FakeAuthenticatorImplementationCheckTokenStatusArgs struct {
+	Arg1 context.Context
+	Arg2 string
+}
+
+// FakeAuthenticatorImplementationOpenBrowserArgs holds the arguments of one call to openBrowser.
+type FakeAuthenticatorImplementationOpenBrowserArgs struct {
+	Arg1 string
+}
+
+// FakeAuthenticatorImplementationPersistTokenArgs holds the arguments of one call to persistToken.
+type FakeAuthenticatorImplementationPersistTokenArgs struct {
+	Arg1 string
+}
+
+// FakeAuthenticatorImplementationPollForTokenArgs holds the arguments of one call to pollForToken.
+type FakeAuthenticatorImplementationPollForTokenArgs struct {
+	Arg1 context.Context
+	Arg2 string
+	Arg3 time.Duration
+}
+
+// FakeAuthenticatorImplementationRequestDeviceCodeArgs holds the arguments of one call to requestDeviceCode.
+type FakeAuthenticatorImplementationRequestDeviceCodeArgs struct {
+	Arg1 context.Context
 }
 
 func (fake *FakeAuthenticatorImplementation) checkTokenStatus(arg1 context.Context, arg2 string) (string, error) {
 	fake.checkTokenStatusMutex.Lock()
 	ret, specificReturn := fake.checkTokenStatusReturnsOnCall[len(fake.checkTokenStatusArgsForCall)]
-	fake.checkTokenStatusArgsForCall = append(fake.checkTokenStatusArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-	}{arg1, arg2})
+	fake.checkTokenStatusArgsForCall = append(fake.checkTokenStatusArgsForCall, FakeAuthenticatorImplementationCheckTokenStatusArgs{arg1, arg2})
 	stub := fake.checkTokenStatusStub
 	fakeReturns := fake.checkTokenStatusReturns
 	fake.recordInvocation("checkTokenStatus", []interface{}{arg1, arg2})
@@ -126,7 +138,15 @@ func (fake *FakeAuthenticatorImplementation) CheckTokenStatusArgsForCall(i int) 
 	fake.checkTokenStatusMutex.RLock()
 	defer fake.checkTokenStatusMutex.RUnlock()
 	argsForCall := fake.checkTokenStatusArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *FakeAuthenticatorImplementation) CheckTokenStatusArgs() []FakeAuthenticatorImplementationCheckTokenStatusArgs {
+	fake.checkTokenStatusMutex.RLock()
+	defer fake.checkTokenStatusMutex.RUnlock()
+	args := make([]FakeAuthenticatorImplementationCheckTokenStatusArgs, len(fake.checkTokenStatusArgsForCall))
+	copy(args, fake.checkTokenStatusArgsForCall)
+	return args
 }
 
 func (fake *FakeAuthenticatorImplementation) CheckTokenStatusReturns(result1 string, result2 error) {
@@ -158,9 +178,7 @@ func (fake *FakeAuthenticatorImplementation) CheckTokenStatusReturnsOnCall(i int
 func (fake *FakeAuthenticatorImplementation) openBrowser(arg1 string) error {
 	fake.openBrowserMutex.Lock()
 	ret, specificReturn := fake.openBrowserReturnsOnCall[len(fake.openBrowserArgsForCall)]
-	fake.openBrowserArgsForCall = append(fake.openBrowserArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.openBrowserArgsForCall = append(fake.openBrowserArgsForCall, FakeAuthenticatorImplementationOpenBrowserArgs{arg1})
 	stub := fake.openBrowserStub
 	fakeReturns := fake.openBrowserReturns
 	fake.recordInvocation("openBrowser", []interface{}{arg1})
@@ -190,7 +208,15 @@ func (fake *FakeAuthenticatorImplementation) OpenBrowserArgsForCall(i int) strin
 	fake.openBrowserMutex.RLock()
 	defer fake.openBrowserMutex.RUnlock()
 	argsForCall := fake.openBrowserArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *FakeAuthenticatorImplementation) OpenBrowserArgs() []FakeAuthenticatorImplementationOpenBrowserArgs {
+	fake.openBrowserMutex.RLock()
+	defer fake.openBrowserMutex.RUnlock()
+	args := make([]FakeAuthenticatorImplementationOpenBrowserArgs, len(fake.openBrowserArgsForCall))
+	copy(args, fake.openBrowserArgsForCall)
+	return args
 }
 
 func (fake *FakeAuthenticatorImplementation) OpenBrowserReturns(result1 error) {
@@ -219,9 +245,7 @@ func (fake *FakeAuthenticatorImplementation) OpenBrowserReturnsOnCall(i int, res
 func (fake *FakeAuthenticatorImplementation) persistToken(arg1 string) error {
 	fake.persistTokenMutex.Lock()
 	ret, specificReturn := fake.persistTokenReturnsOnCall[len(fake.persistTokenArgsForCall)]
-	fake.persistTokenArgsForCall = append(fake.persistTokenArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.persistTokenArgsForCall = append(fake.persistTokenArgsForCall, FakeAuthenticatorImplementationPersistTokenArgs{arg1})
 	stub := fake.persistTokenStub
 	fakeReturns := fake.persistTokenReturns
 	fake.recordInvocation("persistToken", []interface{}{arg1})
@@ -251,7 +275,15 @@ func (fake *FakeAuthenticatorImplementation) PersistTokenArgsForCall(i int) stri
 	fake.persistTokenMutex.RLock()
 	defer fake.persistTokenMutex.RUnlock()
 	argsForCall := fake.persistTokenArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *FakeAuthenticatorImplementation) PersistTokenArgs() []FakeAuthenticatorImplementationPersistTokenArgs {
+	fake.persistTokenMutex.RLock()
+	defer fake.persistTokenMutex.RUnlock()
+	args := make([]FakeAuthenticatorImplementationPersistTokenArgs, len(fake.persistTokenArgsForCall))
+	copy(args, fake.persistTokenArgsForCall)
+	return args
 }
 
 func (fake *FakeAuthenticatorImplementation) PersistTokenReturns(result1 error) {
@@ -280,11 +312,7 @@ func (fake *FakeAuthenticatorImplementation) PersistTokenReturnsOnCall(i int, re
 func (fake *FakeAuthenticatorImplementation) pollForToken(arg1 context.Context, arg2 string, arg3 time.Duration) (string, error) {
 	fake.pollForTokenMutex.Lock()
 	ret, specificReturn := fake.pollForTokenReturnsOnCall[len(fake.pollForTokenArgsForCall)]
-	fake.pollForTokenArgsForCall = append(fake.pollForTokenArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-		arg3 time.Duration
-	}{arg1, arg2, arg3})
+	fake.pollForTokenArgsForCall = append(fake.pollForTokenArgsForCall, FakeAuthenticatorImplementationPollForTokenArgs{arg1, arg2, arg3})
 	stub := fake.pollForTokenStub
 	fakeReturns := fake.pollForTokenReturns
 	fake.recordInvocation("pollForToken", []interface{}{arg1, arg2, arg3})
@@ -314,7 +342,15 @@ func (fake *FakeAuthenticatorImplementation) PollForTokenArgsForCall(i int) (con
 	fake.pollForTokenMutex.RLock()
 	defer fake.pollForTokenMutex.RUnlock()
 	argsForCall := fake.pollForTokenArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *FakeAuthenticatorImplementation) PollForTokenArgs() []FakeAuthenticatorImplementationPollForTokenArgs {
+	fake.pollForTokenMutex.RLock()
+	defer fake.pollForTokenMutex.RUnlock()
+	args := make([]FakeAuthenticatorImplementationPollForTokenArgs, len(fake.pollForTokenArgsForCall))
+	copy(args, fake.pollForTokenArgsForCall)
+	return args
 }
 
 func (fake *FakeAuthenticatorImplementation) PollForTokenReturns(result1 string, result2 error) {
@@ -346,8 +382,7 @@ func (fake *FakeAuthenticatorImplementation) PollForTokenReturnsOnCall(i int, re
 func (fake *FakeAuthenticatorImplementation) readToken() (string, error) {
 	fake.readTokenMutex.Lock()
 	ret, specificReturn := fake.readTokenReturnsOnCall[len(fake.readTokenArgsForCall)]
-	fake.readTokenArgsForCall = append(fake.readTokenArgsForCall, struct {
-	}{})
+	fake.readTokenArgsForCall = append(fake.readTokenArgsForCall, struct{}{})
 	stub := fake.readTokenStub
 	fakeReturns := fake.readTokenReturns
 	fake.recordInvocation("readToken", []interface{}{})
@@ -402,9 +437,7 @@ func (fake *FakeAuthenticatorImplementation) ReadTokenReturnsOnCall(i int, resul
 func (fake *FakeAuthenticatorImplementation) requestDeviceCode(arg1 context.Context) (*auth.DeviceCodeResponse, error) {
 	fake.requestDeviceCodeMutex.Lock()
 	ret, specificReturn := fake.requestDeviceCodeReturnsOnCall[len(fake.requestDeviceCodeArgsForCall)]
-	fake.requestDeviceCodeArgsForCall = append(fake.requestDeviceCodeArgsForCall, struct {
-		arg1 context.Context
-	}{arg1})
+	fake.requestDeviceCodeArgsForCall = append(fake.requestDeviceCodeArgsForCall, FakeAuthenticatorImplementationRequestDeviceCodeArgs{arg1})
 	stub := fake.requestDeviceCodeStub
 	fakeReturns := fake.requestDeviceCodeReturns
 	fake.recordInvocation("requestDeviceCode", []interface{}{arg1})
@@ -434,7 +467,15 @@ func (fake *FakeAuthenticatorImplementation) RequestDeviceCodeArgsForCall(i int)
 	fake.requestDeviceCodeMutex.RLock()
 	defer fake.requestDeviceCodeMutex.RUnlock()
 	argsForCall := fake.requestDeviceCodeArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *FakeAuthenticatorImplementation) RequestDeviceCodeArgs() []FakeAuthenticatorImplementationRequestDeviceCodeArgs {
+	fake.requestDeviceCodeMutex.RLock()
+	defer fake.requestDeviceCodeMutex.RUnlock()
+	args := make([]FakeAuthenticatorImplementationRequestDeviceCodeArgs, len(fake.requestDeviceCodeArgsForCall))
+	copy(args, fake.requestDeviceCodeArgsForCall)
+	return args
 }
 
 func (fake *FakeAuthenticatorImplementation) RequestDeviceCodeReturns(result1 *auth.DeviceCodeResponse, result2 error) {
@@ -473,9 +514,18 @@ func (fake *FakeAuthenticatorImplementation) Invocations() map[string][][]interf
 	return copiedInvocations
 }
 
+func (fake *FakeAuthenticatorImplementation) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *FakeAuthenticatorImplementation) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}
