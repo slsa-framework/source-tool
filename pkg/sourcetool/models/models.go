@@ -209,7 +209,8 @@ type ProvenanceWorkflow struct {
 	Path string
 
 	// LegacyActionsRepos lists the deprecated repositories the workflow still
-	// calls the SLSA actions from. When empty, the workflow is up to date.
+	// calls the SLSA actions from. When empty, the workflow calls the actions
+	// from their current repository.
 	LegacyActionsRepos []string
 
 	// RecommendedAction describes how to bring the workflow up to date. It
