@@ -87,7 +87,9 @@ jobs:
 
   # Publish the provenance to the release. The slsa_with_provenance action
   # in slsa-framework/actions verifies the downloaded binary against this
-  # file, so it must land on the release as sourcetool.intoto.jsonl.
+  # file, so it must land on the release as attestations.intoto.jsonl
+  # (the name every SLSA tool publishes its release provenance under;
+  # releases up to v0.7.1 used sourcetool.intoto.jsonl).
   publish:
     needs: [release, provenance]
     runs-on: ubuntu-latest
@@ -106,5 +108,5 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
         run: |
-          mv provenance.intoto.json sourcetool.intoto.jsonl
-          gh release upload "${TAG_NAME}" sourcetool.intoto.jsonl
+          mv provenance.intoto.json attestations.intoto.jsonl
+          gh release upload "${TAG_NAME}" attestations.intoto.jsonl
