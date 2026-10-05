@@ -70,6 +70,12 @@ func (ar *actionsReference) IsLegacy() bool {
 	return ok
 }
 
+// IsOutdated returns true when the reference calls the action from the
+// current actions repository but is not pinned to the specified digest.
+func (ar *actionsReference) IsOutdated(digest string) bool {
+	return !ar.IsLegacy() && ar.Ref != digest
+}
+
 // CurrentPath returns the path of the referenced action in the current
 // actions repository (ActionsOrg/ActionsRepo).
 func (ar *actionsReference) CurrentPath() string {
@@ -96,10 +102,11 @@ func findActionsReferences(content string) []*actionsReference {
 }
 
 // migrateActionsReferences rewrites the references to the SLSA actions found
-// in a workflow which still call them from a legacy repository. The rewritten
-// references call the actions from ActionsOrg/ActionsRepo pinned to the digest
-// of the specified tag, recording the tag in a comment so that dependabot can
-// keep the pin updated. Returns the new contents and the number of lines changed.
+// in a workflow which still call them from a legacy repository or which are
+// not pinned to the specified digest. The rewritten references call the
+// actions from ActionsOrg/ActionsRepo pinned to the digest of the specified
+// tag, recording the tag in a comment so that dependabot can keep the pin
+// updated. Returns the new contents and the number of lines changed.
 func migrateActionsReferences(content, tag, digest string) (migrated string, changed int) {
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
@@ -108,7 +115,7 @@ func migrateActionsReferences(content, tag, digest string) (migrated string, cha
 			continue
 		}
 		ref := &actionsReference{Repo: m[2], Path: m[3], Ref: m[4]}
-		if !ref.IsLegacy() {
+		if !ref.IsLegacy() && !ref.IsOutdated(digest) {
 			continue
 		}
 		lines[i] = fmt.Sprintf(
@@ -181,6 +188,19 @@ func (pw *provenanceWorkflow) IsLegacy() bool {
 	return slices.ContainsFunc(pw.References, func(ref *actionsReference) bool { return ref.IsLegacy() })
 }
 
+// IsOutdated returns true when the workflow calls any of the SLSA actions
+// from the current actions repository without pinning them to the specified
+// digest.
+func (pw *provenanceWorkflow) IsOutdated(digest string) bool {
+	return slices.ContainsFunc(pw.References, func(ref *actionsReference) bool { return ref.IsOutdated(digest) })
+}
+
+// NeedsUpdate returns true when the workflow calls any of the SLSA actions
+// from a legacy repository or without pinning them to the specified digest.
+func (pw *provenanceWorkflow) NeedsUpdate(digest string) bool {
+	return pw.IsLegacy() || pw.IsOutdated(digest)
+}
+
 // LegacyRepos returns the deduplicated list of legacy repositories the
 // workflow calls actions from, in the order they appear in the file.
 func (pw *provenanceWorkflow) LegacyRepos() []string {
@@ -194,21 +214,34 @@ func (pw *provenanceWorkflow) LegacyRepos() []string {
 }
 
 // toModel returns the public representation of the workflow, including the
-// recommended action to update it when it calls actions from a legacy repo.
-func (pw *provenanceWorkflow) toModel(repo *models.Repository) *models.ProvenanceWorkflow {
+// recommended action to update it when it calls actions from a legacy repo
+// or when they are not pinned to the digest of the latest actions release
+// (tag). When the digest is empty, only legacy references are checked.
+func (pw *provenanceWorkflow) toModel(repo *models.Repository, tag, digest string) *models.ProvenanceWorkflow {
 	res := &models.ProvenanceWorkflow{
 		Path:               pw.Path,
 		LegacyActionsRepos: pw.LegacyRepos(),
 	}
-	if res.IsLegacy() {
-		res.RecommendedAction = &slsa.ControlRecommendedAction{
-			Message: fmt.Sprintf(
-				"Update %s to call the SLSA actions from %s/%s", pw.Path, ActionsOrg, ActionsRepo,
-			),
-			Command: fmt.Sprintf(
-				"sourcetool setup controls --config=%s %s", models.CONFIG_GEN_PROVENANCE, repo.Path,
-			),
-		}
+
+	var message string
+	switch {
+	case res.IsLegacy():
+		message = fmt.Sprintf(
+			"Update %s to call the SLSA actions from %s/%s", pw.Path, ActionsOrg, ActionsRepo,
+		)
+	case digest != "" && pw.IsOutdated(digest):
+		message = fmt.Sprintf(
+			"Update %s to call the latest release of the SLSA actions (%s)", pw.Path, tag,
+		)
+	default:
+		return res
+	}
+
+	res.RecommendedAction = &slsa.ControlRecommendedAction{
+		Message: message,
+		Command: fmt.Sprintf(
+			"sourcetool setup controls --config=%s %s", models.CONFIG_GEN_PROVENANCE, repo.Path,
+		),
 	}
 	return res
 }
@@ -237,7 +270,7 @@ func findProvenanceWorkflows(ctx context.Context, client *github.Client, owner, 
 
 // FindProvenanceWorkflows returns the workflows in the branch that call the
 // SLSA source actions, flagging those still calling them from a legacy
-// repository.
+// repository or not pinned to the latest actions release.
 func (b *Backend) FindProvenanceWorkflows(ctx context.Context, branch *models.Branch) ([]*models.ProvenanceWorkflow, error) {
 	if branch == nil || branch.Repository == nil {
 		return nil, errors.New("branch has no repository")
@@ -258,9 +291,18 @@ func (b *Backend) FindProvenanceWorkflows(ctx context.Context, branch *models.Br
 		return nil, err
 	}
 
+	// The latest release is only needed when there are workflows to check
+	var actionsTag, actionsHash string
+	if len(workflows) > 0 {
+		actionsTag, actionsHash, err = latestActionsTag(ctx, client)
+		if err != nil {
+			return nil, fmt.Errorf("getting latest actions tag: %w", err)
+		}
+	}
+
 	res := make([]*models.ProvenanceWorkflow, 0, len(workflows))
 	for _, wf := range workflows {
-		res = append(res, wf.toModel(branch.Repository))
+		res = append(res, wf.toModel(branch.Repository, actionsTag, actionsHash))
 	}
 	return res, nil
 }

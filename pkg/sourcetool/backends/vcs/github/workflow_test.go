@@ -179,8 +179,22 @@ func TestMigrateActionsReferences(t *testing.T) {
 		{
 			"mixed-references",
 			"    - uses: slsa-framework/source-actions/get_note@main\n    - uses: actions/checkout@v4\n    - uses: slsa-framework/actions/store_note@abc123 # v0.0.9\n    - uses: slsa-framework/slsa-source-poc/actions/store_note@main\n",
-			"    - uses: slsa-framework/actions/get_note@" + digest + " # " + tag + "\n    - uses: actions/checkout@v4\n    - uses: slsa-framework/actions/store_note@abc123 # v0.0.9\n    - uses: slsa-framework/actions/store_note@" + digest + " # " + tag + "\n",
-			2,
+			"    - uses: slsa-framework/actions/get_note@" + digest + " # " + tag + "\n    - uses: actions/checkout@v4\n    - uses: slsa-framework/actions/store_note@" + digest + " # " + tag + "\n    - uses: slsa-framework/actions/store_note@" + digest + " # " + tag + "\n",
+			3,
+		},
+		{
+			// References to the current repo on a branch are pinned
+			"current-repo-branch",
+			"    uses: slsa-framework/actions/.github/workflows/compute_slsa_source.yml@main\n",
+			"    uses: slsa-framework/actions/.github/workflows/compute_slsa_source.yml@" + digest + " # " + tag + "\n",
+			1,
+		},
+		{
+			// References pinned to an older release are bumped
+			"current-repo-old-release",
+			"    uses: slsa-framework/actions/.github/workflows/compute_slsa_source.yml@0123456789abcdef0123456789abcdef01234567 # v0.0.9\n",
+			"    uses: slsa-framework/actions/.github/workflows/compute_slsa_source.yml@" + digest + " # " + tag + "\n",
+			1,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -190,8 +204,10 @@ func TestMigrateActionsReferences(t *testing.T) {
 			assert.Equal(t, tc.expect, res)
 
 			// Migrated content must not reference any legacy repo anymore
+			// and all references must be pinned to the release digest
 			for _, ref := range findActionsReferences(res) {
 				assert.False(t, ref.IsLegacy(), "line %d still references %s", ref.Line, ref.Repo)
+				assert.False(t, ref.IsOutdated(digest), "line %d is pinned to %s", ref.Line, ref.Ref)
 			}
 		})
 	}
@@ -317,7 +333,9 @@ func TestFindProvenanceWorkflows(t *testing.T) {
 			// Sort by path as the mock directory listing order is not stable
 			res := make([]*models.ProvenanceWorkflow, 0, len(workflows))
 			for _, wf := range workflows {
-				res = append(res, wf.toModel(&models.Repository{Path: "owner/repo"}))
+				res = append(res, wf.toModel(
+					&models.Repository{Path: "owner/repo"}, "v0.1.0", "dea965cdca5e0cb422bf7b2653c9d15f678ad01c",
+				))
 			}
 			sortWorkflows(res)
 
@@ -340,6 +358,41 @@ func TestFindProvenanceWorkflows(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProvenanceWorkflowOutdated(t *testing.T) {
+	t.Parallel()
+	const (
+		tag       = "v0.2.0"
+		digest    = "0123456789abcdef0123456789abcdef01234567"
+		oldDigest = "dea965cdca5e0cb422bf7b2653c9d15f678ad01c"
+	)
+	repo := &models.Repository{Path: "owner/repo"}
+	wf := &provenanceWorkflow{
+		workflowFile: &workflowFile{Path: workflowsDir + "/slsa.yaml", Content: currentWorkflow},
+		References:   findActionsReferences(currentWorkflow),
+	}
+
+	// Pinned to the latest release: nothing to do
+	assert.False(t, wf.IsOutdated(oldDigest))
+	assert.False(t, wf.NeedsUpdate(oldDigest))
+	assert.Nil(t, wf.toModel(repo, "v0.1.0", oldDigest).RecommendedAction)
+
+	// A newer release is out: the workflow needs an update but is not legacy
+	assert.True(t, wf.IsOutdated(digest))
+	assert.True(t, wf.NeedsUpdate(digest))
+	res := wf.toModel(repo, tag, digest)
+	assert.False(t, res.IsLegacy())
+	require.NotNil(t, res.RecommendedAction)
+	assert.Contains(t, res.RecommendedAction.Message, wf.Path)
+	assert.Contains(t, res.RecommendedAction.Message, tag)
+	assert.Equal(
+		t, "sourcetool setup controls --config=CONFIG_GEN_PROVENANCE owner/repo",
+		res.RecommendedAction.Command,
+	)
+
+	// Without a release digest only legacy references are flagged
+	assert.Nil(t, wf.toModel(repo, "", "").RecommendedAction)
 }
 
 func sortWorkflows(workflows []*models.ProvenanceWorkflow) {

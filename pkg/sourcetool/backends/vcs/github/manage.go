@@ -37,11 +37,22 @@ const (
 	// pull request updating workflows calling the actions from a legacy repo.
 	workflowUpdateCommitMessage = "Update SLSA Source Provenance Workflow"
 
-	// workflowUpdatePRBody is the body of the pull request updating the provenance
-	// workflow. It takes the current actions repo (twice) and the pinned tag.
+	// workflowUpdatePRBody is the body of the pull request moving the provenance
+	// workflow off a legacy actions repo. It takes the current actions repo
+	// (twice) and the pinned tag.
 	workflowUpdatePRBody = `This pull request updates the SLSA Source provenance workflow to call the ` +
 		`SLSA actions from their new repository at [%s](https://github.com/%s).` + "\n\n" +
 		`The previous locations are deprecated and will no longer receive updates. ` +
+		`The actions are now pinned to the digest of the %s release, recording the ` +
+		`version in a comment so that dependabot can keep it up to date.` + "\n\n" +
+		`Note: This is an automated PR created using the ` +
+		`[SLSA sourcetool](https://github.com/slsa-framework/source-tool) utility.` + "\n"
+
+	// workflowBumpPRBody is the body of the pull request updating a provenance
+	// workflow already calling the current actions repo to its latest release.
+	// It takes the current actions repo (twice) and the pinned tag.
+	workflowBumpPRBody = `This pull request updates the SLSA Source provenance workflow to call the ` +
+		`latest release of the SLSA actions from [%s](https://github.com/%s).` + "\n\n" +
 		`The actions are now pinned to the digest of the %s release, recording the ` +
 		`version in a comment so that dependabot can keep it up to date.` + "\n\n" +
 		`Note: This is an automated PR created using the ` +
@@ -126,21 +137,20 @@ func (b *Backend) CreateWorkflowPR(ctx context.Context, r *models.Repository, br
 }
 
 // updateWorkflowPR creates a pull request updating the specified workflows
-// to call the SLSA actions from the current repository, pinned to its latest
-// release. Workflows not calling any actions from a legacy repo are skipped.
-func (b *Backend) updateWorkflowPR(ctx context.Context, r *models.Repository, workflows []*provenanceWorkflow) (*models.PullRequest, error) {
-	// Get the actions repo tag
-	actionsTag, actionsHash, err := b.GetLatestActionsTag(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting latest actions tag: %w", err)
-	}
-
+// to call the SLSA actions from the current repository, pinned to the digest
+// of its latest release (actionsTag). Workflows already calling the actions
+// at that digest are skipped.
+func (b *Backend) updateWorkflowPR(
+	r *models.Repository, workflows []*provenanceWorkflow, actionsTag, actionsHash string,
+) (*models.PullRequest, error) {
 	files := []*repo.PullRequestFileEntry{}
+	legacy := false
 	for _, wf := range workflows {
 		content, changed := migrateActionsReferences(wf.Content, actionsTag, actionsHash)
 		if changed == 0 {
 			continue
 		}
+		legacy = legacy || wf.IsLegacy()
 		files = append(files, &repo.PullRequestFileEntry{
 			Path:   wf.Path,
 			Reader: strings.NewReader(content),
@@ -148,19 +158,24 @@ func (b *Backend) updateWorkflowPR(ctx context.Context, r *models.Repository, wo
 	}
 
 	if len(files) == 0 {
-		return nil, errors.New("none of the workflows call the SLSA actions from a legacy repository")
+		return nil, errors.New("none of the workflows need to be updated")
 	}
 
+	// The body explains the repository move only when a workflow is migrated
+	bodyTemplate := workflowBumpPRBody
+	if legacy {
+		bodyTemplate = workflowUpdatePRBody
+	}
 	actionsRepo := ActionsOrg + "/" + ActionsRepo
-	body := fmt.Sprintf(workflowUpdatePRBody, actionsRepo, actionsRepo, actionsTag)
-	//nolint:contextcheck // the pull request manager does not take a context
+	body := fmt.Sprintf(bodyTemplate, actionsRepo, actionsRepo, actionsTag)
 	return b.openWorkflowPR(r, workflowUpdateCommitMessage, body, files)
 }
 
 // configureProvenanceWorkflow ensures the repository has a workflow generating
 // provenance which calls the current SLSA actions. It opens a pull request
 // adding the workflow when the repository has none, or updating the existing
-// workflows when they call the actions from a legacy repository. It returns
+// workflows when they call the actions from a legacy repository or when they
+// are not pinned to the latest actions release. It returns
 // a nil pull request when there is nothing to do: either the workflows are up
 // to date or a pull request adding or updating them is already open.
 func (b *Backend) configureProvenanceWorkflow(ctx context.Context, r *models.Repository, branches []*models.Branch) (*models.PullRequest, error) {
@@ -196,19 +211,26 @@ func (b *Backend) configureProvenanceWorkflow(ctx context.Context, r *models.Rep
 		return b.CreateWorkflowPR(ctx, r, branches)
 	}
 
-	legacy := []*provenanceWorkflow{}
+	// Get the actions repo tag
+	actionsTag, actionsHash, err := b.GetLatestActionsTag(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest actions tag: %w", err)
+	}
+
+	outdated := []*provenanceWorkflow{}
 	for _, wf := range workflows {
-		if wf.IsLegacy() {
-			legacy = append(legacy, wf)
+		if wf.NeedsUpdate(actionsHash) {
+			outdated = append(outdated, wf)
 		}
 	}
 
-	// Workflows already call the current actions, nothing to do
-	if len(legacy) == 0 {
+	// Workflows already call the latest release of the actions, nothing to do
+	if len(outdated) == 0 {
 		return nil, nil
 	}
 
-	return b.updateWorkflowPR(ctx, r, legacy)
+	//nolint:contextcheck // the pull request manager does not take a context
+	return b.updateWorkflowPR(r, outdated, actionsTag, actionsHash)
 }
 
 // openWorkflowPR opens a pull request in the repository checking in the
