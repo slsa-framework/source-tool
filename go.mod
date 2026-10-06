@@ -8,7 +8,7 @@ require (
 	github.com/carabiner-dev/signer v0.6.2
 	github.com/carabiner-dev/vcslocator v0.5.1
 	github.com/fatih/color v1.19.0
-	github.com/go-git/go-billy/v5 v5.9.1
+	github.com/go-git/go-billy/v5 v5.9.2
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/google/go-github/v88 v88.0.0
 	github.com/google/uuid v1.6.0
