@@ -16,6 +16,7 @@ import (
 	"github.com/carabiner-dev/collector/filters"
 	"github.com/carabiner-dev/collector/repository/github"
 	"github.com/carabiner-dev/collector/repository/note"
+	"github.com/go-git/go-git/v5"
 	vsa "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	intoto "github.com/in-toto/attestation/go/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -152,6 +153,21 @@ func (a *Attester) getCollector(branch *models.Branch) (*collector.Agent, error)
 	return agent, nil
 }
 
+// notesRefMissing reports whether an attestation fetch failed only because the
+// git notes ref does not exist yet. A repository that has never been attested
+// has no such ref, so this is an empty attestation set rather than an error:
+// without it the first attestation can never be written, because writing it
+// requires reading the attestations that would have created the ref.
+func notesRefMissing(err error) bool {
+	if errors.Is(err, git.NoMatchingRefSpecError{}) {
+		return true
+	}
+	// The collector aggregates per-locator failures in a vcslocator.ErrorList,
+	// which has no Unwrap, so on that path the go-git error is only reachable
+	// through the message.
+	return strings.Contains(err.Error(), "couldn't find remote ref")
+}
+
 // GetRevisionVSA returns a revision's VSA attestation
 func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, revision models.Revision) (attestation.Envelope, *vsa.VerificationSummary, error) {
 	if revision.GetCommit() == nil {
@@ -177,12 +193,16 @@ func (a *Attester) GetRevisionVSA(ctx context.Context, branch *models.Branch, re
 			ctx, []attestation.Subject{revision.GetCommit().ToResourceDescriptor()},
 			collector.WithQuery(attestation.NewQuery().WithFilter(matcher)),
 		)
-		if attErr == nil {
+		if attErr == nil || notesRefMissing(attErr) {
 			break
 		}
 		time.Sleep(time.Duration(i*5) * time.Second)
 	}
 	if attErr != nil {
+		if notesRefMissing(attErr) {
+			Debugf("notes ref not created yet, treating as no attestations")
+			return nil, nil, nil
+		}
 		return nil, nil, fmt.Errorf("fetching attestations: %w", attErr)
 	}
 
@@ -259,12 +279,16 @@ func (a *Attester) GetRevisionProvenance(ctx context.Context, branch *models.Bra
 			ctx, []attestation.Subject{commit.ToResourceDescriptor()},
 			collector.WithQuery(attestation.NewQuery().WithFilter(matcher)),
 		)
-		if attErr == nil {
+		if attErr == nil || notesRefMissing(attErr) {
 			break
 		}
 		time.Sleep(time.Duration(i*5) * time.Second)
 	}
 	if attErr != nil {
+		if notesRefMissing(attErr) {
+			Debugf("notes ref not created yet, treating as no attestations")
+			return nil, nil
+		}
 		return nil, fmt.Errorf("fetching attestations: %w", attErr)
 	}
 
