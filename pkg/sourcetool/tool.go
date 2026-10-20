@@ -261,6 +261,13 @@ func (t *Tool) createPolicy(r *models.Repository, branch *models.Branch, control
 		if err != nil {
 			return nil, fmt.Errorf("could not compute eligible_since: %w", err)
 		}
+		// ComputeEligibleSince returns a nil time when the set is missing a
+		// control the level requires. That happens at level 1, which is
+		// reported as eligible without checking its controls, so keep the
+		// zero time default instead of dereferencing nil.
+		if eligibleSince == nil {
+			eligibleSince = &time.Time{}
+		}
 	}
 
 	p := &policy.RepoPolicy{
