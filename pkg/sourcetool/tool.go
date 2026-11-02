@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/carabiner-dev/attestation"
-	"github.com/carabiner-dev/collector"
-	"github.com/carabiner-dev/collector/envelope"
-	cgithub "github.com/carabiner-dev/collector/repository/github"
-	"github.com/carabiner-dev/collector/repository/note"
+	"github.com/policylabs/attestation"
+	"github.com/policylabs/collector"
+	"github.com/policylabs/collector/envelope"
+	cgithub "github.com/policylabs/collector/repository/github"
+	"github.com/policylabs/collector/repository/note"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 

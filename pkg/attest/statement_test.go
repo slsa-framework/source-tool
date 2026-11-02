@@ -8,8 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/carabiner-dev/attestation"
 	spb "github.com/in-toto/attestation/go/v1"
+	"github.com/policylabs/attestation"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"

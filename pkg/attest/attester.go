@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/carabiner-dev/collector"
 	intoto "github.com/in-toto/attestation/go/v1"
+	"github.com/policylabs/collector"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"

@@ -6,8 +6,8 @@ package attest
 import (
 	"fmt"
 
-	"github.com/carabiner-dev/attestation"
 	intoto "github.com/in-toto/attestation/go/v1"
+	"github.com/policylabs/attestation"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/slsa-framework/source-tool/pkg/slsa"

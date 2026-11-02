@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/carabiner-dev/attestation"
-	"github.com/carabiner-dev/collector"
-	"github.com/carabiner-dev/collector/filters"
-	"github.com/carabiner-dev/collector/repository/github"
-	"github.com/carabiner-dev/collector/repository/note"
 	vsa "github.com/in-toto/attestation/go/predicates/vsa/v1"
 	intoto "github.com/in-toto/attestation/go/v1"
+	"github.com/policylabs/attestation"
+	"github.com/policylabs/collector"
+	"github.com/policylabs/collector/filters"
+	"github.com/policylabs/collector/repository/github"
+	"github.com/policylabs/collector/repository/note"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 

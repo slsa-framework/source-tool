@@ -6,8 +6,8 @@ package attest
 import (
 	"bytes"
 
-	"github.com/carabiner-dev/signer"
-	"github.com/carabiner-dev/signer/options"
+	"github.com/policylabs/signer"
+	"github.com/policylabs/signer/options"
 )
 
 func Sign(data string) (string, error) {
