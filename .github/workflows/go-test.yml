@@ -11,36 +11,11 @@ on:
 permissions: {}
 
 jobs:
-  go-versions:
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    outputs:
-      latest: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
-      previous: ${{ steps.go-versions.outputs.GO_VERSION_PREVIOUS }}
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: carabiner-dev/actions/go/versions@d41fe10fe88deaf493ce026007da73738b9f570c # v1.3.0
-        id: go-versions
-
   unit-test:
-    needs: go-versions
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
-
-    strategy:
-      matrix:
-        go-version:
-          - ${{ needs.go-versions.outputs.latest }}
-          - ${{ needs.go-versions.outputs.previous }}
 
     steps:
       - name: Checkout code
@@ -48,10 +23,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: carabiner-dev/actions/go/versions@d41fe10fe88deaf493ce026007da73738b9f570c # v1.3.0
+        id: go-versions
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
           check-latest: true
           cache: false
 

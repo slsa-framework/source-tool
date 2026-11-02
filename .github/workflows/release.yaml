@@ -31,9 +31,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - uses: carabiner-dev/actions/go/versions@d41fe10fe88deaf493ce026007da73738b9f570c # v1.3.0
+        id: go-versions
+
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
           check-latest: true
           cache: false
 
