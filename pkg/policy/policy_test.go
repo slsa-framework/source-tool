@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -252,6 +254,7 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 		provenanceStatement   *spb.Statement
 		ghConnBranch          string
 		expectedErrorContains string
+		expectedErrIs         error // when set, checked with errors.Is instead of the message
 	}{
 		{
 			// The SLSA level itself now downgrades instead of erroring; this
@@ -271,11 +274,11 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 			expectedErrorContains: "syntax error (line 1:1): invalid value", // Error from GetPolicy via getLocalPolicy
 		},
 		{
-			name:                  "Non-existent Policy File -> Error",
-			policyContent:         nil, // Signal to not create a temp file for this test
-			provenanceStatement:   createStatementForTest(t, &validProvPredicateL3Controls, provenance.SourceProvPredicateType),
-			ghConnBranch:          "main",
-			expectedErrorContains: "no such file or directory", // Error from os.ReadFile in getLocalPolicy
+			name:                "Non-existent Policy File -> Error",
+			policyContent:       nil, // Signal to not create a temp file for this test
+			provenanceStatement: createStatementForTest(t, &validProvPredicateL3Controls, provenance.SourceProvPredicateType),
+			ghConnBranch:        "main",
+			expectedErrIs:       fs.ErrNotExist, // From os.ReadFile in getLocalPolicy; the message is OS-specific
 		},
 		{
 			name:                  "Malformed Provenance - Nil Statement -> Error",
@@ -332,9 +335,12 @@ func TestEvaluateSourceProv_Failure(t *testing.T) {
 				Name: tt.ghConnBranch,
 			}, tt.provenanceStatement)
 
-			if err == nil {
-				t.Errorf("EvaluateSourceProv() error = nil, want non-nil error containing %q", tt.expectedErrorContains)
-			} else if !strings.Contains(err.Error(), tt.expectedErrorContains) {
+			switch {
+			case err == nil:
+				t.Errorf("EvaluateSourceProv() error = nil, want non-nil error")
+			case tt.expectedErrIs != nil && !errors.Is(err, tt.expectedErrIs):
+				t.Errorf("EvaluateSourceProv() error = %q, want error wrapping %v", err.Error(), tt.expectedErrIs)
+			case tt.expectedErrIs == nil && !strings.Contains(err.Error(), tt.expectedErrorContains):
 				t.Errorf("EvaluateSourceProv() error = %q, want error containing %q", err.Error(), tt.expectedErrorContains)
 			}
 		})
