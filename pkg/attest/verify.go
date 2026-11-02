@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/carabiner-dev/attestation"
-	"github.com/carabiner-dev/signer"
-	sapi "github.com/carabiner-dev/signer/api/v1"
-	"github.com/carabiner-dev/signer/options"
+	"github.com/policylabs/attestation"
+	"github.com/policylabs/signer"
+	sapi "github.com/policylabs/signer/api/v1"
+	"github.com/policylabs/signer/options"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
