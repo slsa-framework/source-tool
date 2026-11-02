@@ -19,7 +19,6 @@ jobs:
 
     outputs:
       latest: ${{ steps.go-versions.outputs.GO_VERSION_STABLE }}
-      previous: ${{ steps.go-versions.outputs.GO_VERSION_PREVIOUS }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,16 +30,17 @@ jobs:
 
   unit-test:
     needs: go-versions
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     permissions:
       contents: read
 
     strategy:
       matrix:
-        go-version:
-          - ${{ needs.go-versions.outputs.latest }}
-          - ${{ needs.go-versions.outputs.previous }}
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
 
     steps:
       - name: Checkout code
@@ -51,7 +51,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{ needs.go-versions.outputs.latest }}
           check-latest: true
           cache: false
 
