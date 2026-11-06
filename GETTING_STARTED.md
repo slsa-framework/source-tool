@@ -311,9 +311,9 @@ commit xxx has more than one parent \[...\] which is not supported
 This error happens when your repository uses merge commits. While not officially supported, you can enable the experimental support in sourcetool by enabling the `allow-merge-commits` option in the `.github/workflows/compute_slsa_source.yaml` workflow in your repo:
 
 ```yaml
-    uses: slsa-framework/source-actions/.github/workflows/compute\_slsa\_source.yml@main  
-    with:  
-      allow-merge-commits: true  
+    uses: slsa-framework/actions/.github/workflows/compute_slsa_source.yml@<commit> # vX.Y.Z
+    with:
+      allow-merge-commits: true
 ```
 
 ### Sourcetool CLI Error Messages
