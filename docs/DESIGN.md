@@ -8,7 +8,7 @@ using GitHub's existing functionality.
 * Users create a [policy](#policy) for the repo & branches they want to protect,
   indicating their desired SLSA level. 
 * Users call the `compute_slsa_source.yml` reusable workflow from
-  [source-actions](https://github.com/slsa-framework/source-actions) on any
+  [slsa-framework/actions](https://github.com/slsa-framework/actions) on any
   `push` changes to protected branches.
 * The workflow gets the attestations, if any, for the prior commit.
 * The workflow evaluates their controls, the current commit, and prior

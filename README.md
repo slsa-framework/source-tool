@@ -15,9 +15,12 @@ this tool meets the SLSA Source Requirements.
 
 ## Related repositories
 
-[source-actions](https://github.com/slsa-framework/source-actions) the GitHub Actions
-used with source-tool to implement SLSA Source Track requirements within GitHub
-projects.
+[slsa-framework/actions](https://github.com/slsa-framework/actions) the GitHub
+Actions used with source-tool to implement SLSA Source Track requirements within
+GitHub projects: the `compute_slsa_source.yml` reusable workflow that
+`sourcetool setup` installs, and the `verify/source` action. (The older
+[source-actions](https://github.com/slsa-framework/source-actions) repository is
+superseded by it.)
 
 [source-policies](https://github.com/slsa-framework/source-policies) stores each GitHub
 project's 'policy' which details the SLSA Source Level and other controls implemented
