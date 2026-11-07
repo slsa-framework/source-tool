@@ -266,6 +266,13 @@ func (pe *PolicyEvaluator) CreateLocalPolicy(ctx context.Context, repo *models.R
 		if err != nil {
 			return "", fmt.Errorf("could not compute eligible since: %w", err)
 		}
+		// ComputeEligibleSince returns a nil time when the set is missing a
+		// control the level requires. That happens at level 1, which is
+		// reported as eligible without checking its controls, so keep the
+		// zero time default instead of dereferencing nil.
+		if eligibleSince == nil {
+			eligibleSince = &time.Time{}
+		}
 	}
 
 	p := RepoPolicy{
