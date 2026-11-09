@@ -477,8 +477,8 @@ github.com/policylabs/policy v0.5.7-0.20261004134513-55e5473eef09 h1:xfDq4vrXBDv
 github.com/policylabs/policy v0.5.7-0.20261004134513-55e5473eef09/go.mod h1:NArOX4b9LMPoc/aa8WPuZkEknGavT3IoYiyJ1rHxUBE=
 github.com/policylabs/predicates v0.6.0 h1:PgM9/8X8p/i4+Mr+VkijTb2ukeykrHmmjBnk1GuSq+M=
 github.com/policylabs/predicates v0.6.0/go.mod h1:g3sbkSBMWlEK8CPVFiUzSOfUoHWKLFYHr7xugF77Z60=
-github.com/policylabs/signer v0.6.6 h1:NQVrwhSi+Fae5XVVQN9rQ94Z1vu6IiHWac9SK/NjLmo=
-github.com/policylabs/signer v0.6.6/go.mod h1:ptQxLBBTfVnxQrRXxYlMFORieLuFjLcTmqSTQqtUrYg=
+github.com/policylabs/signer v0.6.7 h1:bzCy4CjhK7AtUuQRKPn1O7XDI2vIGqjjvyhymQTiN/4=
+github.com/policylabs/signer v0.6.7/go.mod h1:ptQxLBBTfVnxQrRXxYlMFORieLuFjLcTmqSTQqtUrYg=
 github.com/protobom/protobom v0.6.2 h1:HJTEEnYyU1m3VWoVj0TkDqArWC3Q2CvSFXHUpCkRkoI=
 github.com/protobom/protobom v0.6.2/go.mod h1:WtLWrIyJthYwjbNqn4uMWzculpjNrmVYY78FgCRXe7w=
 github.com/regclient/regclient v0.11.6 h1:IUcd3slMqo1CaLQ3JcE0W039gUv7uYZpY5FsyAYowXA=
