@@ -268,6 +268,8 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 		}
 	}
 
+	carryOverDynamicControls(status, activeControls)
+
 	// The only control which can be in in_progress state in GitHub is
 	// provenance generation when the PR is open but not merged. We check
 	// here and report back the status.
@@ -298,6 +300,21 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 	}
 
 	return status, nil
+}
+
+// carryOverDynamicControls adds to the status the active controls which are
+// not part of the fixed list of controls of the framework, such as the checks
+// required to merge into the branch (GH_REQUIRED_CHECK_*). These have no entry
+// to enable in a new control set and would be dropped otherwise.
+func carryOverDynamicControls(status, activeControls *slsa.ControlSet) {
+	for _, c := range activeControls.Controls {
+		if c == nil || status.GetControl(c.GetName()) != nil {
+			continue
+		}
+		dynamic := *c
+		dynamic.State = slsa.StateActive
+		status.AddControl(&dynamic)
+	}
 }
 
 // controlImplementationMessage returns an implementation message to populate the
