@@ -6,7 +6,7 @@ package ghcontrol
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"time"
@@ -111,7 +111,7 @@ func (ghc *GitHubConnection) computeRepoContinuityControl(ctx context.Context, r
 	}
 
 	if oldestDeletion == nil || oldestNoFf == nil {
-		log.Printf("oldestDeletion (%v) or oldestNoFf (%v) is nil, cannot be L2+", oldestDeletion, oldestNoFf)
+		slog.Debug(fmt.Sprintf("oldestDeletion (%v) or oldestNoFf (%v) is nil, cannot be L2+", oldestDeletion, oldestNoFf))
 		return nil, nil
 	}
 
