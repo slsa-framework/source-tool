@@ -302,7 +302,47 @@ func (b *Backend) FindProvenanceWorkflows(ctx context.Context, branch *models.Br
 
 	res := make([]*models.ProvenanceWorkflow, 0, len(workflows))
 	for _, wf := range workflows {
-		res = append(res, wf.toModel(branch.Repository, actionsTag, actionsHash))
+		model := wf.toModel(branch.Repository, actionsTag, actionsHash)
+
+		// The last run is informative. Reading the runs may fail, for example
+		// when the token has no access to the actions API, and that should
+		// not keep the workflows from being reported.
+		if run, err := latestWorkflowRun(ctx, client, owner, repoName, wf.Path, branch.GetName()); err == nil {
+			model.LastRun = run
+		}
+		res = append(res, model)
+	}
+	return res, nil
+}
+
+// latestWorkflowRun returns the most recent completed run of a workflow in a
+// branch. It returns nil when the workflow has no completed runs.
+func latestWorkflowRun(
+	ctx context.Context, client *github.Client, owner, repoName, workflowPath, branch string,
+) (*models.WorkflowRun, error) {
+	runs, _, err := client.Actions.ListWorkflowRunsByFileName(
+		ctx, owner, repoName, path.Base(workflowPath), &github.ListWorkflowRunsOptions{
+			Branch:      branch,
+			Status:      "completed",
+			ListOptions: github.ListOptions{PerPage: 1},
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing runs of %s: %w", workflowPath, err)
+	}
+
+	if len(runs.WorkflowRuns) == 0 {
+		return nil, nil
+	}
+
+	run := runs.WorkflowRuns[0]
+	res := &models.WorkflowRun{
+		Conclusion: run.GetConclusion(),
+		URL:        run.GetHTMLURL(),
+		Commit:     run.GetHeadSHA(),
+	}
+	if run.CreatedAt != nil {
+		res.Time = &run.CreatedAt.Time
 	}
 	return res, nil
 }

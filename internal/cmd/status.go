@@ -205,6 +205,7 @@ sourcetool status myorg/myrepo@mybranch
 			fmt.Println(w("Current SLSA Source level: " + verifiedLevel))
 			printLevelGap(toplevel, verifiedLevel, evalResult.Shortfall)
 			printLegacyWorkflows(workflows)
+			printFailingWorkflows(workflows)
 			fmt.Println("")
 
 			// Collect the recommended actions from the controls
@@ -281,6 +282,26 @@ func printLegacyWorkflows(workflows []*models.ProvenanceWorkflow) {
 			"%s The workflow %s calls the SLSA actions from the deprecated %s repository.\n",
 			w2("⚠️ "), wf.Path, strings.Join(wf.LegacyActionsRepos, " and "),
 		)
+	}
+}
+
+// printFailingWorkflows warns about provenance workflows whose most recent
+// run failed, as no provenance is generated while the workflow fails.
+func printFailingWorkflows(workflows []*models.ProvenanceWorkflow) {
+	for _, wf := range workflows {
+		if !wf.IsFailing() {
+			continue
+		}
+		fmt.Printf("%s The last run of the workflow %s failed", w2("⚠️ "), wf.Path)
+		if wf.LastRun.URL != "" {
+			fmt.Printf(": %s", wf.LastRun.URL)
+		}
+		fmt.Println()
+
+		// An out of date workflow is the one cause we can point to
+		if wf.RecommendedAction != nil {
+			fmt.Println("   The workflow is out of date, updating it may fix the failure.")
+		}
 	}
 }
 

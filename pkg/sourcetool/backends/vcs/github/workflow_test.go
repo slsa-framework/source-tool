@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-github/v88/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
@@ -402,5 +403,95 @@ func sortWorkflows(workflows []*models.ProvenanceWorkflow) {
 				workflows[i], workflows[j] = workflows[j], workflows[i]
 			}
 		}
+	}
+}
+
+func TestLatestWorkflowRun(t *testing.T) {
+	t.Parallel()
+	created := time.Date(2026, 11, 22, 2, 13, 2, 0, time.UTC)
+	for _, tc := range []struct {
+		name    string
+		handler http.HandlerFunc
+		expect  *models.WorkflowRun
+		failed  bool
+		mustErr bool
+	}{
+		{
+			name: "failed-run",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.True(t, strings.HasSuffix(r.URL.Path, "/actions/workflows/slsa.yaml/runs"))
+				assert.Equal(t, "main", r.URL.Query().Get("branch"))
+				assert.Equal(t, "completed", r.URL.Query().Get("status"))
+				_, err := w.Write(mock.MustMarshal(&github.WorkflowRuns{
+					WorkflowRuns: []*github.WorkflowRun{{
+						Conclusion: github.Ptr("failure"),
+						HTMLURL:    github.Ptr("https://github.com/owner/repo/actions/runs/1"),
+						HeadSHA:    github.Ptr("cad76b6e23d2717fad37a3f5a1da5feb7bfa518d"),
+						CreatedAt:  &github.Timestamp{Time: created},
+					}},
+				}))
+				assert.NoError(t, err)
+			},
+			expect: &models.WorkflowRun{
+				Conclusion: "failure",
+				URL:        "https://github.com/owner/repo/actions/runs/1",
+				Commit:     "cad76b6e23d2717fad37a3f5a1da5feb7bfa518d",
+				Time:       &created,
+			},
+			failed: true,
+		},
+		{
+			name: "successful-run",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, err := w.Write(mock.MustMarshal(&github.WorkflowRuns{
+					WorkflowRuns: []*github.WorkflowRun{{Conclusion: github.Ptr("success")}},
+				}))
+				assert.NoError(t, err)
+			},
+			expect: &models.WorkflowRun{Conclusion: "success"},
+		},
+		{
+			name: "no-runs",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, err := w.Write(mock.MustMarshal(&github.WorkflowRuns{}))
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "api-error",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				mock.WriteError(w, http.StatusForbidden, "forbidden")
+			},
+			mustErr: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			client, err := github.NewClient(github.WithHTTPClient(mock.NewMockedHTTPClient(
+				mock.WithRequestMatchHandler(mock.GetReposActionsWorkflowsRunsByOwnerByRepoByWorkflowId, tc.handler),
+			)))
+			require.NoError(t, err)
+
+			run, err := latestWorkflowRun(t.Context(), client, "owner", "repo", workflowsDir+"/slsa.yaml", "main")
+			if tc.mustErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tc.expect == nil {
+				require.Nil(t, run)
+				return
+			}
+			require.NotNil(t, run)
+			assert.Equal(t, tc.expect.Conclusion, run.Conclusion)
+			assert.Equal(t, tc.expect.URL, run.URL)
+			assert.Equal(t, tc.expect.Commit, run.Commit)
+			if tc.expect.Time != nil {
+				require.NotNil(t, run.Time)
+				assert.True(t, tc.expect.Time.Equal(*run.Time))
+			}
+			assert.Equal(t, tc.failed, run.Failed())
+			assert.Equal(t, tc.failed, (&models.ProvenanceWorkflow{LastRun: run}).IsFailing())
+		})
 	}
 }
