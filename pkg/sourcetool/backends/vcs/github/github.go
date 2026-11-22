@@ -435,20 +435,85 @@ func (b *Backend) getRecommendedAction(r *models.Repository, _ *models.Branch, c
 	}
 }
 
-// GetPreviousCommit takes a commit in
+// GetPreviousCommit returns the commit that precedes a commit in the branch.
+//
+// The previous commit of a merge commit is its first parent. Merge commits
+// have to merge a linear branch into the previous tip of the branch, any
+// other merge is an error.
 func (b *Backend) GetPreviousCommit(ctx context.Context, branch *models.Branch, commit *models.Commit) (*models.Commit, error) {
 	ghx, err := b.getGitHubConnection(branch.Repository, branch.FullRef())
 	if err != nil {
 		return nil, err
 	}
-	// TODO:IMPLEMENT
-	rawCommit, err := ghx.GetPriorCommit(ctx, commit.SHA)
+
+	parents, err := ghx.GetCommitParents(ctx, commit.SHA)
 	if err != nil {
 		return nil, fmt.Errorf("fetching previous commit: %w", err)
 	}
+
+	// This checks the shape of the merge, if the commit is one.
+	rawCommit, err := ghx.PriorCommitFromParents(ctx, commit.SHA, parents)
+	if err != nil {
+		return nil, fmt.Errorf("fetching previous commit: %w", err)
+	}
+
+	if len(parents) > 1 {
+		if err := b.checkMergeBase(ctx, branch, commit, parents); err != nil {
+			return nil, fmt.Errorf("fetching previous commit: %w", err)
+		}
+	}
+
 	return &models.Commit{
 		SHA: rawCommit,
 	}, nil
+}
+
+// checkMergeBase verifies that the first parent of a merge commit is the one
+// that was in the branch before the merge. We know a commit was the tip of
+// the branch when it has provenance issued for the branch.
+func (b *Backend) checkMergeBase(ctx context.Context, branch *models.Branch, commit *models.Commit, parents []string) error {
+	attester, err := attest.NewAttester(
+		attest.WithBackend(b), attest.WithVerifier(b.verifier),
+		attest.WithAuthenticator(b.authenticator),
+	)
+	if err != nil {
+		return err
+	}
+
+	attested := make([]bool, len(parents))
+	for i, sha := range parents {
+		pred, err := attester.GetRevisionProvenance(ctx, branch, &models.Commit{SHA: sha})
+		if err != nil {
+			return fmt.Errorf("reading provenance of parent %s: %w", sha, err)
+		}
+		attested[i] = pred != nil && pred.GetBranch() == branch.FullRef()
+	}
+
+	return checkMergeParents(branch.FullRef(), commit.SHA, parents, attested)
+}
+
+// checkMergeParents decides if the parents of a merge commit are in the
+// expected order from which of them have provenance for the branch. Only the
+// first parent can have it.
+//
+// A merge where no parent has provenance is let through: it is the first
+// commit attested in the branch and there is nothing to compare it to.
+func checkMergeParents(branchRef, sha string, parents []string, attested []bool) error {
+	for i := 1; i < len(parents); i++ {
+		if !attested[i] {
+			continue
+		}
+		if !attested[0] {
+			return fmt.Errorf(
+				"merge commit %s has its parents swapped: the previous tip of %s is parent #%d (%s) but it must be the first",
+				sha, branchRef, i+1, parents[i],
+			)
+		}
+		return fmt.Errorf(
+			"merge commit %s merges %s, which was already a commit of %s", sha, parents[i], branchRef,
+		)
+	}
+	return nil
 }
 
 // GetDefaultBranch returns the default branch

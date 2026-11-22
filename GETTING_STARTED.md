@@ -308,13 +308,30 @@ failure.
 ### Workflow Errors
 
 commit xxx has more than one parent \[...\] which is not supported  
-This error happens when your repository uses merge commits. While not officially supported, you can enable the experimental support in sourcetool by enabling the `allow-merge-commits` option in the `.github/workflows/compute_slsa_source.yaml` workflow in your repo:
+This error happens when a merge commit lands in the branch and merge commits
+are disabled. They are allowed by default: the error means the
+`allow-merge-commits` option was set to `false`, either in the `sourcetool`
+invocation or in the `.github/workflows/compute_slsa_source.yaml` workflow in
+your repo:
 
 ```yaml
     uses: slsa-framework/actions/.github/workflows/compute_slsa_source.yml@<commit> # vX.Y.Z
     with:
       allow-merge-commits: true
 ```
+
+merge commit xxx merges a branch that is not linear  
+Merge commits are only attested when the branch they merge is linear: none of
+the commits between the tip of the merged branch and the point where it forked
+from the base branch can be a merge commit. This rejects pull requests that
+were brought up to date by merging the base branch into them (the default of
+the "Update branch" button). Update the pull request by rebasing it instead.
+
+merge commit xxx has its parents swapped  
+The first parent of a merge commit has to be the commit that was at the tip of
+the branch before the merge. This error means the previous tip of the branch
+is another parent, which happens when the base branch is merged into a feature
+branch and the base branch is then fast-forwarded to the result.
 
 ### Sourcetool CLI Error Messages
 
