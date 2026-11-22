@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/release-utils/helpers"
 
+	"github.com/slsa-framework/source-tool/pkg/auth"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool"
 	"github.com/slsa-framework/source-tool/pkg/sourcetool/models"
 )
@@ -220,6 +222,11 @@ sourcetool is about to perform the following actions on your behalf:
 				cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()},
 			)
 			if err != nil {
+				if errors.Is(err, models.ErrRepositoryAccessDenied) {
+					printConfigurationResultLines(results)
+					printRepositoryAccessDenied(authenticator, opts.GetRepository())
+					return nil
+				}
 				return fmt.Errorf("onboarding repo: %w", err)
 			}
 
@@ -449,10 +456,8 @@ a fork of the repository you want to protect.
 				}
 
 				if errors.Is(err, models.ErrRepositoryAccessDenied) {
-					fmt.Printf("\n   🔐 %s sourcetool does not have access to %s\n\n", colorHiRed("Error:"), opts.GetRepository().Path)
-					fmt.Println()
-					fmt.Printf("Please run %s again and grant the app access\n", w("sourcetool auth login"))
-					fmt.Println("to the repository or organization.")
+					printConfigurationResultLines(results)
+					printRepositoryAccessDenied(authenticator, opts.GetRepository())
 					return nil
 				}
 				return fmt.Errorf("configuring controls: %w", err)
@@ -470,6 +475,19 @@ a fork of the repository you want to protect.
 // printConfigurationResults reports what was done when configuring each
 // control and points the user to the status subcommand.
 func printConfigurationResults(repo *models.Repository, results []*models.ControlConfigurationResult) {
+	printConfigurationResultLines(results)
+	fmt.Println()
+	fmt.Printf("Please run %s\n", w2("sourcetool status "+repo.Path))
+	fmt.Println("to check the status of the controls and for the next steps.")
+	fmt.Println()
+}
+
+// printConfigurationResultLines prints a line for each control stating what
+// was done when configuring it.
+func printConfigurationResultLines(results []*models.ControlConfigurationResult) {
+	if len(results) == 0 {
+		return
+	}
 	fmt.Println()
 	for _, result := range results {
 		icon := "ℹ️ "
@@ -478,8 +496,52 @@ func printConfigurationResults(repo *models.Repository, results []*models.Contro
 		}
 		fmt.Printf("%s %s.\n", icon, result.Message)
 	}
+}
+
+// printRepositoryAccessDenied explains what to do when GitHub denies
+// sourcetool access to configure a repository. The advice depends on the
+// credentials in use: the token issued to the sourcetool OAuth app is usually
+// denied because the app has no access to the organization, while a token
+// supplied by the user is denied when it lacks the required permissions.
+func printRepositoryAccessDenied(authenticator *auth.Authenticator, repo *models.Repository) {
+	org, _, _ := strings.Cut(repo.Path, "/")
+	adminHint := func() {
+		fmt.Println("check that your account has admin")
+		fmt.Printf("permissions on %s and run the command again.\n", repo.Path)
+		fmt.Println()
+	}
+
+	if authenticator.UsesEnvironmentToken() {
+		fmt.Printf(
+			"\n   🔐 %s the token in GITHUB_TOKEN does not have access to configure %s\n\n",
+			colorHiRed("Error:"), repo.Path,
+		)
+		fmt.Printf("sourcetool is using the token set in the %s environment\n", w("GITHUB_TOKEN"))
+		fmt.Println("variable. Check that the token can administer the repository:")
+		fmt.Println()
+		fmt.Println(" - Classic tokens need the \"repo\" and \"workflow\" scopes.")
+		fmt.Println(" - Fine-grained tokens need read and write access to the")
+		fmt.Println("   \"Administration\" repository permission.")
+		fmt.Printf(" - If %s requires it, the token must be authorized for SSO or\n", w(org))
+		fmt.Println("   approved by the organization.")
+		fmt.Println()
+		fmt.Printf("You can also run %s to use the sourcetool app\n", w("sourcetool auth login"))
+		fmt.Println("instead of the token.")
+		fmt.Println()
+		fmt.Print("If the token has the required access, ")
+		adminHint()
+		return
+	}
+
+	fmt.Printf("\n   🔐 %s sourcetool does not have access to configure %s\n\n", colorHiRed("Error:"), repo.Path)
+	fmt.Printf("The sourcetool OAuth app needs to be granted access to %s.\n", w(org))
+	fmt.Println("Grant or request access for the organization here:")
 	fmt.Println()
-	fmt.Printf("Please run %s\n", w2("sourcetool status "+repo.Path))
-	fmt.Println("to check the status of the controls and for the next steps.")
+	fmt.Printf("   %s\n", w(auth.AppAuthorizationURL))
 	fmt.Println()
+	fmt.Println("Organization owners can approve the request in the organization's")
+	fmt.Println("settings, under Third-party Access > OAuth app policy.")
+	fmt.Println()
+	fmt.Print("If the app already has access, ")
+	adminHint()
 }

@@ -30,6 +30,11 @@ const (
 	// The SLSA sourcetool app OAuth client ID
 	oauthClientID = "Ov23lidVQsiU5R5tod3z"
 
+	// AppAuthorizationURL is the GitHub page where users review the
+	// authorization of the sourcetool OAuth app and grant it (or request)
+	// access to their organizations.
+	AppAuthorizationURL = "https://github.com/settings/connections/applications/" + oauthClientID
+
 	// App's config directory name
 	configDirName = "slsa"
 
@@ -129,6 +134,17 @@ func (a *Authenticator) Authenticate(ctx context.Context) error {
 // ReadToken reads the persisted token and returns it
 func (a *Authenticator) ReadToken() (string, error) {
 	return a.impl.readToken()
+}
+
+// UsesEnvironmentToken returns true when the authenticator is not using a
+// token issued to the sourcetool app (stored by Authenticate) but one supplied
+// by the user in the GITHUB_TOKEN environment variable.
+func (a *Authenticator) UsesEnvironmentToken() bool {
+	token, err := a.impl.readToken()
+	if err != nil || token == "" {
+		return false
+	}
+	return token == os.Getenv("GITHUB_TOKEN")
 }
 
 // GetGitHubClient returns a GitHub client preconfigured with
