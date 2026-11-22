@@ -118,10 +118,6 @@ sourcetool status myorg/myrepo@mybranch
 				return fmt.Errorf("fetching active controls: %w", err)
 			}
 
-			// The eligible level is the highest the active controls could
-			// support, ignoring the repository policy.
-			toplevel := policy.ComputeEligibleSlsaLevel(controls.GetActiveControls())
-
 			// The verified level is what the repository policy actually grants.
 			// It can be lower than the eligible level when the policy targets a
 			// lower level or when the policy is not fully met.
@@ -130,7 +126,11 @@ sourcetool status myorg/myrepo@mybranch
 			if err != nil {
 				return fmt.Errorf("evaluating controls against policy: %w", err)
 			}
-			verifiedLevel := firstSourceLevel(evalResult.VerifiedLevels)
+
+			// A level is only verified by a VSA. When the latest commit of the
+			// branch has none there is no verified level to report.
+			tipHasVSA := isControlActive(controls, slsa.SLSA_SOURCE_SCS_VSA)
+			verifiedLevel := verifiedSourceLevel(evalResult.VerifiedLevels, tipHasVSA)
 
 			// --level prints just the policy-verified level and exits, for scripting.
 			if opts.level {
@@ -143,6 +143,10 @@ sourcetool status myorg/myrepo@mybranch
 			if err != nil {
 				return fmt.Errorf("checking provenance workflows: %w", err)
 			}
+
+			// The eligible level is the highest the active controls could
+			// support, ignoring the repository policy.
+			toplevel := eligibleLevel(controls, len(workflows) > 0)
 
 			title := fmt.Sprintf(
 				"\nSLSA Source Status for %s/%s@%s", opts.owner, opts.repository,
@@ -203,7 +207,11 @@ sourcetool status myorg/myrepo@mybranch
 			}
 
 			fmt.Println(w("Current SLSA Source level: " + verifiedLevel))
-			printLevelGap(toplevel, verifiedLevel, evalResult.Shortfall)
+			if tipHasVSA {
+				printLevelGap(toplevel, verifiedLevel, evalResult.Shortfall)
+			} else {
+				printMissingVSA(toplevel, len(workflows) > 0)
+			}
 			printLegacyWorkflows(workflows)
 			printFailingWorkflows(workflows)
 			fmt.Println("")
@@ -254,6 +262,57 @@ func firstSourceLevel(levels slsa.SourceVerifiedLevels) string {
 		}
 	}
 	return string(slsa.SlsaSourceLevel0)
+}
+
+// verifiedSourceLevel returns the SLSA source level verified for the latest
+// commit of the branch. Without a VSA nothing is verified, so the level is 0
+// no matter what the controls and the policy would grant.
+func verifiedSourceLevel(levels slsa.SourceVerifiedLevels, tipHasVSA bool) string {
+	if !tipHasVSA {
+		return string(slsa.SlsaSourceLevel0)
+	}
+	return firstSourceLevel(levels)
+}
+
+// isControlActive returns true when the control is active in the set.
+func isControlActive(controls *slsa.ControlSet, name slsa.ControlName) bool {
+	c := controls.GetControl(name)
+	return c != nil && c.State == slsa.StateActive
+}
+
+// eligibleLevel returns the highest level the active controls could support,
+// ignoring the repository policy.
+//
+// The provenance and VSA controls are only active once the latest commit of
+// the branch is attested. When the repository is attestable (it has a
+// provenance workflow) they count as active, so the level is the one the
+// commit is eligible for when attested and does not drop while a commit waits
+// for its attestations.
+func eligibleLevel(controls *slsa.ControlSet, attestable bool) slsa.SlsaSourceLevel {
+	active := controls.GetActiveControls()
+	if attestable {
+		for _, name := range []slsa.ControlName{slsa.SLSA_SOURCE_SCS_PROVENANCE, slsa.SLSA_SOURCE_SCS_VSA} {
+			if active.GetControl(name) == nil {
+				active.AddControl(&slsa.Control{Name: name, State: slsa.StateActive})
+			}
+		}
+	}
+	return policy.ComputeEligibleSlsaLevel(active)
+}
+
+// printMissingVSA explains that no level is verified because the latest
+// commit of the branch has no VSA.
+func printMissingVSA(eligible slsa.SlsaSourceLevel, attestable bool) {
+	if !attestable {
+		fmt.Printf(
+			"%s The latest commit of the branch has no VSA, so no level is verified for it.\n", w2("⚠️ "),
+		)
+		return
+	}
+	fmt.Printf(
+		"%s The latest commit of the branch has no VSA yet, so no level is verified for it. The controls are eligible for %s once it is attested.\n",
+		w2("⚠️ "), eligible,
+	)
 }
 
 // printRecommendedActions prints the list of recommended actions, if any

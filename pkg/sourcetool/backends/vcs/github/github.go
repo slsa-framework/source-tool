@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -234,7 +233,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 			})
 		}
 	} else {
-		log.Printf("No provenance attestation found on %s", commit.SHA)
+		attest.Debugf("No provenance attestation found on %s", commit.SHA)
 	}
 
 	_, vsaPred, err := attester.GetRevisionVSA(ctx, branch, commit)
@@ -249,7 +248,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 			})
 		}
 	} else {
-		log.Printf("No VSA found for commit")
+		attest.Debugf("No VSA found for commit %s", commit.SHA)
 	}
 
 	// NewControlSet returns all the controls for the framework in
