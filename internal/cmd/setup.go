@@ -463,6 +463,13 @@ a fork of the repository you want to protect.
 				return fmt.Errorf("configuring controls: %w", err)
 			}
 
+			fmt.Println()
+			fmt.Println(w("✅ Controls have been configured successfully."))
+			fmt.Println()
+			fmt.Printf("Please run %s\n", w2("sourcetool status "+opts.GetRepository().Path))
+			fmt.Println("to check the status of the new controls and for the next steps.")
+			fmt.Println()
+
 			return nil
 		},
 	}
