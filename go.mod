@@ -15,7 +15,7 @@ require (
 	github.com/migueleliasweb/go-github-mock v1.5.0
 	github.com/policylabs/attestation v0.3.0
 	github.com/policylabs/collector v0.4.0
-	github.com/policylabs/signer v0.6.6
+	github.com/policylabs/signer v0.6.7
 	github.com/sigstore/sigstore-go v1.4.0
 	github.com/slsa-framework/protos v0.0.0-20260928155916-9fa868b2a756
 	github.com/spf13/cobra v1.10.2
