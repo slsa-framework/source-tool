@@ -644,7 +644,7 @@ func (t *Tool) AttestRevision(
 			envelopes = append(envelopes, parsed...)
 		}
 
-		if err := agent.Store(ctx, envelopes); err != nil {
+		if err := pushAttestations(ctx, agent, envelopes); err != nil {
 			return nil, fmt.Errorf("pushing attestations: %w", err)
 		}
 	}
