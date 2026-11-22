@@ -31,14 +31,16 @@ type FakeToolImplementation struct {
 	checkPolicyForkReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ConfigureControlsStub        func(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
+	ConfigureControlsStub        func(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) ([]*models.ControlConfigurationResult, error)
 	configureControlsMutex       sync.RWMutex
 	configureControlsArgsForCall []FakeToolImplementationConfigureControlsArgs
 	configureControlsReturns     struct {
-		result1 error
+		result1 []*models.ControlConfigurationResult
+		result2 error
 	}
 	configureControlsReturnsOnCall map[int]struct {
-		result1 error
+		result1 []*models.ControlConfigurationResult
+		result2 error
 	}
 	CreatePolicyPRStub        func(*auth.Authenticator, *options.Options, *models.Repository, *policy.RepoPolicy) (*models.PullRequest, error)
 	createPolicyPRMutex       sync.RWMutex
@@ -323,7 +325,7 @@ func (fake *FakeToolImplementation) CheckPolicyForkReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *FakeToolImplementation) ConfigureControls(arg1 models.VcsBackend, arg2 *models.Repository, arg3 []*models.Branch, arg4 []models.ControlConfiguration) error {
+func (fake *FakeToolImplementation) ConfigureControls(arg1 models.VcsBackend, arg2 *models.Repository, arg3 []*models.Branch, arg4 []models.ControlConfiguration) ([]*models.ControlConfigurationResult, error) {
 	var arg3Copy []*models.Branch
 	if arg3 != nil {
 		arg3Copy = make([]*models.Branch, len(arg3))
@@ -345,9 +347,9 @@ func (fake *FakeToolImplementation) ConfigureControls(arg1 models.VcsBackend, ar
 		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *FakeToolImplementation) ConfigureControlsCallCount() int {
@@ -356,7 +358,7 @@ func (fake *FakeToolImplementation) ConfigureControlsCallCount() int {
 	return len(fake.configureControlsArgsForCall)
 }
 
-func (fake *FakeToolImplementation) ConfigureControlsCalls(stub func(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error) {
+func (fake *FakeToolImplementation) ConfigureControlsCalls(stub func(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) ([]*models.ControlConfigurationResult, error)) {
 	fake.configureControlsMutex.Lock()
 	defer fake.configureControlsMutex.Unlock()
 	fake.ConfigureControlsStub = stub
@@ -377,27 +379,30 @@ func (fake *FakeToolImplementation) ConfigureControlsArgs() []FakeToolImplementa
 	return args
 }
 
-func (fake *FakeToolImplementation) ConfigureControlsReturns(result1 error) {
+func (fake *FakeToolImplementation) ConfigureControlsReturns(result1 []*models.ControlConfigurationResult, result2 error) {
 	fake.configureControlsMutex.Lock()
 	defer fake.configureControlsMutex.Unlock()
 	fake.ConfigureControlsStub = nil
 	fake.configureControlsReturns = struct {
-		result1 error
-	}{result1}
+		result1 []*models.ControlConfigurationResult
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeToolImplementation) ConfigureControlsReturnsOnCall(i int, result1 error) {
+func (fake *FakeToolImplementation) ConfigureControlsReturnsOnCall(i int, result1 []*models.ControlConfigurationResult, result2 error) {
 	fake.configureControlsMutex.Lock()
 	defer fake.configureControlsMutex.Unlock()
 	fake.ConfigureControlsStub = nil
 	if fake.configureControlsReturnsOnCall == nil {
 		fake.configureControlsReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 []*models.ControlConfigurationResult
+			result2 error
 		})
 	}
 	fake.configureControlsReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 []*models.ControlConfigurationResult
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeToolImplementation) CreatePolicyPR(arg1 *auth.Authenticator, arg2 *options.Options, arg3 *models.Repository, arg4 *policy.RepoPolicy) (*models.PullRequest, error) {

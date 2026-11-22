@@ -175,17 +175,23 @@ func (b *Backend) updateWorkflowPR(
 // provenance which calls the current SLSA actions. It opens a pull request
 // adding the workflow when the repository has none, or updating the existing
 // workflows when they call the actions from a legacy repository or when they
-// are not pinned to the latest actions release. It returns
-// a nil pull request when there is nothing to do: either the workflows are up
-// to date or a pull request adding or updating them is already open.
-func (b *Backend) configureProvenanceWorkflow(ctx context.Context, r *models.Repository, branches []*models.Branch) (*models.PullRequest, error) {
+// are not pinned to the latest actions release. The returned result reports
+// what was done. Nothing is changed when the workflows are up to date or when
+// a pull request adding or updating them is already open.
+func (b *Backend) configureProvenanceWorkflow(ctx context.Context, r *models.Repository, branches []*models.Branch) (*models.ControlConfigurationResult, error) {
+	result := &models.ControlConfigurationResult{Config: models.CONFIG_GEN_PROVENANCE}
+
 	// Check if there is an open PR already adding or updating the workflow
 	pr, err := b.FindWorkflowPR(ctx, r)
 	if err != nil {
 		return nil, fmt.Errorf("checking for an open workflow pull request: %w", err)
 	}
 	if pr != nil {
-		return nil, nil
+		result.PullRequest = pr
+		result.Message = fmt.Sprintf(
+			"Pull request %s is already open to add or update the provenance generation workflow", pr.Reference(),
+		)
+		return result, nil
 	}
 
 	owner, repoName, err := r.PathAsGitHubOwnerName()
@@ -208,7 +214,16 @@ func (b *Backend) configureProvenanceWorkflow(ctx context.Context, r *models.Rep
 
 	// No workflow found, add it
 	if len(workflows) == 0 {
-		return b.CreateWorkflowPR(ctx, r, branches)
+		pr, err := b.CreateWorkflowPR(ctx, r, branches)
+		if err != nil {
+			return nil, err
+		}
+		result.Changed = true
+		result.PullRequest = pr
+		result.Message = fmt.Sprintf(
+			"Opened pull request %s to add the provenance generation workflow", pr.Reference(),
+		)
+		return result, nil
 	}
 
 	// Get the actions repo tag
@@ -226,11 +241,24 @@ func (b *Backend) configureProvenanceWorkflow(ctx context.Context, r *models.Rep
 
 	// Workflows already call the latest release of the actions, nothing to do
 	if len(outdated) == 0 {
-		return nil, nil
+		result.Message = fmt.Sprintf(
+			"The provenance generation workflow in %s already uses the latest release of the actions (%s)",
+			r.Path, actionsTag,
+		)
+		return result, nil
 	}
 
 	//nolint:contextcheck // the pull request manager does not take a context
-	return b.updateWorkflowPR(r, outdated, actionsTag, actionsHash)
+	pr, err = b.updateWorkflowPR(r, outdated, actionsTag, actionsHash)
+	if err != nil {
+		return nil, err
+	}
+	result.Changed = true
+	result.PullRequest = pr
+	result.Message = fmt.Sprintf(
+		"Opened pull request %s to update the provenance generation workflow to %s", pr.Reference(), actionsTag,
+	)
+	return result, nil
 }
 
 // openWorkflowPR opens a pull request in the repository checking in the
@@ -490,34 +518,70 @@ func (b *Backend) ControlPrecheck(
 
 // ConfigureControls configure the SLSA controls in the repository
 func (b *Backend) ConfigureControls(r *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
+	_, err := b.ConfigureControlsWithResults(r, branches, configs)
+	return err
+}
+
+var _ models.ControlConfigurationReporter = (*Backend)(nil)
+
+// ConfigureControlsWithResults configures the SLSA controls in the repository
+// just as ConfigureControls does, but it also returns a result for each
+// control it configured, reporting what was done.
+func (b *Backend) ConfigureControlsWithResults(r *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) ([]*models.ControlConfigurationResult, error) {
 	errs := []error{}
+	results := []*models.ControlConfigurationResult{}
 	for _, config := range configs {
 		switch config {
 		case models.CONFIG_BRANCH_RULES:
-			if err := b.CreateRepoRuleset(r, branches); err != nil {
-				if !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
-					errs = append(errs, fmt.Errorf("creating rules in the repository: %w", err))
-				}
+			err := b.CreateRepoRuleset(r, branches)
+			if err != nil && !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
+				errs = append(errs, fmt.Errorf("creating rules in the repository: %w", err))
+				continue
 			}
+			result := &models.ControlConfigurationResult{
+				Config:  config,
+				Changed: err == nil,
+				Message: fmt.Sprintf(
+					"Enabled push and delete protection on %s for branch %s", r.Path, branches[0].Name,
+				),
+			}
+			if !result.Changed {
+				result.Message = fmt.Sprintf(
+					"Push and delete protection is already enabled on %s for branch %s", r.Path, branches[0].Name,
+				)
+			}
+			results = append(results, result)
 		case models.CONFIG_GEN_PROVENANCE:
-			if _, err := b.configureProvenanceWorkflow(context.Background(), r, branches); err != nil {
-				if !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
-					errs = append(errs, fmt.Errorf("configuring SLSA source workflow: %w", err))
-				}
+			result, err := b.configureProvenanceWorkflow(context.Background(), r, branches)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("configuring SLSA source workflow: %w", err))
+				continue
 			}
+			results = append(results, result)
 		case models.CONFIG_TAG_RULES:
-			if err := b.CreateTagRuleset(r); err != nil {
-				if !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
-					errs = append(errs, fmt.Errorf("opening SLSA source workflow pull request: %w", err))
-				}
+			err := b.CreateTagRuleset(r)
+			if err != nil && !errors.Is(err, models.ErrProtectionAlreadyInPlace) {
+				errs = append(errs, fmt.Errorf("creating tag rules in the repository: %w", err))
+				continue
 			}
+			result := &models.ControlConfigurationResult{
+				Config:  config,
+				Changed: err == nil,
+				Message: fmt.Sprintf("Enabled force push/update/delete protection for all tags in %s", r.Path),
+			}
+			if !result.Changed {
+				result.Message = fmt.Sprintf(
+					"Force push/update/delete protection is already enabled for all tags in %s", r.Path,
+				)
+			}
+			results = append(results, result)
 		case models.CONFIG_POLICY:
 			// Noop, this is not handled by the VCS handler
 		default:
 			errs = append(errs, fmt.Errorf("unknown configuration flag: %q", config))
 		}
 	}
-	return errors.Join(errs...)
+	return results, errors.Join(errs...)
 }
 
 // GetLatestActionsTag queries GitHub and returns the name and commit digest

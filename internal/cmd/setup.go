@@ -443,7 +443,7 @@ a fork of the repository you want to protect.
 					cs = append(cs, cc)
 				}
 			}
-			err = srctool.ConfigureControls(
+			results, err := srctool.ConfigureControlsWithResults(
 				cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()}, cs,
 			)
 			if err != nil {
@@ -463,11 +463,18 @@ a fork of the repository you want to protect.
 				return fmt.Errorf("configuring controls: %w", err)
 			}
 
+			// Report what was done for each control
 			fmt.Println()
-			fmt.Println(w("✅ Controls have been configured successfully."))
+			for _, result := range results {
+				icon := "ℹ️ "
+				if result.Changed {
+					icon = "✅"
+				}
+				fmt.Printf("%s %s.\n", icon, result.Message)
+			}
 			fmt.Println()
 			fmt.Printf("Please run %s\n", w2("sourcetool status "+opts.GetRepository().Path))
-			fmt.Println("to check the status of the new controls and for the next steps.")
+			fmt.Println("to check the status of the controls and for the next steps.")
 			fmt.Println()
 
 			return nil

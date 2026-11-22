@@ -202,6 +202,53 @@ type PullRequest struct {
 	Repo   *Repository
 }
 
+// GetHttpURL returns the URL of the pull request. It returns an empty string
+// when the pull request does not have enough data to build it.
+func (pr *PullRequest) GetHttpURL() string {
+	if pr.Repo == nil || pr.Number == 0 {
+		return ""
+	}
+	repoURL := pr.Repo.GetHttpURL()
+	if repoURL == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/pull/%d", repoURL, pr.Number)
+}
+
+// Reference returns the pull request URL or, when it cannot be built, its
+// number.
+func (pr *PullRequest) Reference() string {
+	if u := pr.GetHttpURL(); u != "" {
+		return u
+	}
+	return fmt.Sprintf("#%d", pr.Number)
+}
+
+// ControlConfigurationResult reports what was done when configuring a control.
+type ControlConfigurationResult struct {
+	// Config is the control configuration the result refers to.
+	Config ControlConfiguration
+
+	// Changed is true when configuring the control modified the repository
+	// or opened a pull request. It is false when there was nothing to do.
+	Changed bool
+
+	// Message describes the outcome in a sentence that can be shown to users.
+	Message string
+
+	// PullRequest is the pull request that configures the control. It is set
+	// both when the pull request was opened and when it was already open.
+	PullRequest *PullRequest
+}
+
+// ControlConfigurationReporter is an optional interface that VCS backends can
+// implement to report what they did when configuring the controls. Backends
+// that do not implement it are driven through VcsBackend.ConfigureControls
+// and produce no results.
+type ControlConfigurationReporter interface {
+	ConfigureControlsWithResults(*Repository, []*Branch, []ControlConfiguration) ([]*ControlConfigurationResult, error)
+}
+
 // ProvenanceWorkflow describes a CI workflow found in a repository that calls
 // the SLSA source actions to generate provenance.
 type ProvenanceWorkflow struct {

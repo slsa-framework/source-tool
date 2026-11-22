@@ -35,7 +35,7 @@ type toolImplementation interface {
 	SearchPullRequest(context.Context, *auth.Authenticator, *models.Repository, string) (*models.PullRequest, error)
 	GetBranchControls(context.Context, models.VcsBackend, *models.Branch) (*slsa.ControlSet, error)
 	GetBranchControlsAtCommit(context.Context, models.VcsBackend, *models.Branch, *models.Commit) (*slsa.ControlSet, error)
-	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) error
+	ConfigureControls(models.VcsBackend, *models.Repository, []*models.Branch, []models.ControlConfiguration) ([]*models.ControlConfigurationResult, error)
 	GetPolicyStatus(context.Context, *auth.Authenticator, *options.Options, *models.Repository) (*slsa.Control, error)
 	CreateRepositoryFork(context.Context, *auth.Authenticator, *models.Repository, string) error
 }
@@ -45,8 +45,13 @@ type defaultToolImplementation struct{}
 func (impl *defaultToolImplementation) ConfigureControls(
 	backend models.VcsBackend, r *models.Repository,
 	branches []*models.Branch, configs []models.ControlConfiguration,
-) error {
-	return backend.ConfigureControls(r, branches, configs)
+) ([]*models.ControlConfigurationResult, error) {
+	// Backends reporting what they did are preferred, others are configured
+	// without getting any results back.
+	if reporter, ok := backend.(models.ControlConfigurationReporter); ok {
+		return reporter.ConfigureControlsWithResults(r, branches, configs)
+	}
+	return nil, backend.ConfigureControls(r, branches, configs)
 }
 
 func (impl *defaultToolImplementation) GetBranchControls(
