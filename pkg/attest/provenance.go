@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -294,7 +295,31 @@ func (a *Attester) GetRevisionProvenance(ctx context.Context, branch *models.Bra
 	return nil, fmt.Errorf("unable to parse predicate: %w", err)
 }
 
-// prevAttPath string
+// earliestSince returns the earliest of the since dates of a control in the
+// current and the previous provenance.
+//
+// A control may have no since date, as we don't always know when it was
+// enabled. A missing date is not a date: it never wins over a known one and,
+// when both are missing, the result has no date either. The Unix epoch counts
+// as missing because earlier versions wrote it in place of a missing date.
+func earliestSince(cur, prev *timestamppb.Timestamp) *timestamppb.Timestamp {
+	curSet := cur != nil && cur.AsTime().Unix() != 0
+	prevSet := prev != nil && prev.AsTime().Unix() != 0
+	switch {
+	case curSet && prevSet:
+		return timestamppb.New(slsa.EarlierTime(cur.AsTime(), prev.AsTime()))
+	case curSet:
+		return cur
+	case prevSet:
+		return prev
+	default:
+		return nil
+	}
+}
+
+// CreateSourceProvenance creates the provenance statement of a commit. The
+// since dates of its controls are carried over from the provenance of the
+// previous commit, when it has one.
 func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Branch, commit *models.Commit, fn ...ProvenanceOption) (*intoto.Statement, error) {
 	opts := &provenanceOptions{}
 	for _, f := range fn {
@@ -323,7 +348,12 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 	// No prior provenance found, so we just go with current.
 	// if prevProvStmt == nil || prevProvPred == nil {
 	if prevProvPred == nil {
-		Debugf("No previous provenance found, have to bootstrap\n")
+		// This is expected on the first commit attested in a branch. Anywhere
+		// else it means the chain of provenance was broken, make it visible.
+		log.Printf(
+			"No provenance found on previous commit %s, starting a new provenance chain at %s",
+			prevCommit.SHA, commit.SHA,
+		)
 		return curProv, nil
 	}
 
@@ -340,7 +370,7 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 		if prevControl == nil {
 			continue
 		}
-		curControl.Since = timestamppb.New(slsa.EarlierTime(curControl.GetSince().AsTime(), prevControl.GetSince().AsTime()))
+		curControl.Since = earliestSince(curControl.GetSince(), prevControl.GetSince())
 		// Update the value.
 		curProvPred.Controls[i] = curControl
 	}

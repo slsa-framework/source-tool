@@ -113,13 +113,17 @@ func Execute() {
 
 	// Subcommands may send a specific exit code by returning an *exitError.
 	// Everything else is a generic failure (exit 1).
+	//
+	// Errors go to stderr: stdout carries the command's output, which is
+	// often redirected (the provenance workflow sends it to the job summary)
+	// and an error printed there never shows up in the logs.
 	var ee *exitError
 	if errors.As(err, &ee) {
-		fmt.Println(ee.Error())
+		fmt.Fprintln(os.Stderr, ee.Error())
 		os.Exit(ee.code)
 	}
 
-	fmt.Printf("Error: %v\n", err)
+	fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 	os.Exit(1)
 }
 
