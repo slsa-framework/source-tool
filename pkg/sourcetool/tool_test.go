@@ -447,3 +447,36 @@ func TestConfigureControlsWithResults(t *testing.T) {
 		require.Contains(t, results[0].Message, "https://github.com/example/policy/pull/12")
 	})
 }
+
+func TestOnboardRepositoryWithResults(t *testing.T) {
+	t.Parallel()
+	repo := &models.Repository{Hostname: "github.com", Path: "example/repo"}
+	branches := []*models.Branch{{Name: "main", Repository: repo}}
+
+	t.Run("reporting-backend", func(t *testing.T) {
+		t.Parallel()
+		backend := &reportingBackend{
+			results: []*models.ControlConfigurationResult{
+				{Config: models.CONFIG_BRANCH_RULES, Changed: true, Message: "enabled"},
+				{Config: models.CONFIG_GEN_PROVENANCE, Message: "nothing to do"},
+			},
+		}
+		tool := Tool{impl: &sourcetoolfakes.FakeToolImplementation{}, backend: backend}
+
+		results, err := tool.OnboardRepositoryWithResults(t.Context(), repo, branches)
+		require.NoError(t, err)
+		require.Equal(t, backend.results, results)
+		require.Zero(t, backend.ConfigureControlsCallCount())
+	})
+
+	t.Run("non-reporting-backend", func(t *testing.T) {
+		t.Parallel()
+		backend := &modelsfakes.FakeVcsBackend{}
+		tool := Tool{impl: &sourcetoolfakes.FakeToolImplementation{}, backend: backend}
+
+		results, err := tool.OnboardRepositoryWithResults(t.Context(), repo, branches)
+		require.NoError(t, err)
+		require.Empty(t, results)
+		require.Equal(t, 1, backend.ConfigureControlsCallCount())
+	})
+}

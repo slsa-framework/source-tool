@@ -150,19 +150,29 @@ func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Bra
 // OnboardRepository configures a repository to set up the required controls
 // to meet SLSA Source L3.
 func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, branches []*models.Branch) error {
+	_, err := t.OnboardRepositoryWithResults(ctx, repo, branches)
+	return err
+}
+
+// OnboardRepositoryWithResults configures a repository just as
+// OnboardRepository does, but it also returns a result for each control it
+// configured, reporting what was done. Backends that don't report their
+// actions produce no results.
+func (t *Tool) OnboardRepositoryWithResults(_ context.Context, repo *models.Repository, branches []*models.Branch) ([]*models.ControlConfigurationResult, error) {
 	if err := t.impl.VerifyOptionsForFullOnboard(t.Authenticator, &t.Options); err != nil {
-		return fmt.Errorf("verifying options: %w", err)
+		return nil, fmt.Errorf("verifying options: %w", err)
 	}
 
-	if err := t.backend.ConfigureControls(
-		repo, branches, []models.ControlConfiguration{
+	results, err := configureBackendControls(
+		t.backend, repo, branches, []models.ControlConfiguration{
 			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,
 		},
-	); err != nil {
-		return fmt.Errorf("configuring controls: %w", err)
+	)
+	if err != nil {
+		return results, fmt.Errorf("configuring controls: %w", err)
 	}
 
-	return nil
+	return results, nil
 }
 
 // ConfigureControls sets up the controls in the repo

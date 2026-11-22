@@ -216,19 +216,14 @@ sourcetool is about to perform the following actions on your behalf:
 				}
 			}
 
-			err = srctool.OnboardRepository(
+			results, err := srctool.OnboardRepositoryWithResults(
 				cmd.Context(), opts.GetBranch().Repository, []*models.Branch{opts.GetBranch()},
 			)
 			if err != nil {
 				return fmt.Errorf("onboarding repo: %w", err)
 			}
 
-			fmt.Println()
-			fmt.Println(w("✅ Controls have been configured successfully."))
-			fmt.Println()
-			fmt.Printf("Please run %s\n", w2("sourcetool status "+opts.GetRepository().Path))
-			fmt.Println("to check the status of the new controls and for the next steps.")
-			fmt.Println()
+			printConfigurationResults(opts.GetRepository(), results)
 
 			return nil
 		},
@@ -463,23 +458,28 @@ a fork of the repository you want to protect.
 				return fmt.Errorf("configuring controls: %w", err)
 			}
 
-			// Report what was done for each control
-			fmt.Println()
-			for _, result := range results {
-				icon := "ℹ️ "
-				if result.Changed {
-					icon = "✅"
-				}
-				fmt.Printf("%s %s.\n", icon, result.Message)
-			}
-			fmt.Println()
-			fmt.Printf("Please run %s\n", w2("sourcetool status "+opts.GetRepository().Path))
-			fmt.Println("to check the status of the controls and for the next steps.")
-			fmt.Println()
+			printConfigurationResults(opts.GetRepository(), results)
 
 			return nil
 		},
 	}
 	opts.AddFlags(setupControlsCmd)
 	parent.AddCommand(setupControlsCmd)
+}
+
+// printConfigurationResults reports what was done when configuring each
+// control and points the user to the status subcommand.
+func printConfigurationResults(repo *models.Repository, results []*models.ControlConfigurationResult) {
+	fmt.Println()
+	for _, result := range results {
+		icon := "ℹ️ "
+		if result.Changed {
+			icon = "✅"
+		}
+		fmt.Printf("%s %s.\n", icon, result.Message)
+	}
+	fmt.Println()
+	fmt.Printf("Please run %s\n", w2("sourcetool status "+repo.Path))
+	fmt.Println("to check the status of the controls and for the next steps.")
+	fmt.Println()
 }

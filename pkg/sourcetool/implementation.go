@@ -46,8 +46,16 @@ func (impl *defaultToolImplementation) ConfigureControls(
 	backend models.VcsBackend, r *models.Repository,
 	branches []*models.Branch, configs []models.ControlConfiguration,
 ) ([]*models.ControlConfigurationResult, error) {
-	// Backends reporting what they did are preferred, others are configured
-	// without getting any results back.
+	return configureBackendControls(backend, r, branches, configs)
+}
+
+// configureBackendControls configures the controls using the backend. Backends
+// reporting what they did are preferred, others are configured without getting
+// any results back.
+func configureBackendControls(
+	backend models.VcsBackend, r *models.Repository,
+	branches []*models.Branch, configs []models.ControlConfiguration,
+) ([]*models.ControlConfigurationResult, error) {
 	if reporter, ok := backend.(models.ControlConfigurationReporter); ok {
 		return reporter.ConfigureControlsWithResults(r, branches, configs)
 	}
