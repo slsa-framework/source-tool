@@ -152,7 +152,9 @@ func (ghc *GitHubConnection) computeTagHygieneControl(ctx context.Context, allRu
 
 		// The GitHub API only seems to return a partial ruleset when asking for 'all' the rules
 		// So we'll ask for this specific rule here so we can get all the data.
-		fullRuleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ruleset.GetID(), false)
+		// The ruleset may be inherited from the organization, the API returns
+		// a 404 on those unless the parents are included.
+		fullRuleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ruleset.GetID(), true)
 		if err != nil {
 			return nil, fmt.Errorf("could not get full ruleset for ruleset id %d: err: %w", ruleset.GetID(), err)
 		}
@@ -180,7 +182,7 @@ func (ghc *GitHubConnection) computeReviewControl(ctx context.Context, rules []*
 	var oldestActive *github.RepositoryRuleset
 	for _, rule := range rules {
 		if ghc.ruleMeetsRequiresReview(rule) {
-			ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), rule.RulesetID, false)
+			ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), rule.RulesetID, true)
 			if err != nil {
 				return nil, err
 			}
@@ -207,7 +209,7 @@ func (ghc *GitHubConnection) computeRequiredChecks(ctx context.Context, ghCheckR
 	// For now that's only stuff from the GitHub Actions app.
 	requiredChecks := []*slsa.Control{}
 	for _, ghCheckRule := range ghCheckRules {
-		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ghCheckRule.RulesetID, false)
+		ruleset, _, err := ghc.Client().Repositories.GetRuleset(ctx, ghc.Owner(), ghc.Repo(), ghCheckRule.RulesetID, true)
 		if err != nil {
 			return nil, err
 		}
