@@ -5,8 +5,10 @@ package attest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/slsa-framework/source-tool/pkg/provenance"
 )
@@ -94,4 +96,40 @@ func TestWritersEmitV1PredicateTypes(t *testing.T) {
 	require.True(t, provenance.IsSourceProvPredicateType(provenance.SourceProvPredicateTypeDraft))
 	require.True(t, provenance.IsTagProvPredicateType(provenance.TagProvPredicateTypeDraft))
 	require.False(t, provenance.IsSourceProvPredicateType(provenance.TagProvPredicateType))
+}
+
+func TestEarliestSince(t *testing.T) {
+	t.Parallel()
+	older := timestamppb.New(time.Date(2025, 1, 26, 2, 23, 18, 0, time.UTC))
+	newer := timestamppb.New(time.Date(2026, 11, 22, 16, 25, 6, 0, time.UTC))
+	epoch := timestamppb.New(time.Unix(0, 0))
+
+	for _, tc := range []struct {
+		name      string
+		cur, prev *timestamppb.Timestamp
+		expect    *timestamppb.Timestamp
+	}{
+		{name: "previous-is-older", cur: newer, prev: older, expect: older},
+		{name: "current-is-older", cur: older, prev: newer, expect: older},
+		{name: "no-current-date", cur: nil, prev: older, expect: older},
+		{name: "no-previous-date", cur: newer, prev: nil, expect: newer},
+		{name: "no-dates", cur: nil, prev: nil, expect: nil},
+		// Provenance issued by earlier versions has the epoch where a
+		// date was missing. It must not be carried over.
+		{name: "epoch-in-previous", cur: newer, prev: epoch, expect: newer},
+		{name: "epoch-in-current", cur: epoch, prev: older, expect: older},
+		{name: "epoch-in-both", cur: epoch, prev: epoch, expect: nil},
+		{name: "epoch-and-no-date", cur: nil, prev: epoch, expect: nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := earliestSince(tc.cur, tc.prev)
+			if tc.expect == nil {
+				require.Nil(t, got)
+				return
+			}
+			require.NotNil(t, got)
+			require.True(t, tc.expect.AsTime().Equal(got.AsTime()), "got %v", got.AsTime())
+		})
+	}
 }
