@@ -99,24 +99,111 @@ func (ghc *GitHubConnection) GetRepoUri() string {
 	return fmt.Sprintf("https://github.com/%s/%s", ghc.Owner(), ghc.Repo())
 }
 
-// Gets the previous commit to 'sha' if it has one.
-// If there are more than one parents this fails with an error.
-// (This tool generally operates in an environment of linear history)
-func (ghc *GitHubConnection) GetPriorCommit(ctx context.Context, sha string) (string, error) {
+// GetCommitParents returns the SHAs of the parents of a commit, in the order
+// the commit lists them.
+func (ghc *GitHubConnection) GetCommitParents(ctx context.Context, sha string) ([]string, error) {
 	commit, _, err := ghc.Client().Git.GetCommit(ctx, ghc.Owner(), ghc.Repo(), sha)
 	if err != nil {
-		return "", fmt.Errorf("cannot get commit data for %s: %w", sha, err)
+		return nil, fmt.Errorf("cannot get commit data for %s: %w", sha, err)
 	}
 
-	if len(commit.Parents) == 0 {
+	parents := make([]string, 0, len(commit.Parents))
+	for _, p := range commit.Parents {
+		parents = append(parents, p.GetSHA())
+	}
+	return parents, nil
+}
+
+// Gets the previous commit to 'sha' if it has one.
+//
+// The previous commit of a merge commit is its first parent. Merge commits
+// are only accepted when they pass CheckMergeCommit.
+func (ghc *GitHubConnection) GetPriorCommit(ctx context.Context, sha string) (string, error) {
+	parents, err := ghc.GetCommitParents(ctx, sha)
+	if err != nil {
+		return "", err
+	}
+	return ghc.PriorCommitFromParents(ctx, sha, parents)
+}
+
+// PriorCommitFromParents is GetPriorCommit for callers that already have the
+// parents of the commit.
+func (ghc *GitHubConnection) PriorCommitFromParents(ctx context.Context, sha string, parents []string) (string, error) {
+	if len(parents) == 0 {
 		return "", fmt.Errorf("there is no commit earlier than %s, that isn't yet supported", sha)
 	}
 
-	if len(commit.Parents) > 1 && !ghc.Options.AllowMergeCommits {
-		return "", fmt.Errorf("commit %s has more than one parent (%v), which is not supported", sha, commit.Parents)
+	if len(parents) > 1 {
+		if err := ghc.CheckMergeCommit(ctx, sha, parents); err != nil {
+			return "", err
+		}
 	}
 
-	return *commit.Parents[0].SHA, nil
+	return parents[0], nil
+}
+
+// comparePageSize is the number of commits requested per page when comparing
+// the parents of a merge commit (the maximum the GitHub API allows).
+const comparePageSize = 100
+
+// CheckMergeCommit verifies that a merge commit is one we can attest:
+//
+//   - Merge commits have to be allowed in the options.
+//   - It has exactly two parents: the previous commit of the branch (the
+//     first) and the tip of the merged branch (the second).
+//   - The merged branch is linear. None of the commits the merge brings into
+//     the branch, from the tip of the merged branch back to the point where it
+//     forked from the first parent, can be a merge commit itself.
+//
+// This does not check that the first parent is the previous tip of the
+// branch, that needs the attestations of the parents.
+func (ghc *GitHubConnection) CheckMergeCommit(ctx context.Context, sha string, parents []string) error {
+	if !ghc.Options.AllowMergeCommits {
+		return fmt.Errorf("commit %s has more than one parent (%v), which is not supported", sha, parents)
+	}
+
+	if len(parents) != 2 {
+		return fmt.Errorf("merge commit %s has %d parents (%v), only merges of two commits are supported", sha, len(parents), parents)
+	}
+	base, head := parents[0], parents[1]
+
+	// List the commits reachable from the merged branch but not from the
+	// first parent. These are the commits the merge adds to the branch.
+	seen := 0
+	opts := &github.ListOptions{PerPage: comparePageSize}
+	for {
+		comparison, resp, err := ghc.Client().Repositories.CompareCommits(ctx, ghc.Owner(), ghc.Repo(), base, head, opts)
+		if err != nil {
+			return fmt.Errorf("comparing the parents of merge commit %s: %w", sha, err)
+		}
+
+		for _, c := range comparison.Commits {
+			seen++
+			if len(c.Parents) != 1 {
+				return fmt.Errorf(
+					"merge commit %s merges a branch that is not linear: commit %s has %d parents",
+					sha, c.GetSHA(), len(c.Parents),
+				)
+			}
+		}
+
+		// Never pass a merge we could not look at in full
+		if resp.NextPage == 0 {
+			if total := comparison.GetTotalCommits(); seen < total {
+				return fmt.Errorf(
+					"unable to check merge commit %s: got %d of the %d commits it merges", sha, seen, total,
+				)
+			}
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+
+	if seen == 0 {
+		return fmt.Errorf("merge commit %s adds no commits to the branch: parent %s is already part of %s", sha, head, base)
+	}
+
+	return nil
 }
 
 func (ghc *GitHubConnection) GetLatestCommit(ctx context.Context, targetBranch string) (string, error) {

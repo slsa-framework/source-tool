@@ -4,13 +4,14 @@
 package ghcontrol
 
 var defaultOptions = Options{
-	AllowMergeCommits: false,
+	AllowMergeCommits: true,
 	ApiRetries:        3,
 }
 
 type Options struct {
 	// AllowMergeCommits causes the GitHub connector to reject merge
-	// commits when set to false.
+	// commits when set to false. When true, merge commits still have to
+	// pass CheckMergeCommit.
 	AllowMergeCommits bool
 
 	// accessToken is the token we will use to connect to the GitHub API

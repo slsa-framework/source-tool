@@ -84,3 +84,28 @@ func TestCarryOverDynamicControls(t *testing.T) {
 	carryOverDynamicControls(status, activeControls)
 	require.Len(t, status.Controls, frameworkControls+1)
 }
+
+func TestCheckMergeParents(t *testing.T) {
+	t.Parallel()
+	parents := []string{"first", "second"}
+	for _, tc := range []struct {
+		name     string
+		attested []bool
+		errMsg   string
+	}{
+		{name: "first-parent-is-the-branch-tip", attested: []bool{true, false}},
+		{name: "no-parent-attested", attested: []bool{false, false}},
+		{name: "parents-swapped", attested: []bool{false, true}, errMsg: "parents swapped"},
+		{name: "merged-commit-already-in-branch", attested: []bool{true, true}, errMsg: "already a commit of"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := checkMergeParents("refs/heads/main", "merge", parents, tc.attested)
+			if tc.errMsg == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.errMsg)
+		})
+	}
+}

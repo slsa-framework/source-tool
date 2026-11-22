@@ -371,5 +371,5 @@ type allowMergeCommitsOptions struct {
 
 // AddFlags adds the subcommands flags
 func (o *allowMergeCommitsOptions) AddFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVar(&o.allowMergeCommits, "allow-merge-commits", false, "[EXPERIMENTAL] Allow merge commits in branch.")
+	cmd.PersistentFlags().BoolVar(&o.allowMergeCommits, "allow-merge-commits", true, "Allow merge commits in the branch. The merged branch must be linear (no merge commits in it).")
 }
