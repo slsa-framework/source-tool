@@ -6,6 +6,7 @@ package sourcetool
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -374,6 +375,60 @@ func TestOnboardRepository(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestCreateBranchPolicy(t *testing.T) {
+	t.Parallel()
+	since := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	controlSet := func(names slsa.ControlNameSet) *slsa.ControlSet {
+		cs := &slsa.ControlSet{RepoUri: "github.com/ok/repo", Branch: "main"}
+		for _, name := range names {
+			cs.AddControl(&slsa.Control{Name: name, State: slsa.StateActive, Since: &since})
+		}
+		return cs
+	}
+
+	for _, tc := range []struct {
+		name      string
+		controls  *slsa.ControlSet
+		zeroSince bool
+	}{
+		{
+			name:     "all level 1 controls active",
+			controls: controlSet(slsa.Level1),
+		},
+		{
+			// The GitHub backend reports the legacy branch controls only, so
+			// the set routinely lacks controls that level 1 requires.
+			name:      "level 1 controls incomplete",
+			controls:  controlSet(slsa.ControlNameSet{slsa.SLSA_SOURCE_SCS_CONTINUITY}),
+			zeroSince: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			i := &sourcetoolfakes.FakeToolImplementation{}
+			i.GetBranchControlsReturns(tc.controls, nil)
+			tool := &Tool{impl: i}
+
+			p, err := tool.CreateBranchPolicy(
+				t.Context(),
+				&models.Repository{Hostname: "github.com", Path: "ok/repo"},
+				[]*models.Branch{{Name: "main"}},
+			)
+			require.NoError(t, err)
+			require.Len(t, p.GetProtectedBranches(), 1)
+
+			branch := p.GetProtectedBranches()[0]
+			require.Equal(t, string(slsa.SlsaSourceLevel1), branch.GetTargetSlsaSourceLevel())
+			if tc.zeroSince {
+				require.True(t, branch.GetSince().AsTime().IsZero())
+			} else {
+				require.True(t, branch.GetSince().AsTime().Equal(since))
+			}
 		})
 	}
 }
