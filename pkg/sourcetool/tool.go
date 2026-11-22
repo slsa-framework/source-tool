@@ -517,7 +517,11 @@ func (t *Tool) AttestRevision(
 	if isCommit {
 		// Create the provenance attestation. It is always built: it is emitted
 		// when requested and it is the basis for the policy evaluation below.
-		prov, err := t.Attester().CreateSourceProvenance(ctx, branch, rev.GetCommit())
+		// When the VSA is issued in this same run, the provenance records
+		// the VSA control as active.
+		prov, err := t.Attester().CreateSourceProvenance(
+			ctx, branch, rev.GetCommit(), attest.WithVSAIssued(opts.VSA),
+		)
 		if err != nil {
 			return nil, err
 		}

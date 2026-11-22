@@ -158,7 +158,7 @@ func NewAttester(fn ...optFn) (*Attester, error) {
 
 // createCurrentProvenance creates the provenance statement for the specified commit
 // without any context from the previous provenance (if any).
-func (a *Attester) createCurrentProvenance(ctx context.Context, branch *models.Branch, commit, prevCommit *models.Commit) (*intoto.Statement, error) {
+func (a *Attester) createCurrentProvenance(ctx context.Context, branch *models.Branch, commit, prevCommit *models.Commit, opts *provenanceOptions) (*intoto.Statement, error) {
 	// Get the active controls
 	controlStatus, err := a.backend.GetBranchControlsAtCommit(ctx, branch, commit)
 	if err != nil {
@@ -180,19 +180,59 @@ func (a *Attester) createCurrentProvenance(ctx context.Context, branch *models.B
 		Controls:     controlStatus.ToProvenanceControls(),
 	}
 
+	addAttestationControls(&curProvPred, opts)
+
+	return addPredToStatement(&curProvPred, provenance.SourceProvPredicateType, commit.SHA)
+}
+
+// provenanceOptions tunes how the source provenance of a commit is built.
+type provenanceOptions struct {
+	// vsaIssued is true when a VSA for the commit is generated together
+	// with the provenance.
+	vsaIssued bool
+}
+
+// ProvenanceOption is a functional option for CreateSourceProvenance.
+type ProvenanceOption func(*provenanceOptions)
+
+// WithVSAIssued tells the attester that a VSA for the commit is being issued
+// together with the provenance, which makes SLSA_SOURCE_SCS_VSA an active
+// control of the revision.
+func WithVSAIssued(yesno bool) ProvenanceOption {
+	return func(o *provenanceOptions) {
+		o.vsaIssued = yesno
+	}
+}
+
+// addAttestationControls adds to the predicate the controls that are satisfied
+// by the attestations being generated for the commit. The VCS backend can only
+// report them when the commit already has attestations, which is never the case
+// the first time a revision is attested.
+func addAttestationControls(pred *provenance.SourceProvenancePred, opts *provenanceOptions) {
 	// At the very least provenance is available starting now. :)
 	// ... indeed, but don't set the `since`` date because doing so breaks
 	// checking against policies.
 	// See https://github.com/slsa-framework/source-tool/issues/272
-	if provenance.GetControl(&curProvPred, slsa.SLSA_SOURCE_SCS_PROVENANCE.String()) == nil {
-		provenance.AddControl(&curProvPred,
+	if provenance.GetControl(pred, slsa.SLSA_SOURCE_SCS_PROVENANCE.String()) == nil {
+		provenance.AddControl(pred,
 			&provenance.Control{
 				Name: slsa.SLSA_SOURCE_SCS_PROVENANCE.String(),
 			},
 		)
 	}
 
-	return addPredToStatement(&curProvPred, provenance.SourceProvPredicateType, commit.SHA)
+	// Same for the VSA: every level requires it, but the commit cannot have
+	// one before we attest it. Mark the control as active when the VSA is
+	// about to be issued, otherwise no revision could ever go above the
+	// level 1 fallback.
+	if opts != nil && opts.vsaIssued &&
+		provenance.GetControl(pred, slsa.SLSA_SOURCE_SCS_VSA.String()) == nil {
+		provenance.AddControl(pred,
+			&provenance.Control{
+				Name: slsa.SLSA_SOURCE_SCS_VSA.String(),
+			},
+		)
+	}
 }
 
 // addPredToStatement generates a new statement and adds the provenance predicate

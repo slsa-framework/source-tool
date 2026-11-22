@@ -295,7 +295,12 @@ func (a *Attester) GetRevisionProvenance(ctx context.Context, branch *models.Bra
 }
 
 // prevAttPath string
-func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Branch, commit *models.Commit) (*intoto.Statement, error) {
+func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Branch, commit *models.Commit, fn ...ProvenanceOption) (*intoto.Statement, error) {
+	opts := &provenanceOptions{}
+	for _, f := range fn {
+		f(opts)
+	}
+
 	// Get the previous commit
 	prevCommit, err := a.backend.GetPreviousCommit(ctx, branch, commit)
 	if err != nil {
@@ -305,7 +310,7 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 	// Source provenance is based on
 	// 1. The current control situation (we assume 'commit' has _just_ occurred).
 	// 2. How long the properties have been enforced according to the previous provenance.
-	curProv, err := a.createCurrentProvenance(ctx, branch, commit, prevCommit)
+	curProv, err := a.createCurrentProvenance(ctx, branch, commit, prevCommit, opts)
 	if err != nil {
 		return nil, fmt.Errorf("creating provenance predicate: %w", err)
 	}
