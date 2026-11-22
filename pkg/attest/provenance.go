@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -347,7 +348,12 @@ func (a *Attester) CreateSourceProvenance(ctx context.Context, branch *models.Br
 	// No prior provenance found, so we just go with current.
 	// if prevProvStmt == nil || prevProvPred == nil {
 	if prevProvPred == nil {
-		Debugf("No previous provenance found, have to bootstrap\n")
+		// This is expected on the first commit attested in a branch. Anywhere
+		// else it means the chain of provenance was broken, make it visible.
+		log.Printf(
+			"No provenance found on previous commit %s, starting a new provenance chain at %s",
+			prevCommit.SHA, commit.SHA,
+		)
 		return curProv, nil
 	}
 
