@@ -263,6 +263,43 @@ type ProvenanceWorkflow struct {
 	// RecommendedAction describes how to bring the workflow up to date. It
 	// is nil when the workflow does not need any changes.
 	RecommendedAction *slsa.ControlRecommendedAction
+
+	// LastRun is the most recent completed run of the workflow in the branch.
+	// It is nil when the workflow has not run or when its runs could not
+	// be read.
+	LastRun *WorkflowRun
+}
+
+// IsFailing returns true when the most recent run of the workflow failed.
+func (pw *ProvenanceWorkflow) IsFailing() bool {
+	return pw.LastRun != nil && pw.LastRun.Failed()
+}
+
+// WorkflowRun describes a completed run of a CI workflow.
+type WorkflowRun struct {
+	// Conclusion is the result of the run as reported by the CI system,
+	// for example "success" or "failure".
+	Conclusion string
+
+	// URL is the address where the run can be inspected.
+	URL string
+
+	// Commit is the digest of the commit the workflow ran on.
+	Commit string
+
+	// Time is when the run was created.
+	Time *time.Time
+}
+
+// Failed returns true when the run finished with an error. Runs that were
+// cancelled or skipped are not considered failures.
+func (wr *WorkflowRun) Failed() bool {
+	switch wr.Conclusion {
+	case "failure", "timed_out", "startup_failure":
+		return true
+	default:
+		return false
+	}
 }
 
 // IsLegacy returns true when the workflow calls the SLSA actions from a
