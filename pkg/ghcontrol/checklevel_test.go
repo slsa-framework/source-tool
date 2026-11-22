@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"slices"
 	"testing"
 	"time"
@@ -188,11 +189,21 @@ func newMockedGitHubClient(rulesetResponse *github.RepositoryRuleset, activityRe
 				rulesetResponse,
 			},
 		),
-		mock.WithRequestMatch(
+		mock.WithRequestMatchHandler(
 			mock.GetReposRulesetsByOwnerByRepoByRulesetId,
-			*rulesetResponse,
-			*rulesetResponse,
-			*rulesetResponse,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Just as the real API, don't find the rulesets inherited from
+				// the organization unless the parents are included.
+				inherited := rulesetResponse.SourceType != nil &&
+					*rulesetResponse.SourceType == github.RulesetSourceTypeOrganization
+				if inherited && r.URL.Query().Get("includes_parents") != "true" {
+					mock.WriteError(w, http.StatusNotFound, "Not Found")
+					return
+				}
+				if _, err := w.Write(mock.MustMarshal(rulesetResponse)); err != nil {
+					panic(fmt.Sprintf("writing ruleset response: %v", err))
+				}
+			}),
 		),
 		mock.WithRequestMatch(
 			mock.GetReposActivityByOwnerByRepo,
@@ -365,6 +376,71 @@ func TestGetBranchControlsRequiredChecks(t *testing.T) {
 
 			if !slices.Equal(controlNames, tt.expectedControlNames) {
 				t.Errorf("expected control names %v, got %v", tt.expectedControlNames, controlNames)
+			}
+		})
+	}
+}
+
+// TestOrganizationRulesetControls checks that controls enforced by rulesets
+// inherited from the organization are recognized.
+func TestOrganizationRulesetControls(t *testing.T) {
+	tests := []struct {
+		target          github.RulesetTarget
+		branchRules     []branchRuleRawResponse
+		rulesetRules    *github.RepositoryRulesetRules
+		expectedControl slsa.ControlName
+	}{
+		{
+			target:          github.RulesetTargetBranch,
+			branchRules:     createContinuityBranchRules(),
+			rulesetRules:    rulesForBranchContinuity(),
+			expectedControl: slsa.SLSA_SOURCE_SCS_CONTINUITY,
+		},
+		{
+			target:          github.RulesetTargetBranch,
+			branchRules:     createReviewBranchRules(),
+			rulesetRules:    rulesForReviewEnforced(),
+			expectedControl: slsa.SLSA_SOURCE_SCS_TWO_PARTY_REVIEW,
+		},
+		{
+			target:          github.RulesetTargetTag,
+			branchRules:     createTagHygieneRules(),
+			rulesetRules:    rulesForTagHygiene(),
+			expectedControl: slsa.SLSA_SOURCE_SCS_PROTECTED_REFS,
+		},
+		{
+			target: github.RulesetTargetBranch,
+			branchRules: createRequiredChecksRules([]*github.RuleStatusCheck{
+				{Context: "check-good", IntegrationID: github.Ptr(int64(15368))},
+			}),
+			rulesetRules:    rulesForRequiredChecks(),
+			expectedControl: "GH_REQUIRED_CHECK_check-good",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.expectedControl), func(t *testing.T) {
+			ruleset := &github.RepositoryRuleset{
+				ID:          github.Ptr(int64(456)),
+				Target:      github.Ptr(tt.target),
+				SourceType:  github.Ptr(github.RulesetSourceTypeOrganization),
+				Source:      "example-org",
+				Enforcement: github.RulesetEnforcementActive,
+				UpdatedAt:   github.Ptr(github.Timestamp{Time: priorTime}),
+				Rules:       tt.rulesetRules,
+				Conditions:  conditionsForRuleset("~ALL"),
+			}
+
+			ghc := newTestGhConnection("example-org", "example-repo", "main", ruleset,
+				activityForBranch("def456", "refs/heads/main"), &tt.branchRules)
+
+			controlStatus, err := ghc.GetBranchControlsAtCommit(t.Context(), "def456", "refs/heads/main")
+			if err != nil {
+				t.Fatalf("Error getting branch controls: %v", err)
+			}
+
+			control := controlStatus.Controls.GetControl(tt.expectedControl)
+			if control == nil {
+				t.Fatalf("expected controls to contain %v, got %+v", tt.expectedControl, controlStatus.Controls)
 			}
 		})
 	}
