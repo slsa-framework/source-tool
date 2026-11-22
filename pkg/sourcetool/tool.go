@@ -150,41 +150,76 @@ func (t *Tool) GetBranchControlsAtCommit(ctx context.Context, branch *models.Bra
 // OnboardRepository configures a repository to set up the required controls
 // to meet SLSA Source L3.
 func (t *Tool) OnboardRepository(ctx context.Context, repo *models.Repository, branches []*models.Branch) error {
-	if err := t.impl.VerifyOptionsForFullOnboard(t.Authenticator, &t.Options); err != nil {
-		return fmt.Errorf("verifying options: %w", err)
-	}
-
-	if err := t.backend.ConfigureControls(
-		repo, branches, []models.ControlConfiguration{
-			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,
-		},
-	); err != nil {
-		return fmt.Errorf("configuring controls: %w", err)
-	}
-
-	return nil
+	_, err := t.OnboardRepositoryWithResults(ctx, repo, branches)
+	return err
 }
 
-// ConfigureControls sets up a control in the repo
+// OnboardRepositoryWithResults configures a repository just as
+// OnboardRepository does, but it also returns a result for each control it
+// configured, reporting what was done. Backends that don't report their
+// actions produce no results.
+func (t *Tool) OnboardRepositoryWithResults(_ context.Context, repo *models.Repository, branches []*models.Branch) ([]*models.ControlConfigurationResult, error) {
+	if err := t.impl.VerifyOptionsForFullOnboard(t.Authenticator, &t.Options); err != nil {
+		return nil, fmt.Errorf("verifying options: %w", err)
+	}
+
+	results, err := configureBackendControls(
+		t.backend, repo, branches, []models.ControlConfiguration{
+			models.CONFIG_BRANCH_RULES, models.CONFIG_GEN_PROVENANCE, models.CONFIG_TAG_RULES,
+		},
+	)
+	if err != nil {
+		return results, fmt.Errorf("configuring controls: %w", err)
+	}
+
+	return results, nil
+}
+
+// ConfigureControls sets up the controls in the repo
 func (t *Tool) ConfigureControls(ctx context.Context, repo *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) error {
+	_, err := t.ConfigureControlsWithResults(ctx, repo, branches, configs)
+	return err
+}
+
+// ConfigureControlsWithResults sets up the controls in the repo just as
+// ConfigureControls does, but it also returns a result for each control it
+// configured, reporting what was done. Backends that don't report their
+// actions produce no results.
+func (t *Tool) ConfigureControlsWithResults(ctx context.Context, repo *models.Repository, branches []*models.Branch, configs []models.ControlConfiguration) ([]*models.ControlConfigurationResult, error) {
+	results := []*models.ControlConfigurationResult{}
+
 	// The policy configuration is not handled by the backend
 	if slices.Contains(configs, models.CONFIG_POLICY) {
 		if err := t.impl.CheckPolicyFork(&t.Options); err != nil {
-			return fmt.Errorf("checking policy repo fork: %w", err)
+			return nil, fmt.Errorf("checking policy repo fork: %w", err)
 		}
 
 		// Build the policy here:
 		pcy, err := t.CreateBranchPolicy(ctx, repo, branches)
 		if err != nil {
-			return fmt.Errorf("creating policy for: %w", err)
+			return nil, fmt.Errorf("creating policy for: %w", err)
 		}
 
-		if _, err := t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, pcy); err != nil {
-			return fmt.Errorf("opening the policy pull request: %w", err)
+		pr, err := t.impl.CreatePolicyPR(t.Authenticator, &t.Options, repo, pcy)
+		if err != nil {
+			return nil, fmt.Errorf("opening the policy pull request: %w", err)
 		}
+
+		msg := fmt.Sprintf("Opened a pull request to check-in the %s SLSA source policy", repo.Path)
+		if pr != nil {
+			msg = fmt.Sprintf("Opened pull request %s to check-in the %s SLSA source policy", pr.Reference(), repo.Path)
+		}
+		results = append(results, &models.ControlConfigurationResult{
+			Config:      models.CONFIG_POLICY,
+			Changed:     true,
+			Message:     msg,
+			PullRequest: pr,
+		})
 	}
 
-	return t.impl.ConfigureControls(t.backend, repo, branches, configs)
+	backendResults, err := t.impl.ConfigureControls(t.backend, repo, branches, configs)
+	results = append(results, backendResults...)
+	return results, err
 }
 
 // ControlConfigurationDescr returns a description of the controls

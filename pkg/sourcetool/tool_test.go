@@ -130,7 +130,7 @@ func TestConfigureControls(t *testing.T) {
 			prepare: func(t *testing.T) toolImplementation {
 				t.Helper()
 				i := &sourcetoolfakes.FakeToolImplementation{}
-				i.ConfigureControlsReturns(syntErr)
+				i.ConfigureControlsReturns(nil, syntErr)
 				return i
 			},
 		},
@@ -376,4 +376,107 @@ func TestOnboardRepository(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+// reportingBackend is a VCS backend that reports what it did when configuring
+// the controls.
+type reportingBackend struct {
+	modelsfakes.FakeVcsBackend
+	results []*models.ControlConfigurationResult
+}
+
+func (rb *reportingBackend) ConfigureControlsWithResults(
+	*models.Repository, []*models.Branch, []models.ControlConfiguration,
+) ([]*models.ControlConfigurationResult, error) {
+	return rb.results, nil
+}
+
+func TestConfigureControlsWithResults(t *testing.T) {
+	t.Parallel()
+	repo := &models.Repository{Hostname: "github.com", Path: "example/repo"}
+	branches := []*models.Branch{{Name: "main", Repository: repo}}
+
+	t.Run("reporting-backend", func(t *testing.T) {
+		t.Parallel()
+		backend := &reportingBackend{
+			results: []*models.ControlConfigurationResult{
+				{Config: models.CONFIG_GEN_PROVENANCE, Message: "nothing to do"},
+			},
+		}
+		tool := Tool{impl: &defaultToolImplementation{}, backend: backend}
+
+		results, err := tool.ConfigureControlsWithResults(
+			t.Context(), repo, branches, []models.ControlConfiguration{models.CONFIG_GEN_PROVENANCE},
+		)
+		require.NoError(t, err)
+		require.Equal(t, backend.results, results)
+		require.Zero(t, backend.ConfigureControlsCallCount())
+	})
+
+	t.Run("non-reporting-backend", func(t *testing.T) {
+		t.Parallel()
+		backend := &modelsfakes.FakeVcsBackend{}
+		tool := Tool{impl: &defaultToolImplementation{}, backend: backend}
+
+		results, err := tool.ConfigureControlsWithResults(
+			t.Context(), repo, branches, []models.ControlConfiguration{models.CONFIG_BRANCH_RULES},
+		)
+		require.NoError(t, err)
+		require.Empty(t, results)
+		require.Equal(t, 1, backend.ConfigureControlsCallCount())
+	})
+
+	t.Run("policy-pull-request", func(t *testing.T) {
+		t.Parallel()
+		pr := &models.PullRequest{
+			Number: 12,
+			Repo:   &models.Repository{Hostname: "github.com", Path: "example/policy"},
+		}
+		impl := &sourcetoolfakes.FakeToolImplementation{}
+		impl.CreatePolicyPRReturns(pr, nil)
+		tool := Tool{impl: impl, backend: &modelsfakes.FakeVcsBackend{}}
+
+		results, err := tool.ConfigureControlsWithResults(
+			t.Context(), repo, branches, []models.ControlConfiguration{models.CONFIG_POLICY},
+		)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		require.Equal(t, models.CONFIG_POLICY, results[0].Config)
+		require.True(t, results[0].Changed)
+		require.Equal(t, pr, results[0].PullRequest)
+		require.Contains(t, results[0].Message, "https://github.com/example/policy/pull/12")
+	})
+}
+
+func TestOnboardRepositoryWithResults(t *testing.T) {
+	t.Parallel()
+	repo := &models.Repository{Hostname: "github.com", Path: "example/repo"}
+	branches := []*models.Branch{{Name: "main", Repository: repo}}
+
+	t.Run("reporting-backend", func(t *testing.T) {
+		t.Parallel()
+		backend := &reportingBackend{
+			results: []*models.ControlConfigurationResult{
+				{Config: models.CONFIG_BRANCH_RULES, Changed: true, Message: "enabled"},
+				{Config: models.CONFIG_GEN_PROVENANCE, Message: "nothing to do"},
+			},
+		}
+		tool := Tool{impl: &sourcetoolfakes.FakeToolImplementation{}, backend: backend}
+
+		results, err := tool.OnboardRepositoryWithResults(t.Context(), repo, branches)
+		require.NoError(t, err)
+		require.Equal(t, backend.results, results)
+		require.Zero(t, backend.ConfigureControlsCallCount())
+	})
+
+	t.Run("non-reporting-backend", func(t *testing.T) {
+		t.Parallel()
+		backend := &modelsfakes.FakeVcsBackend{}
+		tool := Tool{impl: &sourcetoolfakes.FakeToolImplementation{}, backend: backend}
+
+		results, err := tool.OnboardRepositoryWithResults(t.Context(), repo, branches)
+		require.NoError(t, err)
+		require.Empty(t, results)
+		require.Equal(t, 1, backend.ConfigureControlsCallCount())
+	})
 }
