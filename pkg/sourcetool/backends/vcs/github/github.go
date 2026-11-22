@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/slsa-framework/source-tool/pkg/attest"
@@ -100,6 +101,32 @@ type Backend struct {
 	authenticator *auth.Authenticator
 	Options       *models.BackendOptions
 	verifier      attest.Verifier
+
+	// attesterMtx guards the memoized attester.
+	attesterMtx sync.Mutex
+	// attester reads the attestations of the commits the backend looks at.
+	// It is built once and reused so that its collectors, and the attestation
+	// data they have already fetched, are shared by all the reads.
+	attester *attest.Attester
+}
+
+// getAttester returns the attester the backend reads attestations with.
+func (b *Backend) getAttester() (*attest.Attester, error) {
+	b.attesterMtx.Lock()
+	defer b.attesterMtx.Unlock()
+	if b.attester != nil {
+		return b.attester, nil
+	}
+
+	attester, err := attest.NewAttester(
+		attest.WithBackend(b), attest.WithVerifier(b.verifier),
+		attest.WithAuthenticator(b.authenticator),
+	)
+	if err != nil {
+		return nil, err
+	}
+	b.attester = attester
+	return attester, nil
 }
 
 // getGitHubConnection builds a github connector to a repository
@@ -170,10 +197,7 @@ func (b *Backend) GetBranchControlsAtCommit(ctx context.Context, branch *models.
 
 	// We need to manually check for PROVENANCE_AVAILABLE which is not
 	// handled by ghcontrol
-	attester, err := attest.NewAttester(
-		attest.WithBackend(b), attest.WithVerifier(b.verifier),
-		attest.WithAuthenticator(b.authenticator),
-	)
+	attester, err := b.getAttester()
 	if err != nil {
 		return nil, err
 	}
@@ -472,10 +496,7 @@ func (b *Backend) GetPreviousCommit(ctx context.Context, branch *models.Branch, 
 // that was in the branch before the merge. We know a commit was the tip of
 // the branch when it has provenance issued for the branch.
 func (b *Backend) checkMergeBase(ctx context.Context, branch *models.Branch, commit *models.Commit, parents []string) error {
-	attester, err := attest.NewAttester(
-		attest.WithBackend(b), attest.WithVerifier(b.verifier),
-		attest.WithAuthenticator(b.authenticator),
-	)
+	attester, err := b.getAttester()
 	if err != nil {
 		return err
 	}
