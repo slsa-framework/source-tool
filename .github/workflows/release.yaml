@@ -78,7 +78,7 @@ jobs:
       id-token: write # sigstore keyless signing
       actions: read   # read the run's jobs
       contents: read
-    uses: slsa-framework/actions/.github/workflows/attest_actions.yml@3efdf6f2112b1170cb369442620788752df11bca # v0.2.0
+    uses: slsa-framework/actions/.github/workflows/attest_actions.yml@4b2114c4378d0f2bfb0ae99dbb6958bfc44d3a98 # v0.2.1
     with:
       watch-jobs: release
       collect-artifacts: false
